@@ -55,7 +55,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/api/users/login`, {
+      const res = await fetch(`${API_BASE}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -86,7 +86,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/api/users/signup`, {
+      const res = await fetch(`${API_BASE}/users/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,7 +103,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
       if (res.ok) {
         await res.json();
         // after signup, call login to get token & redirect
-        const loginRes = await fetch(`${API_BASE}/api/users/login`, {
+        const loginRes = await fetch(`${API_BASE}/users/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
