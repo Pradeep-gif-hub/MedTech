@@ -22,7 +22,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://medtech-4rjc.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],  # allow all methods POST, GET, OPTIONS...
     allow_headers=["*"],

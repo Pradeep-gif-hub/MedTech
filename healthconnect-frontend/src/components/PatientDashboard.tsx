@@ -148,7 +148,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     if (!userId) { alert('Login required'); return }
     setLoadingServerPrescriptions(true);
     try {
-      const urls = [`/api/prescriptions/${userId}`, `/api/prescriptions/patient/${userId}`, `/api/prescriptions`];
+      const urls = [`${API_BASE}/api/prescriptions/${userId}`, `${API_BASE}/api/prescriptions/patient/${userId}`, `${API_BASE}/api/prescriptions`];
       let list: any[] = [];
       for (const u of urls) { try { const r = await fetch(u); if (!r.ok) continue; const d = await r.json(); if (Array.isArray(d)) list = d; else if (d) list = [d]; if (list.length) break } catch (e) { } }
       setServerPrescriptions(list);
@@ -304,6 +304,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
 
   // Get user_id from localStorage (set at login)
   const userId = localStorage.getItem('user_id');
+  const API_BASE = "https://medtech-hcmo.onrender.com";
+
 
   // Logged-in user state (fetched from backend)
   const [userName, setUserName] = useState<string>(() => localStorage.getItem('name') || '');
@@ -315,8 +317,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
       try {
         // Prefer a /api/users/me endpoint if available, otherwise use userId
         const urls = [] as string[];
-        if (userId) urls.push(`/api/users/${userId}`);
-        urls.unshift('/api/users/me');
+        if (userId) urls.push(`${API_BASE}/api/users/${userId}`);
+        urls.unshift(`${API_BASE}/api/users/me`);
 
         for (const u of urls) {
           try {

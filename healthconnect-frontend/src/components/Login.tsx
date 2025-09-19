@@ -8,6 +8,8 @@ interface LoginProps {
   onLogin: (role: UserRole) => void;
 }
 
+const API_BASE = "https://medtech-hcmo.onrender.com";
+
 const demoCredentials: Record<UserRole, { email: string; password: string }> = {
   patient: { email: 'pradeepka.ic.24@nitj.ac.in', password: 'Medtech' },
   doctor: { email: 'paarthl.ic.24@nitj', password: 'demo123' },
@@ -53,7 +55,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-  const res = await fetch('/api/users/login', {
+      const res = await fetch(`${API_BASE}/api/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -84,7 +86,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-  const res = await fetch('/api/users/signup', {
+      const res = await fetch(`${API_BASE}/api/users/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,7 +103,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
       if (res.ok) {
         await res.json();
         // after signup, call login to get token & redirect
-  const loginRes = await fetch('/api/users/login', {
+        const loginRes = await fetch(`${API_BASE}/api/users/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
