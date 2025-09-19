@@ -1,0 +1,9 @@
+## Ignore all node_modules folders
+node_modules/
+
+# Keep older explicit ignore for frontend node_modules (optional)
+healthconnect-frontend/node_modules/
+
+# Ignore the project directory (top-level) so it's not published
+project/
+
