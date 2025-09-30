@@ -398,7 +398,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-90">Next Appointment</p>
-                <p className="text-2xl font-bold">Today • 3:00 PM</p>
+                <p className="text-2xl font-bold">Today • 7:00 PM</p>
               </div>
               <Activity className="h-8 w-8 opacity-90" />
             </div>
