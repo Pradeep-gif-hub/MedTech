@@ -1144,6 +1144,117 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   // ---------------- Prescriptions view -----------------------------------
+  // Prescription form state
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    patientId: '',
+    patientEmail: '',
+    doctorId: doctorId || '',
+    date: new Date().toISOString().split('T')[0],
+    diagnosis: '',
+    medicines: [{ name: '', dosage: '', duration: '' }],
+    instructions: ''
+  });
+
+  const handlePrescriptionChange = (field: string, value: string) => {
+    setPrescriptionForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleMedicineChange = (index: number, field: string, value: string) => {
+    setPrescriptionForm(prev => {
+      const newMedicines = [...prev.medicines];
+      newMedicines[index] = { ...newMedicines[index], [field]: value };
+      return { ...prev, medicines: newMedicines };
+    });
+  };
+
+  const addMedicine = () => {
+    setPrescriptionForm(prev => ({
+      ...prev,
+      medicines: [...prev.medicines, { name: '', dosage: '', duration: '' }]
+    }));
+  };
+
+  const generateAndEmailPrescription = async () => {
+    try {
+      // Generate PDF content
+      const prescriptionHTML = `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+          <h1 style="color: #1f2937; text-align: center;">Medical Prescription</h1>
+          <div style="border-bottom: 2px solid #4b5563; padding-bottom: 10px; margin-bottom: 20px;">
+            <p><strong>Dr. ${doctorName}</strong></p>
+            <p>${specialization}</p>
+            <p>License: ${licenseNumber}</p>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <p><strong>Date:</strong> ${prescriptionForm.date}</p>
+            <p><strong>Patient ID:</strong> ${prescriptionForm.patientId}</p>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #1f2937;">Diagnosis</h3>
+            <p>${prescriptionForm.diagnosis}</p>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #1f2937;">Medications</h3>
+            <ul>
+              ${prescriptionForm.medicines.map(med => 
+                `<li>${med.name} - ${med.dosage} - ${med.duration}</li>`
+              ).join('')}
+            </ul>
+          </div>
+          <div style="margin-bottom: 20px;">
+            <h3 style="color: #1f2937;">Instructions</h3>
+            <p>${prescriptionForm.instructions}</p>
+          </div>
+          <div style="margin-top: 40px; text-align: right;">
+            <p>Doctor's Signature</p>
+            <p>${doctorName}</p>
+          </div>
+        </div>
+      `;
+
+      // Create a temporary container for the prescription
+      const temp = document.createElement('div');
+      temp.innerHTML = prescriptionHTML;
+      document.body.appendChild(temp);
+
+      // Generate PDF
+      const pdf = await html2canvas(temp).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF();
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        return pdf;
+      });
+
+      // Convert PDF to base64
+      const pdfBase64 = pdf.output('datauristring');
+
+      // Send email using EmailJS
+      const emailParams = {
+        to_email: prescriptionForm.patientEmail,
+        from_name: doctorName,
+        from_email: 'pawasthi063@gmail.com',
+        subject: 'Your Medical Prescription',
+        message: 'Please find your prescription attached.',
+        pdf_attachment: pdfBase64
+      };
+
+      const result = await emailjs.send(
+        'service_er4o93a',
+        'template_pxfq7mf',
+        emailParams,
+        'ChNx9vs8ZLde4sGrm'
+      );
+
+      alert('Prescription has been sent successfully!');
+    } catch (error) {
+      console.error('Error sending prescription:', error);
+      alert('Failed to send prescription. Please try again.');
+    }
+  };
+
   const renderPrescriptionsForm = () => {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -1151,7 +1262,10 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <h2 className="text-xl font-bold text-gray-900">Create New Prescription</h2>
 
           <div>
-            <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
+            <button
+              onClick={generateAndEmailPrescription}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+            >
               Share Prescription
             </button>
           </div>
@@ -1165,6 +1279,18 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               type="text"
               className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg"
               placeholder="Enter Patient's ID..."
+              value={prescriptionForm.patientId}
+              onChange={(e) => handlePrescriptionChange('patientId', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Patient Email</label>
+            <input
+              type="email"
+              className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg"
+              placeholder="Enter Patient's Email..."
+              value={prescriptionForm.patientEmail}
+              onChange={(e) => handlePrescriptionChange('patientEmail', e.target.value)}
             />
           </div>
           <div>
@@ -1173,6 +1299,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               type="text"
               className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg"
               placeholder="Enter Your ID..."
+              value={prescriptionForm.doctorId}
+              onChange={(e) => handlePrescriptionChange('doctorId', e.target.value)}
             />
           </div>
 
@@ -1194,13 +1322,39 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <label className="block text-sm font-medium text-gray-700 mb-2">Medications</label>
 
           <div className="space-y-3">
-            <div className="grid md:grid-cols-3 gap-4">
-              <input type="text" placeholder="Medicine name" className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg" />
-              <input type="text" placeholder="Dosage" className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg" />
-              <input type="text" placeholder="Duration" className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg" />
-            </div>
+            {prescriptionForm.medicines.map((medicine, index) => (
+              <div key={index} className="grid md:grid-cols-3 gap-4">
+                <input
+                  type="text"
+                  placeholder="Medicine name"
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg"
+                  value={medicine.name}
+                  onChange={(e) => handleMedicineChange(index, 'name', e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Dosage"
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg"
+                  value={medicine.dosage}
+                  onChange={(e) => handleMedicineChange(index, 'dosage', e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Duration"
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg"
+                  value={medicine.duration}
+                  onChange={(e) => handleMedicineChange(index, 'duration', e.target.value)}
+                />
+              </div>
+            ))}
 
-            <button className="text-emerald-600 hover:text-emerald-800 text-sm">+ Add Another Medicine</button>
+            <button 
+              type="button"
+              onClick={addMedicine}
+              className="text-emerald-600 hover:text-emerald-800 text-sm"
+            >
+              + Add Another Medicine
+            </button>
           </div>
         </div>
 
