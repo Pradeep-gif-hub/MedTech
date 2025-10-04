@@ -11,6 +11,7 @@
     "uvicorn": "python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.3.3",
     "@firebase/app-types": "^0.9.3",
     "@firebase/auth-types": "^0.13.0",
     "@types/firebase": "^2.4.32",
