@@ -234,7 +234,9 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await tryPost(['https://medtech-hcmo.onrender.com/api/users/login', 'https://medtech-hcmo.onrender.com/users/login'], { email, password });
+      // Truncate password to 72 bytes as per bcrypt requirement
+      const truncatedPassword = password.slice(0, 72);
+      const res = await tryPost(['https://medtech-hcmo.onrender.com/api/users/login', 'https://medtech-hcmo.onrender.com/users/login'], { email, password: truncatedPassword });
       if (res.ok) {
         const data = await res.json();
         const userData = saveUserData(data, selectedRole);
