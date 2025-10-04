@@ -830,51 +830,75 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
                   <h3 className="font-bold text-white mb-6 text-xl text-center">Live Vitals Monitor</h3>
                   <div className="grid grid-cols-2 gap-6 px-4">
                     {/* Heart Rate Card */}
-                    <div className="bg-white/90 p-5 rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-300">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-red-600">
-                          <Heart className="h-5 w-5" />
-                        </span>
-                        <span className="text-xs font-medium text-gray-600">BPM</span>
+                    <div className="bg-gradient-to-br from-red-50 to-white p-5 rounded-xl border border-red-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-2 bg-red-100 rounded-full">
+                            <Heart className="h-5 w-5 text-red-600" />
+                          </span>
+                          <span className="text-sm font-medium text-red-900">Heart Rate</span>
+                        </div>
+                        <span className="text-xs font-bold bg-red-100 text-red-600 px-2 py-1 rounded-full">BPM</span>
                       </div>
-                      <div className="text-2xl font-bold text-gray-900">{liveHeartRate}</div>
-                      <div className="text-xs text-gray-600 mt-1">Heart Rate</div>
+                      <div className="text-3xl font-bold text-red-600 ml-2">{liveHeartRate}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <div className="text-xs text-red-700">Monitoring</div>
+                      </div>
                     </div>
 
                     {/* Blood Pressure Card */}
-                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-blue-400">
-                          <Activity className="h-5 w-5" />
-                        </span>
-                        <span className="text-xs font-medium text-white/60">mmHg</span>
+                    <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-2 bg-blue-100 rounded-full">
+                            <Activity className="h-5 w-5 text-blue-600" />
+                          </span>
+                          <span className="text-sm font-medium text-blue-900">Blood Pressure</span>
+                        </div>
+                        <span className="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-full">mmHg</span>
                       </div>
-                      <div className="text-2xl font-bold text-white">{liveBP.sys}/{liveBP.dia}</div>
-                      <div className="text-xs text-white/60 mt-1">Blood Pressure</div>
+                      <div className="text-3xl font-bold text-blue-600 ml-2">{liveBP.sys}/{liveBP.dia}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        <div className="text-xs text-blue-700">Monitoring</div>
+                      </div>
                     </div>
 
                     {/* Temperature Card */}
-                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-orange-400">
-                          <Clock className="h-5 w-5" />
-                        </span>
-                        <span className="text-xs font-medium text-white/60">°F</span>
+                    <div className="bg-gradient-to-br from-amber-50 to-white p-5 rounded-xl border border-amber-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-2 bg-amber-100 rounded-full">
+                            <Clock className="h-5 w-5 text-amber-600" />
+                          </span>
+                          <span className="text-sm font-medium text-amber-900">Temperature</span>
+                        </div>
+                        <span className="text-xs font-bold bg-amber-100 text-amber-600 px-2 py-1 rounded-full">°F</span>
                       </div>
-                      <div className="text-2xl font-bold text-white">{liveTemperature.toFixed(1)}</div>
-                      <div className="text-xs text-white/60 mt-1">Temperature</div>
+                      <div className="text-3xl font-bold text-amber-600 ml-2">{liveTemperature.toFixed(1)}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="h-2 w-2 bg-amber-500 rounded-full animate-pulse"></div>
+                        <div className="text-xs text-amber-700">Monitoring</div>
+                      </div>
                     </div>
 
                     {/* SpO₂ Card */}
-                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-green-400">
-                          <Activity className="h-5 w-5" />
-                        </span>
-                        <span className="text-xs font-medium text-white/60">%</span>
+                    <div className="bg-gradient-to-br from-emerald-50 to-white p-5 rounded-xl border border-emerald-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-2 bg-emerald-100 rounded-full">
+                            <Activity className="h-5 w-5 text-emerald-600" />
+                          </span>
+                          <span className="text-sm font-medium text-emerald-900">Oxygen</span>
+                        </div>
+                        <span className="text-xs font-bold bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full">%</span>
                       </div>
-                      <div className="text-2xl font-bold text-white">{liveOxygen}</div>
-                      <div className="text-xs text-white/60 mt-1">Oxygen Saturation</div>
+                      <div className="text-3xl font-bold text-emerald-600 ml-2">{liveOxygen}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                        <div className="text-xs text-emerald-700">Monitoring</div>
+                      </div>
                     </div>
                   </div>
                 </>
