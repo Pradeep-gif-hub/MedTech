@@ -151,7 +151,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     if (!userId) { alert('Login required'); return }
     setLoadingServerPrescriptions(true);
     try {
-      const urls = [`/api/prescriptions/${userId}`, `/api/prescriptions/patient/${userId}`, `/api/prescriptions`];
+      const urls = [`https://medtech-hcmo.onrender.com/api/prescriptions/${userId}`, `https://medtech-hcmo.onrender.com/api/prescriptions/patient/${userId}`, `https://medtech-hcmo.onrender.com/api/prescriptions`];
       let list: any[] = [];
       for (const u of urls) { try { const r = await fetch(u); if (!r.ok) continue; const d = await r.json(); if (Array.isArray(d)) list = d; else if (d) list = [d]; if (list.length) break } catch (e) { } }
       setServerPrescriptions(list);
@@ -392,8 +392,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
       try {
         // Prefer a /api/users/me endpoint if available, otherwise use userId
         const urls = [] as string[];
-        if (userId) urls.push(`/api/users/${userId}`);
-        urls.unshift('/api/users/me');
+        if (userId) urls.push(`https://medtech-hcmo.onrender.com/api/users/${userId}`);
+        urls.unshift('https://medtech-hcmo.onrender.com/api/users/me');
 
         for (const u of urls) {
           try {

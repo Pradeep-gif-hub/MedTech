@@ -122,7 +122,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
         allergy: allergy || undefined
       };
 
-      const res = await fetch('/api/send-otp', {
+      const res = await fetch('https://medtech-hcmo.onrender.com/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -155,7 +155,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
         otp 
       };
 
-      const res = await fetch('/api/verify-otp', {
+      const res = await fetch('https://medtech-hcmo.onrender.com/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -181,7 +181,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
     if (e) e.preventDefault();
     try {
       const payload = { name: fullname, age, gender, bloodgroup, allergy, email, password, role: selectedRole };
-      const res = await tryPost(['/api/users/signup', '/users/signup'], payload);
+      const res = await tryPost(['https://medtech-hcmo.onrender.com/api/users/signup', 'https://medtech-hcmo.onrender.com/users/signup'], payload);
       if (res.ok) {
         setSignUpStep('success');
         setSignUpMessage('Sign up successful! You may now go back to Login to sign in.');
@@ -203,7 +203,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
       const idToken = await result.user.getIdToken();
       
       // Send the token to your backend
-      const res = await fetch('/api/users/login', {
+      const res = await fetch('https://medtech-hcmo.onrender.com/api/users/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +234,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await tryPost(['/api/users/login', '/users/login'], { email, password });
+      const res = await tryPost(['https://medtech-hcmo.onrender.com/api/users/login', 'https://medtech-hcmo.onrender.com/users/login'], { email, password });
       if (res.ok) {
         const data = await res.json();
         const userData = saveUserData(data, selectedRole);
