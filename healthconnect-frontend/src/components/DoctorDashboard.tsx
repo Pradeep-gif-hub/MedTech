@@ -1314,17 +1314,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Prescription</h2>
 
           <div className="flex flex-col gap-4">
-            <button
-              type="button"
-              onClick={() => {
-                alert('Basic test button clicked!');
-                console.log('Basic test clicked');
-              }}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg"
-            >
-              Click Me (Basic Test)
-            </button>
-
+           
             <button
               type="button"
               onClick={() => {
@@ -1858,5 +1848,3 @@ const styles = `
 const styleSheet = document.createElement("style");
 styleSheet.innerText = styles;
 document.head.appendChild(styleSheet);
-
-export default DoctorDashboard;
