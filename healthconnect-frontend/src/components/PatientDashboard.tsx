@@ -613,6 +613,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
               Symptoms
             </label>
             <textarea
+              id="symptomsTextarea"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
               placeholder="Describe your symptoms..."
             ></textarea>
@@ -623,6 +624,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
               Duration of Illness
             </label>
             <input
+              id="durationInput"
               type="text"
               placeholder="e.g. 2 weeks"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
@@ -632,7 +634,36 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
           <button
             type="button"
             onClick={() => {
-              const diseaseDropdown = document.getElementById('consulationForm') as HTMLSelectElement;
+              // Get form values
+              const diseaseSelect = document.getElementById('diseaseSelect') as HTMLSelectElement;
+              const symptomsTextarea = document.getElementById('symptomsTextarea') as HTMLTextAreaElement;
+              const durationInput = document.getElementById('durationInput') as HTMLInputElement;
+              
+              // Validate form
+              if (!diseaseSelect.value) {
+                alert('Please select a disease');
+                return;
+              }
+              if (!symptomsTextarea.value) {
+                alert('Please describe your symptoms');
+                return;
+              }
+              if (!durationInput.value) {
+                alert('Please enter illness duration');
+                return;
+              }
+
+              // Store consultation data in localStorage for persistence
+              const consultationData = {
+                disease: diseaseSelect.value,
+                symptoms: symptomsTextarea.value,
+                duration: durationInput.value,
+                timestamp: new Date().toISOString()
+              };
+              localStorage.setItem('pendingConsultation', JSON.stringify(consultationData));
+              
+              // Switch to consultation tab
+              setActiveTab('consultation');
             }}
             className="w-full bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
           >
@@ -658,35 +689,80 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-white/90 px-6">
-                <svg
-                  className="h-24 w-24 text-white/90 animate-spin mb-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    stroke="currentColor"
-                    strokeOpacity="0.12"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M21 12a9 9 0 10-3.78 7.02"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <div className="text-xl font-semibold mb-2 text-white">
-                  Connecting to doctor...
-                </div>
-                <div className="text-sm opacity-80 mb-6 text-center">
-                  Please wait while we establish connection
-                </div>
+                {(() => {
+                  // Get pending consultation data
+                  const pendingConsultationStr = localStorage.getItem('pendingConsultation');
+                  const pendingConsultation = pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
+
+                  return pendingConsultation ? (
+                    <div className="bg-white/10 p-6 rounded-xl backdrop-blur-sm w-full max-w-md">
+                      <h3 className="text-xl font-semibold mb-4 text-white">Your Consultation Request</h3>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-sm text-white/60">Condition</div>
+                          <div className="text-white font-medium">{pendingConsultation.disease}</div>
+                        </div>
+                        
+                        <div>
+                          <div className="text-sm text-white/60">Symptoms</div>
+                          <div className="text-white font-medium">{pendingConsultation.symptoms}</div>
+                        </div>
+                        
+                        <div>
+                          <div className="text-sm text-white/60">Duration</div>
+                          <div className="text-white font-medium">{pendingConsultation.duration}</div>
+                        </div>
+
+                        <div className="text-sm text-white/60 pt-2">
+                          Submitted on: {new Date(pendingConsultation.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="mt-6 text-center text-sm text-white/80">
+                        Waiting for doctor to connect...
+                        <div className="mt-2">
+                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></div>
+                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1" style={{animationDelay: '0.2s'}}></div>
+                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full" style={{animationDelay: '0.4s'}}></div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <svg
+                        className="h-24 w-24 text-white/90 animate-spin mb-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="9"
+                          stroke="currentColor"
+                          strokeOpacity="0.12"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M21 12a9 9 0 10-3.78 7.02"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <div className="text-xl font-semibold mb-2 text-white">
+                        Connecting to doctor...
+                      </div>
+                      <div className="text-sm opacity-80 mb-6 text-center">
+                        Please wait while we establish connection
+                      </div>
+                    </>
+                  );
+                })()}
+
                 <button
                   onClick={startLiveSender}
                   className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all"
