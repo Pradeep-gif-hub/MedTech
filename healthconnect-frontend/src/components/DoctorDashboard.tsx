@@ -1206,7 +1206,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
     try {
       console.log('Starting prescription generation and email sending...');
-      // Generate PDF content
+      
+      // Create temporary container for the prescription that will be removed after processing
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '-9999px';
+      
+      // Generate PDF content in the hidden container
       const prescriptionHTML = `
         <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
           <h1 style="color: #1f2937; text-align: center;">Medical Prescription</h1>
@@ -1242,14 +1249,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         </div>
       `;
 
-      // Create a temporary container for the prescription
-      const temp = document.createElement('div');
-      temp.innerHTML = prescriptionHTML;
-      document.body.appendChild(temp);
+      tempContainer.innerHTML = prescriptionHTML;
+      document.body.appendChild(tempContainer);
 
-      // Generate PDF
+      // Generate PDF from the hidden container
       console.log('Converting to PDF...');
-      const pdf = await html2canvas(temp).then(canvas => {
+      const pdf = await html2canvas(tempContainer).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF();
         const imgProps = pdf.getImageProperties(imgData);
@@ -1259,6 +1264,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         console.log('PDF generated successfully');
         return pdf;
       });
+
+      // Clean up - remove the temporary container
+      document.body.removeChild(tempContainer);
 
       // Convert PDF to base64
       const pdfBase64 = pdf.output('datauristring');
