@@ -1,8 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import emailjs from '@emailjs/browser';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 // Initialize EmailJS
 try {
@@ -1251,37 +1249,34 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
       // Generate PDF
       console.log('Converting to PDF...');
-      try {
-        const canvas = await html2canvas(temp);
-        console.log('Canvas generated');
+      const pdf = await html2canvas(temp).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
-        console.log('Image data generated');
         const pdf = new jsPDF();
         const imgProps = pdf.getImageProperties(imgData);
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         console.log('PDF generated successfully');
+        return pdf;
+      });
 
-        // Clean up the temporary element
-        document.body.removeChild(temp);
+      // Convert PDF to base64
+      const pdfBase64 = pdf.output('datauristring');
 
-        // Convert PDF to base64
-        const pdfBase64 = pdf.output('datauristring');
+      // Send email using EmailJS
+      console.log('Preparing email parameters...');
+      const emailParams = {
+        to_email: prescriptionForm.patientEmail,
+        from_name: doctorName,
+        from_email: 'pawasthi063@gmail.com',
+        subject: 'Your Medical Prescription',
+        message: 'Please find your prescription attached.',
+        pdf_attachment: pdfBase64
+      };
+      console.log('Email parameters prepared:', { ...emailParams, pdf_attachment: '[BASE64_DATA]' });
 
-        // Send email using EmailJS
-        console.log('Preparing email parameters...');
-        const emailParams = {
-          to_email: prescriptionForm.patientEmail,
-          from_name: doctorName,
-          from_email: 'pawasthi063@gmail.com',
-          subject: 'Your Medical Prescription',
-          message: 'Please find your prescription attached.',
-          pdf_attachment: pdfBase64
-        };
-        console.log('Email parameters prepared:', { ...emailParams, pdf_attachment: '[BASE64_DATA]' });
-
-        console.log('Sending email with EmailJS...');
+      console.log('Sending email with EmailJS...');
+      try {
         const result = await emailjs.send(
           'service_er4o93a',
           'template_pxfq7mf',
@@ -1289,22 +1284,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           'ChNx9vs8ZLde4sGrm'
         );
         console.log('Email sent successfully:', result);
-        alert('Prescription has been sent successfully!');
-      } catch (error) {
-        console.error('Error in PDF generation/email:', error);
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-        throw new Error(`PDF/Email error: ${errorMsg}`);
+      } catch (emailError) {
+        console.error('EmailJS error:', emailError);
+        throw emailError;
       }
 
+      alert('Prescription has been sent successfully!');
     } catch (error) {
-      console.error('Error in prescription process:', error);
+      console.error('Error sending prescription:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
       setErrorMessage(`Failed to send prescription: ${errorMsg}`);
       alert(`Failed to send prescription: ${errorMsg}`);
     } finally {
       setIsGenerating(false);
     }
-  };
   };
 
   const renderPrescriptionsForm = () => {
@@ -1314,16 +1307,15 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Prescription</h2>
 
           <div className="flex flex-col gap-4">
-           
             <button
               type="button"
               onClick={() => {
-                console.log('Testing PDF generation...');
-                testPdfGeneration();
+                alert('Basic test button clicked!');
+                console.log('Basic test clicked');
               }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg"
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg"
             >
-              Test PDF Generation
+              Click Me (Basic Test)
             </button>
 
             <button
@@ -1847,4 +1839,5 @@ const styles = `
 // Add style tag to head
 const styleSheet = document.createElement("style");
 styleSheet.innerText = styles;
+document.head.appendChild(styleSheet);
 document.head.appendChild(styleSheet);
