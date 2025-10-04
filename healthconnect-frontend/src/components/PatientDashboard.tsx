@@ -681,12 +681,24 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
         <div className="p-2">
           <div className="bg-gray-900 rounded-xl relative flex items-center justify-center overflow-hidden h-[430px]">
             {inConsultation ? (
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover rounded-xl bg-black"
-              />
+              <>
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover rounded-xl bg-black"
+                />
+                {/* floating self-preview when in consultation */}
+                <div className="absolute bottom-2 right-4 w-40 h-30 bg-black rounded-lg overflow-hidden border border-white/20">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-white/90 px-6">
                 {(() => {
@@ -727,6 +739,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
                           <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full" style={{animationDelay: '0.4s'}}></div>
                         </div>
                       </div>
+
+                      <div className="mt-6">
+                        <button
+                          onClick={startLiveSender}
+                          className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full justify-center"
+                        >
+                          <Video className="h-5 w-5" />
+                          Start Video Consultation
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -754,34 +776,129 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
                         />
                       </svg>
                       <div className="text-xl font-semibold mb-2 text-white">
-                        Connecting to doctor...
+                        No Active Consultation
                       </div>
                       <div className="text-sm opacity-80 mb-6 text-center">
-                        Please wait while we establish connection
+                        Please fill out the consultation form on the home page
                       </div>
+                      <button
+                        onClick={() => setActiveTab('home')}
+                        className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all"
+                      >
+                        <Home className="h-5 w-5" />
+                        Go to Home
+                      </button>
                     </>
                   );
                 })()}
-
-                <button
-                  onClick={startLiveSender}
-                  className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all"
-                >
-                  <Video className="h-5 w-5" />
-                  Connect Now
-                </button>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* floating self-preview */}
-            <div className="absolute bottom-2 right-4 w-40 h-30 bg-black rounded-lg overflow-hidden border border-white/20">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover rounded-lg"
-              />
+        {/* RIGHT: Doctor Info / Live Vitals */}
+        <div className="p-4">
+          <div className="bg-white/10 p-6 rounded-xl backdrop-blur-sm min-h-[420px] flex flex-col justify-between shadow-lg">
+            <div className="flex-1">
+              {!inConsultation ? (
+                <>
+                  <h3 className="font-bold text-white mb-6 text-2xl">Doctor Information</h3>
+                  <div className="bg-white/5 p-6 rounded-xl border border-white/10 shadow-md">
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
+                        <span>DR</span>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-white text-lg mb-1">Dr. Rajesh Kumar</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-3 py-1 bg-emerald-400/20 text-emerald-300 rounded-full text-sm font-medium">
+                            General Physician
+                          </span>
+                        </div>
+                        <div className="text-sm text-white/60 mb-3 flex items-center gap-2">
+                          MedTech Clinic
+                        </div>
+                        <p className="text-sm text-white/80 bg-white/5 p-3 rounded-lg border border-white/10">
+                          Expert in family medicine and teleconsultations
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-bold text-white mb-6 text-xl text-center">Live Vitals Monitor</h3>
+                  <div className="grid grid-cols-2 gap-6 px-4">
+                    {/* Heart Rate Card */}
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-red-400">
+                          <Heart className="h-5 w-5" />
+                        </span>
+                        <span className="text-xs font-medium text-white/60">BPM</span>
+                      </div>
+                      <div className="text-2xl font-bold text-white">{liveHeartRate}</div>
+                      <div className="text-xs text-white/60 mt-1">Heart Rate</div>
+                    </div>
+
+                    {/* Blood Pressure Card */}
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-blue-400">
+                          <Activity className="h-5 w-5" />
+                        </span>
+                        <span className="text-xs font-medium text-white/60">mmHg</span>
+                      </div>
+                      <div className="text-2xl font-bold text-white">{liveBP.sys}/{liveBP.dia}</div>
+                      <div className="text-xs text-white/60 mt-1">Blood Pressure</div>
+                    </div>
+
+                    {/* Temperature Card */}
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-orange-400">
+                          <Clock className="h-5 w-5" />
+                        </span>
+                        <span className="text-xs font-medium text-white/60">°F</span>
+                      </div>
+                      <div className="text-2xl font-bold text-white">{liveTemperature.toFixed(1)}</div>
+                      <div className="text-xs text-white/60 mt-1">Temperature</div>
+                    </div>
+
+                    {/* SpO₂ Card */}
+                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-green-400">
+                          <Activity className="h-5 w-5" />
+                        </span>
+                        <span className="text-xs font-medium text-white/60">%</span>
+                      </div>
+                      <div className="text-2xl font-bold text-white">{liveOxygen}</div>
+                      <div className="text-xs text-white/60 mt-1">Oxygen Saturation</div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="mt-4 text-right">
+              {!inConsultation ? (
+                <button
+                  onClick={startLiveSender}
+                  className="bg-emerald-600 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:bg-emerald-700 transition-all inline-flex items-center gap-2"
+                >
+                  <Video className="h-5 w-5" />
+                  Start Consultation
+                </button>
+              ) : (
+                <button
+                  onClick={endLiveConsultation}
+                  className="bg-red-600 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:bg-red-700 transition-all inline-flex items-center gap-2"
+                >
+                  <Phone className="h-5 w-5" />
+                  End Call
+                </button>
+              )}
             </div>
           </div>
         </div>
