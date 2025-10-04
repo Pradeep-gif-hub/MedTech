@@ -688,78 +688,137 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
                 className="w-full h-full object-cover rounded-xl bg-black"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-white/90 px-6">
+              <div className="w-full h-full flex flex-col text-white/90 px-6">
                 {(() => {
-                  // Get pending consultation data
+                  const [selectedDoctor, setSelectedDoctor] = useState(null);
+                  const [isInCall, setIsInCall] = useState(false);
                   const pendingConsultationStr = localStorage.getItem('pendingConsultation');
                   const pendingConsultation = pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
 
-                  return pendingConsultation ? (
-                    <div className="bg-white/10 p-6 rounded-xl backdrop-blur-sm w-full max-w-md">
-                      <h3 className="text-xl font-semibold mb-4 text-white">Your Consultation Request</h3>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-sm text-white/60">Condition</div>
-                          <div className="text-white font-medium">{pendingConsultation.disease}</div>
-                        </div>
-                        
-                        <div>
-                          <div className="text-sm text-white/60">Symptoms</div>
-                          <div className="text-white font-medium">{pendingConsultation.symptoms}</div>
-                        </div>
-                        
-                        <div>
-                          <div className="text-sm text-white/60">Duration</div>
-                          <div className="text-white font-medium">{pendingConsultation.duration}</div>
-                        </div>
+                  // Dummy doctor data
+                  const availableDoctors = [
+                    {
+                      id: 1,
+                      name: 'Dr. Sarah Johnson',
+                      specialization: 'General Medicine',
+                      experience: '15 years',
+                      rating: 4.8,
+                      status: 'Available',
+                      image: 'https://randomuser.me/api/portraits/women/68.jpg'
+                    },
+                    {
+                      id: 2,
+                      name: 'Dr. Michael Chen',
+                      specialization: 'Cardiology',
+                      experience: '12 years',
+                      rating: 4.9,
+                      status: 'Available',
+                      image: 'https://randomuser.me/api/portraits/men/32.jpg'
+                    }
+                  ];
 
-                        <div className="text-sm text-white/60 pt-2">
-                          Submitted on: {new Date(pendingConsultation.timestamp).toLocaleString()}
+                  const handleConnect = (doctor) => {
+                    setSelectedDoctor(doctor);
+                    setIsInCall(true);
+                  };
+
+                  if (!isInCall) {
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-6">
+                        {availableDoctors.map((doctor) => (
+                          <div key={doctor.id} className="bg-white/10 rounded-xl backdrop-blur-sm p-6 flex flex-col items-center">
+                            <img 
+                              src={doctor.image} 
+                              alt={doctor.name}
+                              className="w-24 h-24 rounded-full mb-4 border-2 border-green-400"
+                            />
+                            <h3 className="text-xl font-semibold mb-2">{doctor.name}</h3>
+                            <p className="text-white/60 mb-1">{doctor.specialization}</p>
+                            <p className="text-white/60 mb-2">{doctor.experience} experience</p>
+                            <div className="flex items-center mb-4">
+                              <span className="text-yellow-400 mr-1">★</span>
+                              <span className="text-white/90">{doctor.rating}</span>
+                            </div>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-500/20 text-green-400 mb-4">
+                              {doctor.status}
+                            </span>
+                            <button
+                              onClick={() => handleConnect(doctor)}
+                              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                            >
+                              Connect Now
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex h-full">
+                      {/* Left side - Video call */}
+                      <div className="flex-1 bg-black/30 rounded-lg p-4 mr-4">
+                        <div className="aspect-video bg-gray-800 rounded-lg mb-4 relative">
+                          {/* Main video stream placeholder */}
+                          <div className="absolute bottom-4 right-4 w-32 h-24 bg-gray-700 rounded"></div>
+                        </div>
+                        <div className="flex justify-center space-x-4">
+                          <button className="p-3 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors">
+                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.728-2.728" />
+                            </svg>
+                          </button>
+                          <button className="p-3 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors">
+                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                          </button>
+                          <button className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-colors">
+                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
 
-                      <div className="mt-6 text-center text-sm text-white/80">
-                        Waiting for doctor to connect...
-                        <div className="mt-2">
-                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></div>
-                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1" style={{animationDelay: '0.2s'}}></div>
-                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full" style={{animationDelay: '0.4s'}}></div>
-                        </div>
+                      {/* Right side - Consultation details */}
+                      <div className="w-96 bg-white/10 rounded-lg p-6 backdrop-blur-sm">
+                        {selectedDoctor && (
+                          <div className="mb-6 flex items-center">
+                            <img 
+                              src={selectedDoctor.image} 
+                              alt={selectedDoctor.name}
+                              className="w-16 h-16 rounded-full mr-4 border-2 border-green-400"
+                            />
+                            <div>
+                              <h3 className="text-lg font-semibold">{selectedDoctor.name}</h3>
+                              <p className="text-white/60">{selectedDoctor.specialization}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {pendingConsultation && (
+                          <div className="space-y-4">
+                            <h4 className="text-lg font-semibold">Consultation Details</h4>
+                            <div>
+                              <div className="text-sm text-white/60">Condition</div>
+                              <div className="text-white font-medium">{pendingConsultation.disease}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-white/60">Symptoms</div>
+                              <div className="text-white font-medium">{pendingConsultation.symptoms}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-white/60">Duration</div>
+                              <div className="text-white font-medium">{pendingConsultation.duration}</div>
+                            </div>
+                            <div className="text-sm text-white/60 pt-2">
+                              Submitted on: {new Date(pendingConsultation.timestamp).toLocaleString()}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <svg
-                        className="h-24 w-24 text-white/90 animate-spin mb-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                      >
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="9"
-                          stroke="currentColor"
-                          strokeOpacity="0.12"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M21 12a9 9 0 10-3.78 7.02"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <div className="text-xl font-semibold mb-2 text-white">
-                        Connecting to doctor...
-                      </div>
-                      <div className="text-sm opacity-80 mb-6 text-center">
-                        Please wait while we establish connection
-                      </div>
-                    </>
                   );
                 })()}
 
