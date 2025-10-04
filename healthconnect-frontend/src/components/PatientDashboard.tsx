@@ -675,7 +675,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
   );
 
   const renderConsultation = () => (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-slate-100 rounded-xl shadow-sm overflow-hidden">
       <div className="grid lg:grid-cols-2 gap-2">
         {/* LEFT: Doctor's video / placeholder */}
         <div className="p-2">
@@ -707,26 +707,26 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
                   const pendingConsultation = pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
 
                   return pendingConsultation ? (
-                    <div className="bg-white/10 p-6 rounded-xl backdrop-blur-sm w-full max-w-md">
-                      <h3 className="text-xl font-semibold mb-4 text-white">Your Consultation Request</h3>
+                    <div className="bg-white/90 p-6 rounded-xl backdrop-blur-sm w-full max-w-md border border-gray-200">
+                      <h3 className="text-xl font-semibold mb-4 text-gray-900">Your Consultation Request</h3>
                       
                       <div className="space-y-4">
                         <div>
-                          <div className="text-sm text-white/60">Condition</div>
-                          <div className="text-white font-medium">{pendingConsultation.disease}</div>
+                          <div className="text-sm text-gray-600">Condition</div>
+                          <div className="text-gray-900 font-medium">{pendingConsultation.disease}</div>
                         </div>
                         
                         <div>
-                          <div className="text-sm text-white/60">Symptoms</div>
-                          <div className="text-white font-medium">{pendingConsultation.symptoms}</div>
+                          <div className="text-sm text-gray-600">Symptoms</div>
+                          <div className="text-gray-900 font-medium">{pendingConsultation.symptoms}</div>
                         </div>
                         
                         <div>
-                          <div className="text-sm text-white/60">Duration</div>
-                          <div className="text-white font-medium">{pendingConsultation.duration}</div>
+                          <div className="text-sm text-gray-600">Duration</div>
+                          <div className="text-gray-900 font-medium">{pendingConsultation.duration}</div>
                         </div>
 
-                        <div className="text-sm text-white/60 pt-2">
+                        <div className="text-sm text-gray-600 pt-2">
                           Submitted on: {new Date(pendingConsultation.timestamp).toLocaleString()}
                         </div>
                       </div>
@@ -798,27 +798,27 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
 
         {/* RIGHT: Doctor Info / Live Vitals */}
         <div className="p-4">
-          <div className="bg-white/10 p-6 rounded-xl backdrop-blur-sm min-h-[420px] flex flex-col justify-between shadow-lg">
+          <div className="bg-white/90 p-6 rounded-xl backdrop-blur-sm min-h-[420px] flex flex-col justify-between shadow-lg border border-gray-200">
             <div className="flex-1">
               {!inConsultation ? (
                 <>
                   <h3 className="font-bold text-white mb-6 text-2xl">Doctor Information</h3>
-                  <div className="bg-white/5 p-6 rounded-xl border border-white/10 shadow-md">
+                  <div className="bg-white/90 p-6 rounded-xl border border-gray-200 shadow-md">
                     <div className="flex items-start gap-4">
                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
                         <span>DR</span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-white text-lg mb-1">Dr. Rajesh Kumar</h3>
+                        <h3 className="font-semibold text-gray-900 text-lg mb-1">Dr. Rajesh Kumar</h3>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-3 py-1 bg-emerald-400/20 text-emerald-300 rounded-full text-sm font-medium">
+                          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
                             General Physician
                           </span>
                         </div>
-                        <div className="text-sm text-white/60 mb-3 flex items-center gap-2">
+                        <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
                           MedTech Clinic
                         </div>
-                        <p className="text-sm text-white/80 bg-white/5 p-3 rounded-lg border border-white/10">
+                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
                           Expert in family medicine and teleconsultations
                         </p>
                       </div>
@@ -830,15 +830,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
                   <h3 className="font-bold text-white mb-6 text-xl text-center">Live Vitals Monitor</h3>
                   <div className="grid grid-cols-2 gap-6 px-4">
                     {/* Heart Rate Card */}
-                    <div className="bg-white/5 p-5 rounded-xl border border-white/10 shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <div className="bg-white/90 p-5 rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-300">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-red-400">
+                        <span className="text-red-600">
                           <Heart className="h-5 w-5" />
                         </span>
-                        <span className="text-xs font-medium text-white/60">BPM</span>
+                        <span className="text-xs font-medium text-gray-600">BPM</span>
                       </div>
-                      <div className="text-2xl font-bold text-white">{liveHeartRate}</div>
-                      <div className="text-xs text-white/60 mt-1">Heart Rate</div>
+                      <div className="text-2xl font-bold text-gray-900">{liveHeartRate}</div>
+                      <div className="text-xs text-gray-600 mt-1">Heart Rate</div>
                     </div>
 
                     {/* Blood Pressure Card */}
