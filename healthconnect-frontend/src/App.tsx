@@ -6,6 +6,7 @@ import PharmacyDashboard from './components/PharmacyDashboard';
 import AdminPanel from './components/AdminPanel';
 import PublicPages from './components/PublicPages';
 import Login from './components/Login';
+import { AuthProvider } from './contexts/AuthContext';
 
 export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'unknown';
 export type CurrentView =
@@ -118,7 +119,11 @@ function App() {
     }
   };
 
-  return <div className="min-h-screen bg-gray-50">{renderContent()}</div>;
+  return (
+    <AuthProvider>
+      <div className="min-h-screen bg-gray-50">{renderContent()}</div>
+    </AuthProvider>
+  );
 }
 
 export default App;

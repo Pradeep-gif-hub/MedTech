@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pill, FileText, Package, BarChart3, Check, X, Clock, Search, Filter } from 'lucide-react';
+import profileImage from '../assets/pharmacy.png';
 
 interface PharmacyDashboardProps {
   onLogout: () => void;
@@ -8,6 +9,38 @@ interface PharmacyDashboardProps {
 const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'prescriptions' | 'inventory' | 'orders' | 'analytics'>('prescriptions');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'dispensed'>('all');
+
+  const [signedUser, setSignedUser] = useState<{ name?: string; email?: string } | null>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return { email: String(raw) }; }
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    const load = () => {
+      try {
+        const raw = localStorage.getItem('user');
+        if (!raw) { setSignedUser(null); return; }
+        try { setSignedUser(JSON.parse(raw)); } catch { setSignedUser({ email: raw }); }
+      } catch { setSignedUser(null); }
+    };
+    const onStorage = (e: StorageEvent) => { if (e.key === 'user') load(); };
+    const onUserUpdated = (e: Event) => {
+      try {
+        const d = (e as CustomEvent).detail;
+        if (d) setSignedUser(typeof d === 'string' ? JSON.parse(d) : d);
+        else load();
+      } catch { load(); }
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('user-updated', onUserUpdated as EventListener);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('user-updated', onUserUpdated as EventListener);
+    };
+  }, []);
 
   const prescriptions = [
     {
@@ -593,19 +626,31 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
             Pharmacy Dashboard
           </h1>
           <p className="text-sm text-emerald-100">
-            Welcome back, MedPlus Pharmacy!
+            Welcome back, {signedUser?.name ? signedUser.name : 'MedPlus Pharmacy'}!
           </p>
         </div>
       </div>
 
       {/* Right Section */}
-      <button
-        onClick={onLogout}
-        className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 
-                   rounded-lg hover:from-red-600 hover:to-pink-700 transition-all shadow-md"
-      >
-        Logout
-      </button>
+      <div className="flex items-center gap-4">
+        <div className="hidden sm:flex items-center flex-row text-right mr-2">
+  <span className="text-xs text-emerald-100 mr-1">Signed in as</span>
+  <span className="text-sm font-semibold text-white">
+    {signedUser?.email ?? 'Not signed in'}
+  </span>
+</div>
+
+        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-gray-200">
+          <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+        </div>
+        <button
+          onClick={onLogout}
+          className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 
+                     rounded-lg hover:from-red-600 hover:to-pink-700 transition-all shadow-md"
+        >
+          Logout
+        </button>
+      </div>
     </div>
   </div>
 </header>

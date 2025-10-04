@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import jsPDF from 'jspdf';
+import { Home } from "lucide-react";
 import html2canvas from 'html2canvas';
 import { Video, User, FileText, Bell, Heart, Activity, Download, Phone, Star, MessageCircle, Camera, Clock } from 'lucide-react';
+import profileImage from '../assets/profile.png';
 
 interface PatientDashboardProps { onLogout: () => void }
 // sample vitals and data (replace with real API data)
@@ -13,32 +15,33 @@ const vitalSigns = {
 };
 
 const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'consultation' | 'profile' | 'prescriptions' | 'notifications'>('consultation');
+  // normalize tab keys to lowercase ('home') because the rest of the file uses 'home'
+  const [activeTab, setActiveTab] = useState('home' as 'home' | 'consultation' | 'profile' | 'prescriptions' | 'notifications');
   const [inConsultation, setInConsultation] = useState(false);
 
   // Prescriptions / PDF state
-  const [serverPrescriptions, setServerPrescriptions] = useState<any[]>([]);
+  const [serverPrescriptions, setServerPrescriptions] = useState([] as any[]);
   const [loadingServerPrescriptions, setLoadingServerPrescriptions] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
-  const [selectedPrescription, setSelectedPrescription] = useState<any>(null);
-  const [hrHistory, setHrHistory] = useState<number[]>([vitalSigns.heartRate]);
+  const [selectedPrescription, setSelectedPrescription] = useState(null as any);
+  const [hrHistory, setHrHistory] = useState([vitalSigns.heartRate] as number[]);
 
 
-  const [tempHistory, setTempHistory] = useState<number[]>([vitalSigns.temperature]);
+  const [tempHistory, setTempHistory] = useState([vitalSigns.temperature] as number[]);
 
-  const [oxHistory, setOxHistory] = useState<number[]>([vitalSigns.oxygenLevel]);
+  const [oxHistory, setOxHistory] = useState([vitalSigns.oxygenLevel] as number[]);
 
   // Simulated live vitals
-  const [liveHeartRate, setLiveHeartRate] = useState<number>(72);
-  const [liveTemperature, setLiveTemperature] = useState<number>(98.6);
-  const [liveOxygen, setLiveOxygen] = useState<number>(98);
+  const [liveHeartRate, setLiveHeartRate] = useState(72 as number);
+  const [liveTemperature, setLiveTemperature] = useState(98.6 as number);
+  const [liveOxygen, setLiveOxygen] = useState(98 as number);
 
   // WebRTC / signaling refs (patient = sender)
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const pendingSends = useRef<string[]>([]);
+  const localVideoRef = useRef(null as HTMLVideoElement | null);
+  const remoteVideoRef = useRef(null as HTMLVideoElement | null);
+  const pcRef = useRef(null as RTCPeerConnection | null);
+  const wsRef = useRef(null as WebSocket | null);
+  const pendingSends = useRef([] as string[]);
 
   const escapeHtml = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
@@ -148,7 +151,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     if (!userId) { alert('Login required'); return }
     setLoadingServerPrescriptions(true);
     try {
-      const urls = [`${API_BASE}/prescriptions/${userId}`, `${API_BASE}/prescriptions/patient/${userId}`, `${API_BASE}/prescriptions`];
+      const urls = [`/api/prescriptions/${userId}`, `/api/prescriptions/patient/${userId}`, `/api/prescriptions`];
       let list: any[] = [];
       for (const u of urls) { try { const r = await fetch(u); if (!r.ok) continue; const d = await r.json(); if (Array.isArray(d)) list = d; else if (d) list = [d]; if (list.length) break } catch (e) { } }
       setServerPrescriptions(list);
@@ -249,7 +252,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
       wsRef.current?.close();
     } catch { }
     try {
-      pcRef.current?.getSenders()?.forEach(s => { try { (s.track as MediaStreamTrack | null)?.stop(); } catch { } });
+      pcRef.current?.getSenders()?.forEach((s: RTCRtpSender) => { try { (s.track as MediaStreamTrack | null)?.stop(); } catch { } });
       pcRef.current?.close();
     } catch { }
     if (localVideoRef.current && localVideoRef.current.srcObject) {
@@ -261,6 +264,21 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     pcRef.current = null;
     wsRef.current = null;
     pendingSends.current = [];
+    // after ending the call, redirect patient to Prescriptions tab
+    setActiveTab('prescriptions');
+  };
+
+  // Minimal profile save handler (was referenced from UI)
+  const updateProfile = () => {
+    try {
+      if (fullName) localStorage.setItem('name', fullName);
+      if (email) localStorage.setItem('email', email);
+      if (phone) localStorage.setItem('phone', phone);
+      alert('Profile saved locally.');
+    } catch (e) {
+      console.error('updateProfile error', e);
+      alert('Failed to save profile.');
+    }
   };
 
   // cleanup on unload
@@ -274,8 +292,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
 
   // Profile form state
   const [fullName, setFullName] = useState(() => localStorage.getItem('name') || "");
-  const [dob, setDob] = useState("1990-05-15");
-  const [phone, setPhone] = useState("+91 9876543210");
+  const [dob, setDob] = useState("08-08-2005");
+  const [Gender, setGender] = useState("Male");
+  const [phone, setPhone] = useState("+91 8127136711");
   // Try to get email from localStorage, fallback to empty string
   const [email, setEmail] = useState(() => {
     const stored = localStorage.getItem('email');
@@ -296,7 +315,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     }
   }, [email]);
   const [bloodGroup, setBloodGroup] = useState("A+");
-  const [emergencyContact, setEmergencyContact] = useState("+91 9876543211");
+  const [emergencyContact, setEmergencyContact] = useState("+91 8127136711");
   // Medical history state
   const [allergies, setAllergies] = useState("");
   const [medications, setMedications] = useState("");
@@ -304,21 +323,77 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
 
   // Get user_id from localStorage (set at login)
   const userId = localStorage.getItem('user_id');
-  const API_BASE = "https://medtech-hcmo.onrender.com";
-
 
   // Logged-in user state (fetched from backend)
   const [userName, setUserName] = useState<string>(() => localStorage.getItem('name') || '');
+
+  // NEW: signed-in user info read from localStorage and event listeners
+  const [signedUser, setSignedUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+
+  // Keep profile state in sync with signedUser (from localStorage / login)
+  useEffect(() => {
+    if (!signedUser) return;
+    try {
+      // Map commonly used fields from signedUser into component state if present
+      const s: any = signedUser;
+      if (s.name || s.fullname || s.displayName) setFullName(s.name || s.fullname || s.displayName);
+      if (s.email) setEmail(s.email);
+      if (s.phone) setPhone(s.phone);
+      if (s.dob || s.birthdate) setDob(s.dob || s.birthdate);
+      if (s.bloodGroup) setBloodGroup(s.bloodGroup);
+      if (s.emergencyContact) setEmergencyContact(s.emergencyContact);
+      if (typeof s.allergies === 'string' && s.allergies) setAllergies(s.allergies);
+      if (typeof s.medications === 'string' && s.medications) setMedications(s.medications);
+      // persist name/email to localStorage same as earlier behavior
+      try { if (s.name) localStorage.setItem('name', s.name); if (s.email) localStorage.setItem('email', s.email); } catch { }
+    } catch (err) {
+      // ignore mapping errors
+    }
+  }, [signedUser]);
+
+  useEffect(() => {
+    const loadUser = () => {
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) setSignedUser(JSON.parse(raw));
+        else setSignedUser(null);
+      } catch {
+        setSignedUser(null);
+      }
+    };
+    loadUser();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'user') loadUser();
+    };
+    const onUserUpdated = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail;
+        if (detail) setSignedUser(detail);
+        else loadUser();
+      } catch {
+        loadUser();
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('user-updated', onUserUpdated as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('user-updated', onUserUpdated as EventListener);
+    };
+  }, []);
 
   // Try to fetch user info from backend on mount (graceful fallback to localStorage)
   useEffect(() => {
     let mounted = true;
     const fetchUser = async () => {
       try {
-        // Prefer a /users/me endpoint if available, otherwise use userId
+        // Prefer a /api/users/me endpoint if available, otherwise use userId
         const urls = [] as string[];
-        if (userId) urls.push(`${API_BASE}/users/${userId}`);
-        urls.unshift(`${API_BASE}/users/me`);
+        if (userId) urls.push(`/api/users/${userId}`);
+        urls.unshift('/api/users/me');
 
         for (const u of urls) {
           try {
@@ -389,162 +464,369 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
 
 
   // Replace the consultation renderer with a richer, doctor-like UI but for the patient
-  const renderConsultation = () => {
-    return (
-      <div className="space-y-6">
-        {/* Overview cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-gradient-to-r from-[#34d399] to-[#10b981] rounded-2xl p-6 shadow-xl text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm opacity-90">Next Appointment</p>
-                <p className="text-2xl font-bold">Today • 7:00 PM</p>
-              </div>
-              <Activity className="h-8 w-8 opacity-90" />
-            </div>
-            <p className="mt-3 text-sm opacity-80">With Dr. Haathi</p>
-          </div>
+  const renderHome = () => (
+    <div className="grid md:grid-cols-2 gap-8 items-start">
+      {/* LEFT HALF - Info */}
+      <div className="space-y-6 md:col-start-1 md:col-span-1">
 
-          <div className="bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] rounded-2xl p-6 shadow-xl text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm opacity-90">Prescriptions</p>
-                <p className="text-2xl font-bold">{serverPrescriptions.length}</p>
-              </div>
-              <FileText className="h-8 w-8 opacity-90" />
-            </div>
-            <p className="mt-3 text-sm opacity-80">Digital & downloadable</p>
-          </div>
+        {/* Existing Profile Card */}
+        <div className="bg-emerald-50 rounded-xl shadow-md p-6">
+          {/* Compact Modern Profile Card */}
+          <div className="flex justify-center mt-8">
+            <div className="relative bg-gradient-to-br from-blue-50 via-blue-100 to-white rounded-3xl shadow-xl p-6 w-full max-w-full transform transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
 
-          <div className="bg-gradient-to-r from-[#fb923c] to-[#fb7185] rounded-2xl p-6 shadow-xl text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm opacity-90">Live Vitals</p>
-                <p className="text-2xl font-bold">{liveHeartRate} BPM</p>
+              {/* Header - Profile Image + Name */}
+              <div className="flex items-center gap-4 mb-12">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105">
+                  <img
+                    src={profileImage}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <h2 className="text-10xl font-extrabold text-emerald-900">
+                    <p className="text-sm opacity-500">{signedUser ? `${signedUser.name || 'Patient'} ` : 'Welcome back !! '}</p>
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">{email || 'No email provided'}</p>
+                  <p className="text-xs text-emerald-700 mt-1 font-medium">Your Health Summary</p>
+                </div>
               </div>
-              <Heart className="h-8 w-8 opacity-90" />
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 text-sm">
+                {/* Age */}
+                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                    🎂
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">Age</div>
+                    <div className="text-gray-500 font-medium">
+                      {dob ? Math.max(0, Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))) : '—'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gender (dynamic from signedUser/localStorage) */}
+                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                    ⚥
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">Gender</div>
+                    <div className="text-gray-500 font-medium">
+                      <div className="text-gray-500 font-medium">{Gender || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Blood Group */}
+                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                    🩸
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">Blood Group</div>
+                    <div className="text-gray-500 font-medium">{bloodGroup || '—'}</div>
+                  </div>
+                </div>
+
+                {/* DOB */}
+                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                    📅
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">Date of Birth</div>
+                    <div className="text-gray-500 font-medium">{dob || '—'}</div>
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer col-span-1 md:col-span-2">
+                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                    📞
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">Phone</div>
+                    <div className="text-gray-500 font-medium">{phone || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 mt-3">
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+                >
+                  View Profile
+                </button>
+                <button
+                  onClick={() => window.open('https://chatgpt.com/g/g-PFQijmS57-medical-ai', '_blank')}
+                  className="px-4 py-2 bg-white text-emerald-700 rounded-lg font-semibold border border-emerald-300 shadow hover:bg-gray-50 transform hover:-translate-y-0.5 transition-all"
+                >
+                  Chat
+                </button>
+
+              </div>
+
             </div>
-            <p className="mt-3 text-sm opacity-80">Auto-updating every few seconds</p>
           </div>
         </div>
 
-        {/* If not in consultation show actions + preview; if in consultation show video + vitals */}
-        {!inConsultation ? (
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
-                <p className="text-sm text-gray-600 mt-1">Start a video consultation or manage appointments</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button onClick={startLiveSender} className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-emerald-700">
+      </div>
+      {/* RIGHT HALF - Form */}
+      <div className="bg-gray-50 rounded-xl shadow-md p-6 md:col-start-2 md:col-span-1 self-start">
+        <h3 className="text-xl font-semibold text-gray-900 mb-6">
+          Consultation Form
+        </h3>
+        <div className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Disease
+            </label>
+            <select
+              id="diseaseSelect"  // added ID here
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+            >
+              <option value="">-- Choose an option --</option>
+              <option>Fever</option>
+              <option>Cold & Cough</option>
+              <option>Asthma</option>
+              <option>Diabetes</option>
+              <option>Hypertension</option>
+              <option>Heart Disease</option>
+              <option>Liver Issues</option>
+              <option>Kidney Problems</option>
+              <option>Arthritis</option>
+              <option>Skin Disorders</option>
+              <option>Neurological Problems</option>
+              <option>Mental Health</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Symptoms
+            </label>
+            <textarea
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
+              placeholder="Describe your symptoms..."
+            ></textarea>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Duration of Illness
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 2 weeks"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const diseaseDropdown = document.getElementById('consulationForm') as HTMLSelectElement;
+            }}
+            className="w-full bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            Submit Consultation
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderConsultation = () => (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="grid lg:grid-cols-2 gap-2">
+        {/* LEFT: Doctor's video / placeholder */}
+        <div className="p-2">
+          <div className="bg-gray-900 rounded-xl relative flex items-center justify-center overflow-hidden h-[430px]">
+            {inConsultation ? (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover rounded-xl bg-black"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-white/90 px-6">
+                <svg
+                  className="h-24 w-24 text-white/90 animate-spin mb-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    stroke="currentColor"
+                    strokeOpacity="0.12"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M21 12a9 9 0 10-3.78 7.02"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <div className="text-xl font-semibold mb-2 text-white">
+                  Connecting to doctor...
+                </div>
+                <div className="text-sm opacity-80 mb-6 text-center">
+                  Please wait while we establish connection
+                </div>
+                <button
+                  onClick={startLiveSender}
+                  className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all"
+                >
                   <Video className="h-5 w-5" />
-                  <span>Start Consultation</span>
-                </button>
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700">
-                  <Clock className="h-5 w-5" />
-                  <span>Schedule</span>
+                  Connect Now
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* small preview area */}
-            <div className="mt-6 grid md:grid-cols-3 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Heart Rate</p>
-                <p className="font-bold text-2xl text-red-600">{liveHeartRate} BPM</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Temperature</p>
-                <p className="font-bold text-2xl text-orange-600">{liveTemperature.toFixed(1)}°F</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Oxygen</p>
-                <p className="font-bold text-2xl text-green-600">{liveOxygen}%</p>
-              </div>
+            {/* floating self-preview */}
+            <div className="absolute bottom-2 right-4 w-40 h-30 bg-black rounded-lg overflow-hidden border border-white/20">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover rounded-lg"
+              />
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+
+
+  {/* RIGHT: Doctor Info / Live Vitals */ }
+  <div className="p-4">
+    <div className="bg-white p-6 rounded-lg border min-h-[420px] flex flex-col justify-between shadow-lg max-w-[600px] mx-auto">
+      <div className="flex-1 flex flex-col justify-center">
+        {!inConsultation ? (
+          <>
+            <h3 className="font-bold text-gray-900 mb-6 text-4xl text-center">Doctor Information</h3>
+            <div className="bg-gradient-to-br from-emerald-50 to-white p-6 rounded-xl border border-emerald-100 shadow-md">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
+                  <span>DR</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 text-lg mb-1">Dr. Rajesh Kumar</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                      General Physician
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+                    MedTech Clinic
+                  </div>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    Expert in family medicine and teleconsultations
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            {/* Header */}
-            <div className="bg-emerald-600 text-white p-4 rounded-t-xl">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold">Live Consultation</h2>
-                  <p className="text-sm opacity-90">Connected to doctor • streaming</p>
+          // Live vitals display when in consultation
+          <>
+            <h3 className="font-bold text-gray-900 mb-6 text-xl text-center">Live Vitals Monitor</h3>
+            <div className="grid grid-cols-2 gap-6 px-4">
+              {/* Heart Rate Card */}
+              <div className="bg-gradient-to-br from-red-50 to-white p-5 rounded-xl border border-red-100 shadow-md hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-red-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                  <span className="text-xs font-medium text-red-600">BPM</span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-400 rounded-full animate-pulse" />
-                    <span className="text-sm">Live</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Video + Vitals layout */}
-            <div className="grid lg:grid-cols-3 gap-4 p-4">
-              {/* Doctor video / remote */}
-              <div className="lg:col-span-2 bg-gray-900 rounded-xl relative overflow-hidden">
-                {/* remote (doctor) video fills the area */}
-                <video
-                  ref={remoteVideoRef}
-                  className="w-full h-72 md:h-[420px] lg:h-[520px] object-cover rounded-xl bg-black"
-                  autoPlay
-                  playsInline
-                />
-
-                {/* floating self-preview (local) in the corner */}
-                <div className="absolute bottom-6 right-6 w-40 h-28 bg-black rounded-lg overflow-hidden border-2 border-white shadow-xl">
-                  <video ref={localVideoRef} className="w-full h-full object-cover" muted playsInline autoPlay />
-                </div>
+                <div className="text-2xl font-bold text-gray-900">{liveHeartRate}</div>
+                <div className="text-xs text-gray-500 mt-1">Heart Rate</div>
               </div>
 
-              {/* Vitals column */}
-              <div className="bg-white p-4 rounded-xl border">
-                <h3 className="font-bold text-gray-900 mb-4">Live Vitals</h3>
-                {/* (remote video removed here - displayed in the main left area) */}
-                {/* Optional small status or snapshot could go here */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Heart Rate</span>
-                    <span className="font-bold text-red-600">{liveHeartRate} BPM</span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Temperature</span>
-                    <span className="font-bold text-orange-600">{liveTemperature.toFixed(1)}°F</span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Oxygen</span>
-                    <span className="font-bold text-green-600">{liveOxygen}%</span>
-                  </div>
-
-                  <div className="mt-4 flex space-x-2">
-                    <button className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2">
-                      <Phone className="h-4 w-4" />
-                      <span>Call</span>
-                    </button>
-                    <button className="bg-green-600 text-white px-3 py-2 rounded-lg flex items-center space-x-2">
-                      <MessageCircle className="h-4 w-4" />
-                      <span>Chat</span>
-                    </button>
-                  </div>
+              {/* Blood Pressure Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border border-blue-100 shadow-md hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-blue-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" />
+                    </svg>
+                  </span>
+                  <span className="text-xs font-medium text-blue-600">mmHg</span>
                 </div>
+                <div className="text-2xl font-bold text-gray-900">{liveBP.sys}/{liveBP.dia}</div>
+                <div className="text-xs text-gray-500 mt-1">Blood Pressure</div>
+              </div>
+
+              {/* Temperature Card */}
+              <div className="bg-gradient-to-br from-orange-50 to-white p-5 rounded-xl border border-orange-100 shadow-md hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-orange-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 2a1 1 0 00-1 1v7.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V3a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                  <span className="text-xs font-medium text-orange-600">°F</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">{liveTemperature.toFixed(1)}</div>
+                <div className="text-xs text-gray-500 mt-1">Temperature</div>
+              </div>
+
+              {/* SpO₂ Card */}
+              <div className="bg-gradient-to-br from-green-50 to-white p-5 rounded-xl border border-green-100 shadow-md hover:shadow-lg transition-shadow duration-300">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-green-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                  <span className="text-xs font-medium text-green-600">%</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">{liveOxygen}</div>
+                <div className="text-xs text-gray-500 mt-1">Oxygen Saturation</div>
               </div>
             </div>
-
-            {/* Controls */}
-            <div className="bg-gray-100 p-4 flex justify-between items-center">
-              <button onClick={() => endLiveConsultation()} className="bg-red-600 text-white px-6 py-2 rounded-lg">End Consultation</button>
-              <div className="text-sm text-gray-600">Recording: <span className="font-medium">ON</span></div>
-            </div>
-          </div>
+          </>
         )}
       </div>
-    );
-  };
+
+      <div className="mt-4 text-right">
+        {!inConsultation ? (
+          <button
+            onClick={startLiveSender}
+            className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            Connect to Doctor
+          </button>
+        ) : (
+          <button
+            onClick={endLiveConsultation}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            End Consultation
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
 
   const renderProfile = () => (
     <div className="space-y-6">
@@ -610,7 +892,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
             />
           </div>
         </div>
-        <button className="mt-6 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
+        <button onClick={updateProfile} className="mt-6 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
           Update Profile
         </button>
       </div>
@@ -715,8 +997,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
             {
               type: 'appointment',
               title: 'Appointment Reminder',
-              message: 'You have a consultation with Dr. Rajesh Kumar today at 3:00 PM',
-              time: '2 hours ago',
               urgent: true,
             },
             {
@@ -796,14 +1076,21 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Patient Dashboard</h1>
-              <p className="text-sm opacity-80">{userName ? `Welcome back, ${userName}` : 'Welcome back'}</p>
+              <p className="text-sm opacity-80">{signedUser ? `Welcome back, ${signedUser.name || 'Patient'} !! ` : 'Welcome back !! '}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-sm opacity-90">Signed in</div>
-             <p className="text-sm opacity-100">{email ? email : null }</p>
-            
+            <div className="flex items-center gap-3">
+              <div className="text-sm opacity-90">Signed in as <span className="font-semibold">{signedUser?.email ?? 'Not signed in'}</span></div>
+              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
+                <img
+                  src={profileImage}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
             <button onClick={onLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
           </div>
         </div>
@@ -813,6 +1100,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
       <div className="bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-6">
           <nav className="flex gap-6 py-3">
+            <button
+              onClick={() => setActiveTab('home')}
+              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'home'
+                ? 'bg-white/6 ring-1 ring-white/20 text-white'
+                : 'text-white/70 hover:text-white hover:bg-white/3'
+                }`}
+            >
+              <Home className="h-5 w-5" />
+              <span>Home</span>
+            </button>
             <button onClick={() => setActiveTab('consultation')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'consultation' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
               <Video className="h-5 w-5" />
               <span>Consultation</span>
@@ -838,6 +1135,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        {activeTab === 'home' && renderHome()}
         {activeTab === 'consultation' && renderConsultation()}
         {activeTab === 'profile' && renderProfile()}
         {activeTab === 'prescriptions' && renderPrescriptions()}
@@ -872,5 +1170,5 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     </div>
   );
 }
-
 export default PatientDashboard;
+

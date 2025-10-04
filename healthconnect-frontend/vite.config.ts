@@ -23,8 +23,7 @@ export default defineConfig({
         secure: false,
       },
       '/ws': {
-        target: 'https://medtech-hcmo.onrender.com',
-        // target: 'http://localhost:8000',
+        target: 'http://localhost:8000',
         ws: true,
         changeOrigin: true,
         secure: false,

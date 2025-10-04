@@ -39,7 +39,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             {/* Pill Buttons */}
             <div className="hidden md:flex space-x-4">
               {[
-                { label: "About ", key: "about" },
+                { label: "About", key: "about" },
                 { label: "Services", key: "services" },
                 { label: "Contact", key: "contact" },
               ].map((item) => (
