@@ -1,5 +1,14 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
+import emailjs from '@emailjs/browser';
+
+// Initialize EmailJS
+try {
+  emailjs.init('ChNx9vs8ZLde4sGrm');
+  console.log('EmailJS initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize EmailJS:', error);
+}
 // Standalone mock user for offline rendering / isolated component
 // Replaces useAuth() so this component doesn't depend on firebase or external context
 const MOCK_USER = {
@@ -1145,6 +1154,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   // ---------------- Prescriptions view -----------------------------------
   // Prescription form state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [prescriptionForm, setPrescriptionForm] = useState({
     patientId: '',
     patientEmail: '',
@@ -1154,6 +1165,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     medicines: [{ name: '', dosage: '', duration: '' }],
     instructions: ''
   });
+
+  // Test function for button click
+  const testButtonClick = () => {
+    console.log('Button clicked!');
+    alert('Share Prescription button was clicked!');
+  };
 
   const handlePrescriptionChange = (field: string, value: string) => {
     setPrescriptionForm(prev => ({ ...prev, [field]: value }));
@@ -1175,7 +1192,16 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   const generateAndEmailPrescription = async () => {
+    if (!prescriptionForm.patientEmail) {
+      alert('Please enter patient email address');
+      return;
+    }
+
+    setIsGenerating(true);
+    setErrorMessage('');
+
     try {
+      console.log('Starting prescription generation and email sending...');
       // Generate PDF content
       const prescriptionHTML = `
         <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
@@ -1218,6 +1244,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       document.body.appendChild(temp);
 
       // Generate PDF
+      console.log('Converting to PDF...');
       const pdf = await html2canvas(temp).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF();
@@ -1225,6 +1252,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        console.log('PDF generated successfully');
         return pdf;
       });
 
@@ -1232,6 +1260,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       const pdfBase64 = pdf.output('datauristring');
 
       // Send email using EmailJS
+      console.log('Preparing email parameters...');
       const emailParams = {
         to_email: prescriptionForm.patientEmail,
         from_name: doctorName,
@@ -1240,18 +1269,30 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         message: 'Please find your prescription attached.',
         pdf_attachment: pdfBase64
       };
+      console.log('Email parameters prepared:', { ...emailParams, pdf_attachment: '[BASE64_DATA]' });
 
-      const result = await emailjs.send(
-        'service_er4o93a',
-        'template_pxfq7mf',
-        emailParams,
-        'ChNx9vs8ZLde4sGrm'
-      );
+      console.log('Sending email with EmailJS...');
+      try {
+        const result = await emailjs.send(
+          'service_er4o93a',
+          'template_pxfq7mf',
+          emailParams,
+          'ChNx9vs8ZLde4sGrm'
+        );
+        console.log('Email sent successfully:', result);
+      } catch (emailError) {
+        console.error('EmailJS error:', emailError);
+        throw emailError;
+      }
 
       alert('Prescription has been sent successfully!');
     } catch (error) {
       console.error('Error sending prescription:', error);
-      alert('Failed to send prescription. Please try again.');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      setErrorMessage(`Failed to send prescription: ${errorMsg}`);
+      alert(`Failed to send prescription: ${errorMsg}`);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -1262,12 +1303,28 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <h2 className="text-xl font-bold text-gray-900">Create New Prescription</h2>
 
           <div>
+            <div className="space-y-4">
             <button
-              onClick={generateAndEmailPrescription}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+              onClick={() => {
+                console.log('Share button clicked');
+                testButtonClick();
+                generateAndEmailPrescription();
+              }}
+              className={`${isGenerating ? 'bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 w-full justify-center`}
+              disabled={isGenerating}
             >
-              Share Prescription
+              {isGenerating ? 'Sending...' : 'Share Prescription'}
             </button>
+            <button
+              onClick={testButtonClick}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 w-full justify-center"
+            >
+              Test Button Click
+            </button>
+          </div>
+            {errorMessage && (
+              <div className="mt-2 text-red-500 text-sm">{errorMessage}</div>
+            )}
           </div>
         </div>
 
