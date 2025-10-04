@@ -42,7 +42,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [signUpMessage, setSignUpMessage] = useState<string | null>(null);
 
-  const roleData: Record<UserRole | 'unknown', { title: string; description: string; icon: JSX.Element; bgColor: string }> = {
+  const roleData: Record<UserRole, { title: string; description: string; icon: JSX.Element; bgColor: string }> = {
     patient: { title: 'Patient', description: 'Access consultations and health records', icon: <Users className="h-6 w-6 text-white" />, bgColor: 'bg-blue-600' },
     doctor: { title: 'Doctor', description: 'Manage consultations and patient care', icon: <Activity className="h-6 w-6 text-white" />, bgColor: 'bg-green-600' },
     pharmacy: { title: 'Pharmacy', description: 'Manage prescriptions and medicines', icon: <Pill className="h-6 w-6 text-white" />, bgColor: 'bg-purple-600' },
@@ -133,6 +133,11 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
       if (res.ok) {
         setSignUpStep('otpSent');
         // Show debug OTP if provided by backend (development mode)
+        if (data.debug_otp) {
+          setSignUpMessage(`Development mode: Use OTP ${data.debug_otp}`);
+        } else {
+          setSignUpMessage('OTP has been sent to your email. Please check your inbox and spam folder.');
+        }
       } else {
         const err = await extractError(res);
         setOtpError(`Failed to send OTP: ${err}`);
@@ -165,10 +170,16 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
 
       if (res.ok && data.verified) {
         setSignUpStep('setPassword');
+        setOtpError(null);
         setSignUpMessage('OTP verified successfully. Please set your password.');
       } else {
         const message = data.message || 'Invalid or expired OTP';
         setOtpError(message);
+        console.error('OTP verification failed:', data);
+        // If there's a specific error about expiration, offer to resend
+        if (message.toLowerCase().includes('expire')) {
+          setSignUpMessage('OTP has expired. Please click "Resend OTP" to get a new one.');
+        }
       }
     } catch (err) {
       console.error('Verify OTP failed:', err);
