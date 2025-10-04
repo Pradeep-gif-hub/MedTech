@@ -44,6 +44,10 @@ interface DoctorDashboardProps {
  */
 
 const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDashboardProps) => {
+  const handleTestClick = () => {
+    console.log('Test click');
+    window.alert('Button clicked!');
+  };
   const safeFetchFromStorage = (key: string, defaultValue: string) => {
     try {
       const value = localStorage.getItem(key);
@@ -1299,29 +1303,34 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const renderPrescriptionsForm = () => {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Create New Prescription</h2>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Prescription</h2>
 
-          <div>
-            <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <button
+              type="button"
+              onClick={() => {
+                alert('Basic test button clicked!');
+                console.log('Basic test clicked');
+              }}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg"
+            >
+              Click Me (Basic Test)
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 console.log('Share button clicked');
-                testButtonClick();
+                alert('Share button clicked');
                 generateAndEmailPrescription();
               }}
-              className={`${isGenerating ? 'bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 w-full justify-center`}
+              className={`${isGenerating ? 'bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-3 rounded-lg`}
               disabled={isGenerating}
             >
               {isGenerating ? 'Sending...' : 'Share Prescription'}
             </button>
-            <button
-              onClick={testButtonClick}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 w-full justify-center"
-            >
-              Test Button Click
-            </button>
-          </div>
+
             {errorMessage && (
               <div className="mt-2 text-red-500 text-sm">{errorMessage}</div>
             )}
