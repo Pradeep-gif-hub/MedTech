@@ -20,6 +20,9 @@ def ensure_columns():
                 'gender': 'VARCHAR',
                 'bloodgroup': 'VARCHAR',
                 'allergy': 'VARCHAR',
+                'dob': 'VARCHAR',
+                'phone': 'VARCHAR',
+                'emergency_contact': 'VARCHAR',
                 'profile_picture_url': 'VARCHAR'
             }
 

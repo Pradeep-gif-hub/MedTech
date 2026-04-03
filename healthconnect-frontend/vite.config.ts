@@ -8,7 +8,7 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   server: {
-    host: true,
+    host: 'localhost',
     // allow the ngrok / external hostnames so the dev server accepts proxied requests
     allowedHosts: [
       'localhost',    

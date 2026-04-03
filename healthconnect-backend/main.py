@@ -94,6 +94,18 @@ try:
                     if 'allergy' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN allergy VARCHAR"))
                         added.append('allergy')
+                    if 'dob' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN dob VARCHAR"))
+                        added.append('dob')
+                    if 'phone' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR"))
+                        added.append('phone')
+                    if 'emergency_contact' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN emergency_contact VARCHAR"))
+                        added.append('emergency_contact')
+                    if 'profile_picture_url' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_picture_url VARCHAR"))
+                        added.append('profile_picture_url')
                     if added:
                         print(f"[startup] Added missing user columns: {added}")
                     else:

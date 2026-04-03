@@ -10,3 +10,4 @@ python-dotenv
 requests==2.31.0
 pyjwt==2.8.0
 cryptography==41.0.4
+google-auth>=2.25.0

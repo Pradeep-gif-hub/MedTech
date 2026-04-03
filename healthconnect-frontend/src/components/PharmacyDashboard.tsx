@@ -1,46 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Pill, FileText, Package, BarChart3, Check, X, Clock, Search, Filter } from 'lucide-react';
-import profileImage from '../assets/pharmacy.png';
+import { useStoredUser } from '../hooks/useStoredUser';
+import { useBackendProfile } from '../hooks/useBackendProfile';
 
 interface PharmacyDashboardProps {
   onLogout: () => void;
 }
 
 const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'prescriptions' | 'inventory' | 'orders' | 'analytics'>('prescriptions');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'dispensed'>('all');
+  const [activeTab, setActiveTab] = useState('prescriptions' as 'prescriptions' | 'inventory' | 'orders' | 'analytics');
+  const [filterStatus, setFilterStatus] = useState('all' as 'all' | 'pending' | 'approved' | 'dispensed');
+  const signedUser = useStoredUser();
+  const { profile } = useBackendProfile();
 
-  const [signedUser, setSignedUser] = useState<{ name?: string; email?: string } | null>(() => {
+  const handleLogout = () => {
     try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!raw) return null;
-      try { return JSON.parse(raw); } catch { return { email: String(raw) }; }
-    } catch { return null; }
-  });
-
-  useEffect(() => {
-    const load = () => {
-      try {
-        const raw = localStorage.getItem('user');
-        if (!raw) { setSignedUser(null); return; }
-        try { setSignedUser(JSON.parse(raw)); } catch { setSignedUser({ email: raw }); }
-      } catch { setSignedUser(null); }
-    };
-    const onStorage = (e: StorageEvent) => { if (e.key === 'user') load(); };
-    const onUserUpdated = (e: Event) => {
-      try {
-        const d = (e as CustomEvent).detail;
-        if (d) setSignedUser(typeof d === 'string' ? JSON.parse(d) : d);
-        else load();
-      } catch { load(); }
-    };
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('user-updated', onUserUpdated as EventListener);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('user-updated', onUserUpdated as EventListener);
-    };
-  }, []);
+      localStorage.removeItem('token');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_id');
+      window.dispatchEvent(new CustomEvent('user-updated', { detail: null }));
+    } catch {
+      // no-op
+    }
+    onLogout();
+  };
 
   const prescriptions = [
     {
@@ -626,7 +610,10 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
             Pharmacy Dashboard
           </h1>
           <p className="text-sm text-emerald-100">
-            Welcome back, {signedUser?.name ? signedUser.name : 'MedPlus Pharmacy'}!
+            Welcome back, {profile?.name || signedUser?.name || 'Pharmacy User'}!
+          </p>
+          <p className="text-xs text-emerald-100/90">
+            Age: {profile?.age ?? '-'} | Gender: {profile?.gender || '-'} | Blood Group: {profile?.bloodgroup || '-'} | DOB: {profile?.dob || '-'} | Phone: {profile?.phone || '-'}
           </p>
         </div>
       </div>
@@ -636,15 +623,15 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
         <div className="hidden sm:flex items-center flex-row text-right mr-2">
   <span className="text-xs text-emerald-100 mr-1">Signed in as</span>
   <span className="text-sm font-semibold text-white">
-    {signedUser?.email ?? 'Not signed in'}
+    {profile?.email || signedUser?.email || 'Not signed in'}
   </span>
 </div>
 
         <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-gray-200">
-          <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+          <img src={profile?.picture || profile?.profile_picture_url || signedUser?.picture || '/default-avatar.png'} alt="Profile" className="w-full h-full object-cover" />
         </div>
         <button
-          onClick={onLogout}
+          onClick={handleLogout}
           className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 
                      rounded-lg hover:from-red-600 hover:to-pink-700 transition-all shadow-md"
         >

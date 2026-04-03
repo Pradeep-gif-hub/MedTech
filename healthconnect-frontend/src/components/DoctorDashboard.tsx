@@ -1,6 +1,8 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import emailjs from '@emailjs/browser';
+import { useStoredUser } from '../hooks/useStoredUser';
+import { useBackendProfile } from '../hooks/useBackendProfile';
 
 // Initialize EmailJS
 try {
@@ -9,12 +11,6 @@ try {
 } catch (error) {
   console.error('Failed to initialize EmailJS:', error);
 }
-// Standalone mock user for offline rendering / isolated component
-// Replaces useAuth() so this component doesn't depend on firebase or external context
-const MOCK_USER = {
-  displayName: 'Priya Sharma',
-  email: 'priya.sharma@example.com',
-};
 import profileImage from '../assets/doctor.png';
 import doctorImg from "../assets/qr1.jpeg";
 import {
@@ -48,16 +44,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     console.log('Test click');
     window.alert('Button clicked!');
   };
-  const safeFetchFromStorage = (key: string, defaultValue: string) => {
-    try {
-      const value = localStorage.getItem(key);
-      return value || defaultValue;
-    } catch (err) {
-      console.error(`Error reading ${key}:`, err);
-      return defaultValue;
-    }
-  };
-
   // --- Local UI state ----------------------------------------------------
   const [activeTab, setActiveTab] = useState<
     'home' | 'queue' | 'consultation' | 'prescriptions' | 'analytics'
@@ -65,159 +51,57 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   const [inConsultation, setInConsultation] = useState<boolean>(false);
 
-  // Local mock user (standalone) — previously used useAuth()
-  const user = MOCK_USER as any;
-  const token = undefined;
+  const sessionUser = useStoredUser();
+  const { profile } = useBackendProfile();
+  const signedUser = {
+    name: profile?.name || sessionUser?.name || 'Doctor',
+    email: profile?.email || sessionUser?.email || '',
+    role: profile?.role || sessionUser?.role || 'doctor',
+    age: profile?.age || sessionUser?.age,
+    bloodgroup: profile?.bloodgroup || sessionUser?.bloodgroup,
+    phone: profile?.phone || sessionUser?.phone,
+    picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture,
+  } as any;
 
-  // User state with profile picture
-  const [signedUser, setSignedUser] = useState<{
-    name?: string;
-    email?: string;
-    role?: string;
-    profile_picture_url?: string;
-  } | null>(null);
-
-  // Profile image state
-  // No remote profile images: use initials avatar only
-  const [profileImageUrl, setProfileImageUrl] = useState<string>('');
-  const [imageLoading, setImageLoading] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
-
+  // Cross-browser-safe avatar fallback.
+  const [avatarSrc, setAvatarSrc] = useState('/default-avatar.png');
   useEffect(() => {
-    const loadUser = () => {
-      setImageLoading(true);
-      setImageError(null);
+    setAvatarSrc((signedUser?.picture as string) || '/default-avatar.png');
+  }, [signedUser?.picture]);
 
-      try {
-        // Prefer persisted user in localStorage (if any)
-        let stored: any = null;
-        const raw = localStorage.getItem('user');
-        if (raw) {
-          try {
-            stored = JSON.parse(raw);
-          } catch {
-            stored = raw;
-          }
-        }
+  const handleAvatarError = (e: any) => {
+    const el = e.currentTarget as HTMLImageElement;
+    if (!el.src.includes('/default-avatar.png')) {
+      el.src = '/default-avatar.png';
+    }
+  };
 
-        const source = stored || user || null;
+  // --- Derived doctor info (source of truth: backend profile/session) ---
+  const doctorName = signedUser?.name || 'Doctor';
+  const doctorImage = avatarSrc || '/default-avatar.png';
+  const email = signedUser?.email || '';
 
-        const name =
-          source?.displayName ||
-          source?.name ||
-          source?.fullName ||
-          source?.username ||
-          '';
-        const email = source?.email || '';
-        const role = source?.role || (email ? 'user' : 'doctor') || 'doctor';
+  // Use consistent defaults for fields not yet present in backend schema.
+  const specialization = (profile as any)?.specialization || 'General Physician';
+  const experience = (profile as any)?.experience || '15 years';
+  const doctorId = (profile as any)?.doctor_id || 'DG-MBBS-L24106056';
+  const phone = signedUser?.phone || '-';
+  const bloodGroup = signedUser?.bloodgroup || '-';
+  const licenseNumber = (profile as any)?.license_number || 'RCXS-24103948';
+  const registrationNumber = (profile as any)?.registration_no || 'RG-932183';
+  const hospitalAffiliation = (profile as any)?.hospital || 'PGI-Chandigarh';
+  const qualifications = (profile as any)?.qualifications || 'MBBS-MD AIIMS';
+  const yearsPracticing = (profile as any)?.years_practicing || '15 years';
+  const languages = (profile as any)?.languages || 'English, Hindi, Punjabi';
+  const clinicAddress = (profile as any)?.clinic_address || 'Shashtri Nagar, Mandi Govindgarh';
+  const consultationFee = (profile as any)?.consultation_fee || 'INR-300';
 
-        if (name || email) {
-          setSignedUser({ name: name || undefined, email: email || undefined, role });
-          setProfileImageUrl(source?.photoURL || '');
-        } else {
-          setSignedUser(null);
-          setProfileImageUrl('');
-        }
-      } catch (err) {
-        console.warn('loadUser error', err);
-        setSignedUser(null);
-        setProfileImageUrl('');
-        setImageError('Failed to load profile data');
-      } finally {
-        setImageLoading(false);
-      }
-    };
-
-    loadUser();
-
-    // update when other tabs/windows change localStorage
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'user') loadUser();
-    };
-    window.addEventListener('storage', onStorage);
-
-    // update when the same window dispatches a login event
-    const onUserUpdated = (e: Event) => {
-      try {
-        let detail = (e as CustomEvent).detail;
-        if (detail) {
-          if (typeof detail === 'string') {
-            try {
-              detail = JSON.parse(detail);
-            } catch {}
-          }
-        }
-
-        const d = detail;
-        const name = d?.displayName || d?.name || d?.fullName || d?.username || undefined;
-        const email = d?.email || undefined;
-        const role = d?.role || 'user';
-
-        setSignedUser({ name, email, role });
-        if (d?.photoURL) setProfileImageUrl(d.photoURL);
-
-        // persist so other tabs/windows can pick it up
-        try {
-          localStorage.setItem('user', typeof detail === 'string' ? detail : JSON.stringify(d));
-        } catch {}
-      } catch {
-        loadUser();
-      }
-    };
-    window.addEventListener('user-updated', onUserUpdated as EventListener);
-
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('user-updated', onUserUpdated as EventListener);
-    };
-  }, []);
-
-  // --- Derived doctor info (safe defaults so renderHome can't crash) ---
-  const doctorName = signedUser?.name || localStorage.getItem('name') || 'Dr. John Doe';
-  const doctorImage = profileImageUrl || profileImage;
-  const email = signedUser?.email || localStorage.getItem('email') || '';
-  const specialization = localStorage.getItem('specialization') || 'General Physician';
-  const experience = localStorage.getItem('experience') || '10+ years';
-  const doctorId = localStorage.getItem('doctor_id') || 'D-12345';
-  const phone = localStorage.getItem('phone') || '+91 8127136711';
-
-  // Initialize default values if not present
-  useEffect(() => {
-    console.log('Initializing doctor data...');
-    const defaults = {
-      name: 'Dr. John Doe',
-      specialization: 'General Physician',
-      experience: '15 years',
-      doctor_id: 'DG-MBBS-L24106056',
-      phone: '+91 8127136711',
-      bloodGroup: 'AB+',
-      age: '45',
-      license_number: 'RCXS-24103948',
-      registration_no: 'RG-932183',
-      hospital: 'PGI-Chandigarh',
-      qualifications: 'MBBS-MD AIIMS Bhatinda',
-      languages: 'English, Hindi, Punjabi',
-      clinic_address: 'Shashtri Nagar, Mandi Govindgarh',
-      consultation_fee: 'INR-300'
-    };
-
-    Object.entries(defaults).forEach(([key, value]) => {
-      if (!localStorage.getItem(key)) {
-        localStorage.setItem(key, value);
-      }
-    });
-  }, []);
-
-  // --- Additional credentials with guaranteed values ---
-  const bloodGroup = signedUser?.bloodGroup || localStorage.getItem('bloodGroup') || 'AB+';
-  const licenseNumber = localStorage.getItem('license_number') || signedUser?.licenseNumber || 'RCXS-24103948';
-  const registrationNumber = localStorage.getItem('registration_no') || signedUser?.registrationNumber || 'RG-932183';
-  const hospitalAffiliation = localStorage.getItem('hospital') || signedUser?.hospital || 'PGI-Chandigarh';
-  const qualifications = localStorage.getItem('qualifications') || signedUser?.qualifications || 'MBBS-MD AIIMS Gorakhpur';
-  const yearsPracticing = localStorage.getItem('years_practicing') || signedUser?.yearsPracticing || '15 years';
-  const languages = localStorage.getItem('languages') || signedUser?.languages || 'English, Hindi, Punjabi';
-  const clinicAddress = localStorage.getItem('clinic_address') || signedUser?.clinicAddress || 'Shashtri Nagar, Mandi Govindgarh';
-  const consultationFee = localStorage.getItem('consultation_fee') || signedUser?.fee || 'INR-300';
+  const effectiveDoctorName = doctorName;
+  const effectiveDoctorEmail = email;
+  const effectiveDoctorImage = doctorImage;
+  const effectiveDoctorPhone = phone;
+  const effectiveDoctorBloodGroup = bloodGroup;
+  const effectiveDoctorAge = String(signedUser?.age || '-');
 
   const [currentPatient, setCurrentPatient] = useState<any>(null);
 
@@ -562,15 +446,15 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const renderHome = () => {
     try {
       const doctorDetails = {
-        name: doctorName,
-        image: doctorImage,
-        email: email,
+        name: effectiveDoctorName,
+        image: effectiveDoctorImage,
+        email: effectiveDoctorEmail,
         specialization: specialization,
         experience: experience,
         doctorId: doctorId,
-        phone: phone,
-        bloodGroup: bloodGroup,
-        age: safeFetchFromStorage('age', '45'),
+        phone: effectiveDoctorPhone,
+        bloodGroup: effectiveDoctorBloodGroup,
+        age: effectiveDoctorAge,
         licenseNumber: licenseNumber,
         registrationNumber: registrationNumber,
         hospital: hospitalAffiliation,
@@ -589,7 +473,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               {/* Header with Photo */}
               <div className="flex items-center gap-6 p-6 bg-gradient-to-r from-gray-50 to-white border-b">
                 <div className="w-24 h-24 rounded-xl overflow-hidden border-2 border-emerald-400 shadow-lg">
-                  <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" />
+                  <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Dr. {doctorDetails.name}</h2>
@@ -676,14 +560,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                           <p className="text-cyan-100 text-[10px] uppercase tracking-[0.2em]">Digital Health ID</p>
                         </div>
                         <div className="w-10 h-10 bg-white/10 rounded-lg p-1.5 shadow-lg backdrop-blur-sm">
-                          <img src={doctorImage} alt="logo" className="w-full h-full object-contain opacity-90" />
+                          <img src={profileImage} alt="logo" className="w-full h-full object-contain opacity-90" />
                         </div>
                       </div>
 
                       {/* Card Body */}
                       <div className="flex items-center gap-4 my-2">
                         <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg">
-                          <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" />
+                          <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
                         </div>
                         <div className="flex-1">
                           <h4 className="text-white text-sm font-semibold leading-tight tracking-wide">{doctorDetails.name}</h4>
@@ -691,7 +575,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-blue-200 opacity-90">ID: {doctorDetails.doctorId}</span>
                             <span className="h-1 w-1 bg-blue-300 rounded-full opacity-50"></span>
-                            <span className="text-[10px] text-blue-200 opacity-90">Valid Till: 12/25</span>
+                            <span className="text-[10px] text-blue-200 opacity-90">Valid Till: 07/31</span>
                           </div>
                         </div>
                       </div>
@@ -745,7 +629,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                   <div className="text-sm text-gray-800">Active & Verified</div>
                   <div className="mt-2 flex items-center">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                    <span className="text-xs text-gray-500">Valid till 2025</span>
+                    <span className="text-xs text-gray-500">Valid till 2031</span>
                   </div>
                 </div>
 
@@ -1701,10 +1585,10 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Doctor Dashboard</h1>
               <p className="text-sm opacity-80">
-                {signedUser ? (
+                {sessionUser || signedUser ? (
                   <>
                     Welcome back,{' '}
-                    {signedUser.role === 'doctor' ? `Dr ${signedUser.name || 'Doctor'}` : signedUser.name || 'User'} !
+                    {(sessionUser?.role || signedUser?.role) === 'doctor' ? `Dr ${sessionUser?.name || signedUser?.name || 'Doctor'}` : sessionUser?.name || signedUser?.name || 'User'} !
                   </>
                 ) : (
                   'Welcome back!'
@@ -1714,21 +1598,23 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-sm opacity-90">
-              Signed in as <span className="font-semibold">{signedUser?.email ?? 'Not signed in'}</span>
+            <div className="text-sm opacity-90 text-right">
+              <div>Signed in as <span className="font-semibold">{profile?.email || sessionUser?.email || signedUser?.email || 'Not signed in'}</span></div>
             </div>
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
-                            <img 
-                              src={profileImage} 
-                              alt="Profile" 
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
+              <img
+                src={avatarSrc}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={handleAvatarError}
+              />
+            </div>
 
             <button
               onClick={() => {
-                try { localStorage.removeItem('user'); } catch {}
-                setSignedUser(null);
+                try { localStorage.removeItem('token'); localStorage.removeItem('auth_token'); } catch {}
+                try { localStorage.removeItem('role'); localStorage.removeItem('user_id'); } catch {}
+                try { window.dispatchEvent(new CustomEvent('user-updated', { detail: null })); } catch {}
                 if (onLogout) onLogout();
               }}
               className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition"
