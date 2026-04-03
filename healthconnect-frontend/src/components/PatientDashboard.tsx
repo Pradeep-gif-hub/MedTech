@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import jsPDF from 'jspdf';
 import { Home } from "lucide-react";
 import html2canvas from 'html2canvas';
-import { Video, User, FileText, Bell, Heart, Activity, Download, Phone, Star, MessageCircle, Camera, Clock } from 'lucide-react';
-import profileImage from '../assets/profile.png';
+import { Video, User, FileText, Bell, Heart, Activity, Download, Phone, Star, Clock } from 'lucide-react';
+import { useStoredUser } from '../hooks/useStoredUser';
+import { buildApiUrl } from '../config/api';
+import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
 
 interface PatientDashboardProps { onLogout: () => void }
 // sample vitals and data (replace with real API data)
@@ -14,7 +16,7 @@ const vitalSigns = {
   oxygenLevel: 96,
 };
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
+const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // normalize tab keys to lowercase ('home') because the rest of the file uses 'home'
   const [activeTab, setActiveTab] = useState('home' as 'home' | 'consultation' | 'profile' | 'prescriptions' | 'notifications');
   const [inConsultation, setInConsultation] = useState(false);
@@ -35,6 +37,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
   const [liveHeartRate, setLiveHeartRate] = useState(72 as number);
   const [liveTemperature, setLiveTemperature] = useState(98.6 as number);
   const [liveOxygen, setLiveOxygen] = useState(98 as number);
+  const { profile, refreshProfile } = useBackendProfile();
 
   // WebRTC / signaling refs (patient = sender)
   const localVideoRef = useRef(null as HTMLVideoElement | null);
@@ -161,7 +164,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
   };
 
   // Simulated vitals updater
-  useEffect(() => { let mounted = true; const tick = () => { if (!mounted) return; setLiveHeartRate(h => Math.max(55, Math.min(110, h + Math.round((Math.random() * 2 - 1) * 3)))); setLiveTemperature(t => Math.round((t + ((Math.random() * 2 - 1) * 0.2)) * 10) / 10); setLiveOxygen(o => Math.max(90, Math.min(100, o + Math.round((Math.random() * 2 - 1) * 1)))); setTimeout(tick, 3000 + Math.floor(Math.random() * 1000)); }; const id = window.setTimeout(tick, 1000); return () => { mounted = false; clearTimeout(id); } }, []);
+  useEffect(() => { let mounted = true; const tick = () => { if (!mounted) return; setLiveHeartRate((h: number) => Math.max(55, Math.min(110, h + Math.round((Math.random() * 2 - 1) * 3)))); setLiveTemperature((t: number) => Math.round((t + ((Math.random() * 2 - 1) * 0.2)) * 10) / 10); setLiveOxygen((o: number) => Math.max(90, Math.min(100, o + Math.round((Math.random() * 2 - 1) * 1)))); setTimeout(tick, 3000 + Math.floor(Math.random() * 1000)); }; const id = window.setTimeout(tick, 1000); return () => { mounted = false; clearTimeout(id); } }, []);
 
   // Start live as sender (patient)
   const startLiveSender = async () => {
@@ -264,20 +267,56 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     pcRef.current = null;
     wsRef.current = null;
     pendingSends.current = [];
-    // after ending the call, redirect patient to Prescriptions tab
-    setActiveTab('prescriptions');
+    // Keep users on Home; prescriptions should be menu-driven only.
+    setActiveTab('home');
   };
 
   // Minimal profile save handler (was referenced from UI)
-  const updateProfile = () => {
+  const updateProfile = async () => {
     try {
-      if (fullName) localStorage.setItem('name', fullName);
-      if (email) localStorage.setItem('email', email);
-      if (phone) localStorage.setItem('phone', phone);
-      alert('Profile saved locally.');
+      const payload = {
+        name: fullName,
+        role: profile?.role || sessionUser?.role || localStorage.getItem('role') || 'patient',
+        age: dob ? Math.max(0, Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))) : null,
+        phone,
+        dob,
+        gender: Gender,
+        bloodgroup: bloodGroup,
+        emergency_contact: emergencyContact,
+        allergy: allergies,
+        allergies,
+        medications,
+        surgeries,
+      };
+
+      const res = await fetch(buildApiUrl('/api/users/update-profile'), {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const updated = await res.json();
+      setFullName(updated.name || fullName);
+      setEmail(updated.email || email);
+      setPhone(updated.phone || phone);
+      setDob(updated.dob || dob);
+      setGender(updated.gender || Gender);
+      setBloodGroup(updated.bloodgroup || bloodGroup);
+      setEmergencyContact(updated.emergency_contact || emergencyContact);
+      setAllergies(updated.allergies || updated.allergy || allergies);
+      setMedications(updated.medications || medications);
+      setSurgeries(updated.surgeries || surgeries);
+
+      window.dispatchEvent(new CustomEvent('user-updated', { detail: updated }));
+      await refreshProfile();
+      alert('Profile updated successfully.');
     } catch (e) {
       console.error('updateProfile error', e);
-      alert('Failed to save profile.');
+      alert('Failed to update profile.');
     }
   };
 
@@ -291,143 +330,112 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
   }, []);
 
   // Profile form state
-  const [fullName, setFullName] = useState(() => localStorage.getItem('name') || "");
-  const [dob, setDob] = useState("08-08-2005");
-  const [Gender, setGender] = useState("Male");
-  const [phone, setPhone] = useState("+91 8127136711");
-  // Try to get email from localStorage, fallback to empty string
-  const [email, setEmail] = useState(() => {
-    const stored = localStorage.getItem('email');
-    if (stored && stored !== 'undefined' && stored !== 'null') return stored;
-    // fallback: try to get from user info (if available in localStorage)
-    try {
-      const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
-      if (userInfo.email) return userInfo.email;
-    } catch { }
-    return "";
-  });
-
-  // Keep email in sync with localStorage if it changes (e.g., after login)
-  useEffect(() => {
-    const storedEmail = localStorage.getItem('email');
-    if (storedEmail && storedEmail !== 'undefined' && storedEmail !== 'null') {
-      if (email !== storedEmail) setEmail(storedEmail);
-    }
-  }, [email]);
-  const [bloodGroup, setBloodGroup] = useState("A+");
-  const [emergencyContact, setEmergencyContact] = useState("+91 8127136711");
+  const [fullName, setFullName] = useState('');
+  const [dob, setDob] = useState('');
+  const [Gender, setGender] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
   // Medical history state
   const [allergies, setAllergies] = useState("");
   const [medications, setMedications] = useState("");
   const [surgeries, setSurgeries] = useState("");
 
-  // Get user_id from localStorage (set at login)
-  const userId = localStorage.getItem('user_id');
+  const userId = profile?.id ? String(profile.id) : '';
 
   // Logged-in user state (fetched from backend)
-  const [userName, setUserName] = useState<string>(() => localStorage.getItem('name') || '');
+  const [userName, setUserName] = useState('' as string);
 
-  // NEW: signed-in user info read from localStorage and event listeners
-  const [signedUser, setSignedUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
+  const sessionUser = useStoredUser();
 
-  // Keep profile state in sync with signedUser (from localStorage / login)
-  useEffect(() => {
-    if (!signedUser) return;
+  const handleLocalLogout = () => {
     try {
-      // Map commonly used fields from signedUser into component state if present
-      const s: any = signedUser;
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      window.dispatchEvent(new CustomEvent('user-updated', { detail: null }));
+    } catch {
+      // no-op
+    }
+    onLogout();
+  };
+
+  // Keep profile state in sync with authenticated session profile.
+  useEffect(() => {
+    if (!sessionUser) return;
+    try {
+      const s: any = sessionUser;
       if (s.name || s.fullname || s.displayName) setFullName(s.name || s.fullname || s.displayName);
       if (s.email) setEmail(s.email);
       if (s.phone) setPhone(s.phone);
       if (s.dob || s.birthdate) setDob(s.dob || s.birthdate);
-      if (s.bloodGroup) setBloodGroup(s.bloodGroup);
+      if (s.gender) setGender(s.gender);
+      if (s.bloodgroup || s.bloodGroup) setBloodGroup(s.bloodgroup || s.bloodGroup);
       if (s.emergencyContact) setEmergencyContact(s.emergencyContact);
       if (typeof s.allergies === 'string' && s.allergies) setAllergies(s.allergies);
       if (typeof s.medications === 'string' && s.medications) setMedications(s.medications);
-      // persist name/email to localStorage same as earlier behavior
-      try { if (s.name) localStorage.setItem('name', s.name); if (s.email) localStorage.setItem('email', s.email); } catch { }
     } catch (err) {
       // ignore mapping errors
     }
-  }, [signedUser]);
+  }, [sessionUser]);
 
-  useEffect(() => {
-    const loadUser = () => {
-      try {
-        const raw = localStorage.getItem('user');
-        if (raw) setSignedUser(JSON.parse(raw));
-        else setSignedUser(null);
-      } catch {
-        setSignedUser(null);
-      }
-    };
-    loadUser();
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'user') loadUser();
-    };
-    const onUserUpdated = (e: Event) => {
-      try {
-        const detail = (e as CustomEvent).detail;
-        if (detail) setSignedUser(detail);
-        else loadUser();
-      } catch {
-        loadUser();
-      }
-    };
-
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('user-updated', onUserUpdated as EventListener);
-
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('user-updated', onUserUpdated as EventListener);
-    };
-  }, []);
-
-  // Try to fetch user info from backend on mount (graceful fallback to localStorage)
+  // Fetch user info from backend profile endpoint.
   useEffect(() => {
     let mounted = true;
     const fetchUser = async () => {
       try {
-        // Prefer a /api/users/me endpoint if available, otherwise use userId
-        const urls = [] as string[];
-        if (userId) urls.push(`https://medtech-hcmo.onrender.com/api/users/${userId}`);
-        urls.unshift('https://medtech-hcmo.onrender.com/api/users/me');
+        const res = await fetch(buildApiUrl('/api/users/me'), {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
 
-        for (const u of urls) {
-          try {
-            const res = await fetch(u, { credentials: 'include' });
-            if (!res.ok) continue;
-            const data = await res.json();
-            if (!data) continue;
-            const name = data.name || data.fullname || data.full_name || data.username || data.email || '';
-            if (mounted) {
-              if (name) {
-                setUserName(name);
-                try { localStorage.setItem('name', name); } catch { }
-              }
-              // populate profile fields if available
-              if (data.name) setFullName(data.name);
-              if (data.email) setEmail(data.email);
-              if (typeof data.allergies === 'string') setAllergies(data.allergies || '');
-              if (typeof data.medications === 'string') setMedications(data.medications || '');
-              if (typeof data.surgeries === 'string') setSurgeries(data.surgeries || '');
-              if (data.phone) setPhone(data.phone);
-              if (data.emergencyContact) setEmergencyContact(data.emergencyContact);
-            }
-            break;
-          } catch (e) {
-            // ignore and try next
-          }
+        if (!res.ok) {
+          return;
         }
+
+        const data = await res.json();
+        if (!data || !mounted) {
+          return;
+        }
+
+        const name = data.name || data.fullname || data.full_name || data.username || data.email || '';
+        if (name) {
+          setUserName(name);
+        }
+        if (data.name) setFullName(data.name);
+        if (data.email) setEmail(data.email);
+        if (typeof data.allergies === 'string') setAllergies(data.allergies || '');
+        if (typeof data.medications === 'string') setMedications(data.medications || '');
+        if (typeof data.surgeries === 'string') setSurgeries(data.surgeries || '');
+        if (data.gender) setGender(data.gender);
+        if (data.dob) setDob(data.dob);
+        if (data.bloodgroup) setBloodGroup(data.bloodgroup);
+        if (data.phone) setPhone(data.phone);
+        if (data.emergency_contact) setEmergencyContact(data.emergency_contact);
       } catch (e) {
-        // ignore - keep localStorage fallback
+        // ignore and keep current state
       }
     };
     fetchUser();
     return () => { mounted = false; };
   }, [userId]);
+
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    if (profile.name) setFullName(profile.name);
+    if (profile.email) setEmail(profile.email);
+    if (profile.phone) setPhone(profile.phone);
+    if (profile.dob) setDob(profile.dob);
+    if (profile.gender) setGender(profile.gender);
+    if (profile.bloodgroup) setBloodGroup(profile.bloodgroup);
+    if (profile.emergency_contact) setEmergencyContact(profile.emergency_contact);
+    if (profile.allergies) setAllergies(profile.allergies);
+    if (profile.medications) setMedications(profile.medications);
+    if (profile.surgeries) setSurgeries(profile.surgeries);
+  }, [profile]);
 
 
 
@@ -446,11 +454,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
     return { sys: Number(m[1]), dia: Number(m[2]) };
   };
   const initialBP = parseBP(vitalSigns.bloodPressure);
-  const [liveBP, setLiveBP] = useState<{ sys: number; dia: number }>(initialBP);
-  const [bpHistory, setBpHistory] = useState<string[]>([`${initialBP.sys}/${initialBP.dia}`]);
+  const [liveBP, setLiveBP] = useState(initialBP as { sys: number; dia: number });
+  const [bpHistory, setBpHistory] = useState([`${initialBP.sys}/${initialBP.dia}`] as string[]);
 
-  const [liveLDR, setLiveLDR] = useState<number | null>(null);
-  const [ldrHistory, setLdrHistory] = useState<number[]>([]);
+  const [liveLDR, setLiveLDR] = useState(null as number | null);
+  const [ldrHistory, setLdrHistory] = useState([] as number[]);
 
   // Helper to produce a smooth next value given previous value
   function nextValue(prev: number, min: number, max: number, variance = 2) {
@@ -479,14 +487,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
               <div className="flex items-center gap-4 mb-12">
                 <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105">
                   <img
-                    src={profileImage}
+                    src={profile?.picture || profile?.profile_picture_url || sessionUser?.picture || '/default-avatar.png'}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div>
                   <h2 className="text-10xl font-extrabold text-emerald-900">
-                    <p className="text-sm opacity-500">{signedUser ? `${signedUser.name || 'Patient'} ` : 'Welcome back !! '}</p>
+                    <p className="text-sm opacity-500">{profile?.name || sessionUser?.name || 'Patient'}</p>
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">{email || 'No email provided'}</p>
                   <p className="text-xs text-emerald-700 mt-1 font-medium">Your Health Summary</p>
@@ -1305,22 +1313,22 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout }) => {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Patient Dashboard</h1>
-              <p className="text-sm opacity-80">{signedUser ? `Welcome back, ${signedUser.name || 'Patient'} !! ` : 'Welcome back !! '}</p>
+              <p className="text-sm opacity-80">{sessionUser ? `Welcome back, ${sessionUser.name || 'Patient'} !! ` : 'Welcome back !! '}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="text-sm opacity-90">Signed in as <span className="font-semibold">{signedUser?.email ?? 'Not signed in'}</span></div>
+              <div className="text-sm opacity-90">Signed in as <span className="font-semibold">{sessionUser?.email || 'Not signed in'}</span></div>
               <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
                 <img
-                  src={profileImage}
+                  src={sessionUser?.picture || '/default-avatar.png'}
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />
               </div>
             </div>
-            <button onClick={onLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
+            <button onClick={handleLocalLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
           </div>
         </div>
       </header>

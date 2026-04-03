@@ -19,6 +19,9 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
     role = Column(String, nullable=True)
+    dob = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    emergency_contact = Column(String, nullable=True)
 
     # legacy fields (kept for backward compatibility)
     allergies = Column(String, nullable=True)

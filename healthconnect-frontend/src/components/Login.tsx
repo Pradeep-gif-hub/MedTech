@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, Users, Activity, Pill, Shield } from 'lucide-react';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { UserRole } from '../App';
 import { useAuth } from '../contexts/AuthContext';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { buildApiUrl } from '../config/api';
 
 interface LoginProps {
   onBack: () => void;
   role?: UserRole;
   onLogin: (role: UserRole) => void;
+  onNewUser?: (userData: any) => void;
 }
 
 const demoCredentials: Record<UserRole, { email: string; password: string }> = {
@@ -19,9 +20,16 @@ const demoCredentials: Record<UserRole, { email: string; password: string }> = {
   unknown: { email: '', password: '' },
 };
 
-const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
+const roleRoutes: Record<Exclude<UserRole, 'unknown'>, string> = {
+  patient: '/patient/home',
+  doctor: '/doctor/dashboard',
+  pharmacy: '/pharmacy/dashboard',
+  admin: '/admin/dashboard',
+};
+
+const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => {
   // Auth hook for Google login
-  const { setToken } = useAuth();
+  const { setToken, setUser } = useAuth();
   // UI state
   const [showPassword, setShowPassword] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
@@ -30,17 +38,17 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   const [gender, setSelectgender] = useState('');
   const [bloodgroup, setShowBg] = useState('');
   const [allergy, setAllergy] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>(role ?? 'patient');
+  const [selectedRole, setSelectedRole]: [UserRole, (value: UserRole) => void] = useState(role ?? 'patient');
   const [email, setEmail] = useState(demoCredentials[role ?? 'patient'].email);
   const [password, setPassword] = useState(demoCredentials[role ?? 'patient'].password);
   const [loggedIn, setLoggedIn] = useState(false);
 
   // Signup flow state
-  const [signUpStep, setSignUpStep] = useState<'form' | 'otpSent' | 'setPassword' | 'success'>('form');
+  const [signUpStep, setSignUpStep] = useState('form' as 'form' | 'otpSent' | 'setPassword' | 'success');
   const [otp, setOtp] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [signUpMessage, setSignUpMessage] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState(null as string | null);
+  const [signUpMessage, setSignUpMessage] = useState(null as string | null);
 
   const roleData: Record<UserRole, { title: string; description: string; icon: JSX.Element; bgColor: string }> = {
     patient: { title: 'Patient', description: 'Access consultations and health records', icon: <Users className="h-6 w-6 text-white" />, bgColor: 'bg-blue-600' },
@@ -61,33 +69,50 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
     }
   };
 
-  const saveUserData = (data: any, fallbackRole: UserRole) => {
-    const userData = {
-      token: data.token || '',
-      name: data.name || '',
-      age: data.age?.toString() || '',
-      gender: data.gender || '',
-      bloodgroup: data.bloodgroup || '',
-      allergy: data.allergy || '',
-      role: data.role || fallbackRole,
-      user_id: data.user_id?.toString() || '',
-      email: data.email || email || ''
-    };
-    localStorage.setItem('user', JSON.stringify(userData));
+  const persistSession = (token: string, role: UserRole) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('role', role);
 
-    // NEW: notify same-window listeners that user changed (useful because storage events don't fire in same window)
     try {
-      const ev = new CustomEvent('user-updated', { detail: userData });
+      const ev = new CustomEvent('user-updated', { detail: { token, role } });
       window.dispatchEvent(ev);
     } catch (e) {
-      // fallback: no-op
       console.warn('user-updated dispatch failed', e);
     }
-
-    return userData;
   };
 
-  const tryPost = async (paths: string[], payload: any) => {
+  const fetchCurrentUser = async (token: string) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(buildApiUrl('/api/users/me'), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      return await res.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const redirectByRole = (role: UserRole) => {
+    if (role === 'unknown') return;
+    const route = roleRoutes[role as Exclude<UserRole, 'unknown'>];
+    if (route) {
+      window.history.replaceState({}, '', route);
+    }
+    onLogin(role);
+  };
+
+  const tryPost = async (endpoints: string[], payload: any) => {
+    const paths = endpoints.map(e => buildApiUrl(e));
     for (const p of paths) {
       try {
         const res = await fetch(p, {
@@ -105,7 +130,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   };
 
   // Send OTP - updated to match backend route
-  const sendOtp = async (e?: React.FormEvent) => {
+  const sendOtp = async (e?: any) => {
     if (e) e.preventDefault();
     setIsSendingOtp(true);
     setOtpError(null);
@@ -122,7 +147,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
         allergy: allergy || undefined
       };
 
-      const res = await fetch('https://medtech-hcmo.onrender.com/api/send-otp', {
+      const res = await fetch(buildApiUrl('/api/send-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -151,7 +176,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   };
 
   // Verify OTP - updated to match backend route
-  const verifyOtp = async (e?: React.FormEvent) => {
+  const verifyOtp = async (e?: any) => {
     if (e) e.preventDefault();
     setOtpError(null);
     try {
@@ -160,7 +185,7 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
         otp 
       };
 
-      const res = await fetch('https://medtech-hcmo.onrender.com/api/verify-otp', {
+      const res = await fetch(buildApiUrl('/api/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -188,11 +213,11 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
   };
 
   // Complete signup (try /api/users/signup then /users/signup)
-  const completeSignup = async (e?: React.FormEvent) => {
+  const completeSignup = async (e?: any) => {
     if (e) e.preventDefault();
     try {
       const payload = { name: fullname, age, gender, bloodgroup, allergy, email, password, role: selectedRole };
-      const res = await tryPost(['https://medtech-hcmo.onrender.com/api/users/signup', 'https://medtech-hcmo.onrender.com/users/signup'], payload);
+      const res = await tryPost(['/api/users/signup', '/users/signup'], payload);
       if (res.ok) {
         setSignUpStep('success');
         setSignUpMessage('Sign up successful! You may now go back to Login to sign in.');
@@ -206,53 +231,131 @@ const Login: React.FC<LoginProps> = ({ onBack, role = 'patient', onLogin }) => {
     }
   };
 
-  // Login (try both prefixes)
-  const handleGoogleLogin = async () => {
+  // Google Auth - handles both login and signup
+  const handleGoogleAuth = async (credential: string, isSignUp: boolean = false) => {
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const idToken = await result.user.getIdToken();
-      
-      // Send the token to your backend
-      const res = await fetch('https://medtech-hcmo.onrender.com/api/users/login', {
+      // Send the Google ID token to the dedicated Google login endpoint
+      const res = await fetch(buildApiUrl('/api/users/google-login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+          'Authorization': `Bearer ${credential}`
         },
         body: JSON.stringify({ 
-          googleToken: idToken,
           role: selectedRole
         })
       });
 
       if (res.ok) {
-        const data = await res.json();
-        setToken(idToken); // Update auth context
-        const userData = saveUserData(data, selectedRole);
-        setLoggedIn(true);
-        onLogin(userData.role);
+        const response = await res.json();
+        const { user, is_new_user } = response;
+        
+        // Store Google identity in memory only.
+        setUser({
+          google_id: user.google_id || '',
+          email: user.email || '',
+          name: user.name,
+          picture: user.picture,
+          email_verified: user.email_verified
+        });
+
+        if (is_new_user) {
+          // New user - redirect to profile completion
+          console.log('[Login] New user detected, redirecting to profile completion');
+          if (onNewUser) {
+            onNewUser({
+              ...user,
+              role: user.role || selectedRole,
+              picture: user.picture || user.profile_picture_url || ''
+            });
+          }
+        } else {
+          // Existing user - login directly
+          const appToken = response.token || user.token || '';
+          if (!appToken) {
+            alert('Google login failed: missing session token');
+            return;
+          }
+          const resolvedRole = (user.role || selectedRole) as UserRole;
+
+          persistSession(appToken, resolvedRole);
+          if (appToken) {
+            setToken(appToken);
+          }
+
+          const hydratedProfile = await fetchCurrentUser(appToken);
+          const nextRole = (hydratedProfile?.role || resolvedRole) as UserRole;
+          if (hydratedProfile) {
+            window.dispatchEvent(new CustomEvent('user-updated', { detail: hydratedProfile }));
+          }
+
+          setLoggedIn(true);
+          redirectByRole(nextRole);
+        }
       } else {
         const error = await extractError(res);
-        alert(`Google login failed: ${error}`);
+        if (isSignUp) {
+          alert(`Google sign up failed: ${error}`);
+        } else {
+          alert(`Google login failed: ${error}`);
+        }
       }
     } catch (error) {
-      console.error('Google login error:', error);
-      alert('Google login failed. Please try again.');
+      console.error('Google auth error:', error);
+      if (isSignUp) {
+        alert('Google sign up failed. Please check your internet connection and try again.');
+      } else {
+        alert('Google login failed. Please check your internet connection and try again.');
+      }
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Handle Google Login response
+  const handleGoogleLoginSuccess = (credentialResponse: CredentialResponse) => {
+    if (credentialResponse.credential) {
+      handleGoogleAuth(credentialResponse.credential, false);
+    }
+  };
+
+  // Handle Google Signup response
+  const handleGoogleSignupSuccess = (credentialResponse: CredentialResponse) => {
+    if (credentialResponse.credential) {
+      handleGoogleAuth(credentialResponse.credential, true);
+    }
+  };
+
+  const handleGoogleError = () => {
+    alert('Google login failed. Please try again.');
+  };
+
+  const handleLogin = async (e: any) => {
     e.preventDefault();
     try {
       // Truncate password to 72 bytes as per bcrypt requirement
       const truncatedPassword = password.slice(0, 72);
-      const res = await tryPost(['https://medtech-hcmo.onrender.com/api/users/login', 'https://medtech-hcmo.onrender.com/users/login'], { email, password: truncatedPassword });
+      const res = await tryPost(['/api/users/login', '/users/login'], { email, password: truncatedPassword });
       if (res.ok) {
         const data = await res.json();
-        const userData = saveUserData(data, selectedRole);
+        const appToken = data.token || '';
+        if (!appToken) {
+          alert('Login failed: missing session token');
+          return;
+        }
+        const resolvedRole = (data.role || selectedRole) as UserRole;
+
+        persistSession(appToken, resolvedRole);
+        if (appToken) {
+          setToken(appToken);
+        }
+
+        const hydratedProfile = await fetchCurrentUser(appToken);
+        const nextRole = (hydratedProfile?.role || resolvedRole) as UserRole;
+        if (hydratedProfile) {
+          window.dispatchEvent(new CustomEvent('user-updated', { detail: hydratedProfile }));
+        }
+
         setLoggedIn(true);
-        onLogin(userData.role);
+        redirectByRole(nextRole);
       } else {
         const err = await extractError(res);
         alert(`Login failed: ${err}`);
@@ -396,8 +499,26 @@ return (
                   disabled={isSendingOtp} 
                   className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}
                 >
-                  {isSendingOtp ? 'Send OTP' : 'Send OTP'}
+                  {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
                 </button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-emerald-50 text-gray-500">Or sign up with</span>
+                  </div>
+                </div>
+
+                <div className="w-full">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSignupSuccess}
+                    onError={handleGoogleError}
+                    text="signup_with"
+                    theme="outline"
+                  />
+                </div>
 
                 <p className="text-base text-gray-600 mt-4 text-center">
                   Already have an account? 
@@ -489,14 +610,14 @@ return (
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-            >
-              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-              Sign in with Google
-            </button>
+            <div className="w-full">
+              <GoogleLogin
+                onSuccess={handleGoogleLoginSuccess}
+                onError={handleGoogleError}
+                text="signin"
+                theme="outline"
+              />
+            </div>
 
             <p className="text-sm text-gray-600 mt-4 text-center">
               Don't have an account? <button type="button" onClick={() => setShowSignUp(true)} className="text-emerald-600 font-medium">Sign Up</button>

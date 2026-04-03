@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Shield, Users, Activity, BarChart3, Settings, TrendingUp, Globe, UserCheck, UserX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStoredUser } from '../hooks/useStoredUser';
+import { useBackendProfile } from '../hooks/useBackendProfile';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -47,6 +49,21 @@ const StatProgress: React.FC<{ label: string; percent: number; accent?: string }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'analytics' | 'system'>('dashboard');
+  const signedUser = useStoredUser();
+  const { profile } = useBackendProfile();
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_id');
+      window.dispatchEvent(new CustomEvent('user-updated', { detail: null }));
+    } catch {
+      // no-op
+    }
+    onLogout();
+  };
 
   // sample data (replace with real props / fetches)
   const usersSample = [
@@ -73,8 +90,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-sm opacity-90">Signed in as <span className="font-semibold">medtech@nitj.ac.in</span></div>
-            <button onClick={onLogout} className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white font-medium shadow hover:scale-[1.02] transition">
+            <div className="text-sm opacity-90 text-right">
+              <div>Signed in as <span className="font-semibold">{profile?.email || signedUser?.email || 'Not signed in'}</span></div>
+              <div className="text-xs opacity-80">
+                Age: {profile?.age ?? '-'} | Gender: {profile?.gender || '-'} | Blood Group: {profile?.bloodgroup || '-'} | DOB: {profile?.dob || '-'} | Phone: {profile?.phone || '-'}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-white/10">
+              <img
+                src={profile?.picture || profile?.profile_picture_url || signedUser?.picture || '/default-avatar.png'}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <button onClick={handleLogout} className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white font-medium shadow hover:scale-[1.02] transition">
               Logout
             </button>
           </div>
