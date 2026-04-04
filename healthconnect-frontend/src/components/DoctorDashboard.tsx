@@ -1,8 +1,11 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import emailjs from '@emailjs/browser';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useStoredUser } from '../hooks/useStoredUser';
-import { useBackendProfile } from '../hooks/useBackendProfile';
+import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
+import { buildApiUrl } from '../config/api';
 
 // Initialize EmailJS
 try {
@@ -40,19 +43,45 @@ interface DoctorDashboardProps {
  */
 
 const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDashboardProps) => {
-  const handleTestClick = () => {
-    console.log('Test click');
-    window.alert('Button clicked!');
-  };
-  // --- Local UI state ----------------------------------------------------
+  const sessionUser = useStoredUser();
+  const { profile } = useBackendProfile();
+
   const [activeTab, setActiveTab] = useState<
     'home' | 'queue' | 'consultation' | 'prescriptions' | 'analytics'
   >('home');
 
   const [inConsultation, setInConsultation] = useState<boolean>(false);
+  const [currentPatient, setCurrentPatient] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  const sessionUser = useStoredUser();
-  const { profile } = useBackendProfile();
+  const fetchAnalyticsData = async () => {
+    if (!profile?.id) return;
+    setAnalyticsLoading(true);
+    try {
+      const response = await fetch(
+        buildApiUrl(`/api/analytics/doctor/${profile.id}?t=${Date.now()}`),
+        { headers: getAuthHeaders(), cache: 'no-store' }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[DoctorDashboard Analytics] Fetched real data:', data);
+        setAnalyticsData(data);
+      }
+    } catch (err) {
+      console.error('[DoctorDashboard Analytics] Error:', err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    fetchAnalyticsData();
+    const interval = setInterval(fetchAnalyticsData, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, [profile?.id]);
+
   const signedUser = {
     name: profile?.name || sessionUser?.name || 'Doctor',
     email: profile?.email || sessionUser?.email || '',
@@ -60,7 +89,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     age: profile?.age || sessionUser?.age,
     bloodgroup: profile?.bloodgroup || sessionUser?.bloodgroup,
     phone: profile?.phone || sessionUser?.phone,
-    picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture,
+    picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url,
   } as any;
 
   // Cross-browser-safe avatar fallback.
@@ -84,7 +113,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // Use consistent defaults for fields not yet present in backend schema.
   const specialization = (profile as any)?.specialization || 'General Physician';
   const experience = (profile as any)?.experience || '15 years';
-  const doctorId = (profile as any)?.doctor_id || 'DG-MBBS-L24106056';
+  const doctorId = String(profile?.id || sessionUser?.user_id || '');
   const phone = signedUser?.phone || '-';
   const bloodGroup = signedUser?.bloodgroup || '-';
   const licenseNumber = (profile as any)?.license_number || 'RCXS-24103948';
@@ -103,9 +132,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const effectiveDoctorBloodGroup = bloodGroup;
   const effectiveDoctorAge = String(signedUser?.age || '-');
 
-  const [currentPatient, setCurrentPatient] = useState<any>(null);
-
-  // --- Camera feed and WebRTC state --------------------------------------
+  // --- Camera feed and WebRTC state  
   const localVideoRef = useRef<HTMLVideoElement>(null); // Doctor's own camera
   const remoteVideoRef = useRef<HTMLVideoElement>(null); // Patient's video (remote)
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -1041,13 +1068,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   // ---------------- Prescriptions view -----------------------------------
-  // Prescription form state
+  // Prescription form state (email-based, no IDs needed)
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [prescriptionForm, setPrescriptionForm] = useState({
-    patientId: '',
     patientEmail: '',
-    doctorId: doctorId || '',
+    doctorEmail: email || '',
     date: new Date().toISOString().split('T')[0],
     diagnosis: '',
     medicines: [{ name: '', dosage: '', duration: '' }],
@@ -1079,6 +1105,15 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     }));
   };
 
+  useEffect(() => {
+    if (!prescriptionForm.doctorEmail && email) {
+      setPrescriptionForm(prev => ({
+        ...prev,
+        doctorEmail: email,
+      }));
+    }
+  }, [email]);
+
   const generateAndEmailPrescription = async () => {
     if (!prescriptionForm.patientEmail) {
       alert('Please enter patient email address');
@@ -1089,104 +1124,62 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     setErrorMessage('');
 
     try {
-      console.log('Starting prescription generation and email sending...');
-      
-      // Create temporary container for the prescription that will be removed after processing
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '-9999px';
-      
-      // Generate PDF content in the hidden container
-      const prescriptionHTML = `
-        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-          <h1 style="color: #1f2937; text-align: center;">Medical Prescription</h1>
-          <div style="border-bottom: 2px solid #4b5563; padding-bottom: 10px; margin-bottom: 20px;">
-            <p><strong>Dr. ${doctorName}</strong></p>
-            <p>${specialization}</p>
-            <p>License: ${licenseNumber}</p>
-          </div>
-          <div style="margin-bottom: 20px;">
-            <p><strong>Date:</strong> ${prescriptionForm.date}</p>
-            <p><strong>Patient ID:</strong> ${prescriptionForm.patientId}</p>
-          </div>
-          <div style="margin-bottom: 20px;">
-            <h3 style="color: #1f2937;">Diagnosis</h3>
-            <p>${prescriptionForm.diagnosis}</p>
-          </div>
-          <div style="margin-bottom: 20px;">
-            <h3 style="color: #1f2937;">Medications</h3>
-            <ul>
-              ${prescriptionForm.medicines.map(med => 
-                `<li>${med.name} - ${med.dosage} - ${med.duration}</li>`
-              ).join('')}
-            </ul>
-          </div>
-          <div style="margin-bottom: 20px;">
-            <h3 style="color: #1f2937;">Instructions</h3>
-            <p>${prescriptionForm.instructions}</p>
-          </div>
-          <div style="margin-top: 40px; text-align: right;">
-            <p>Doctor's Signature</p>
-            <p>${doctorName}</p>
-          </div>
-        </div>
-      `;
+      console.log('Creating prescription...');
 
-      tempContainer.innerHTML = prescriptionHTML;
-      document.body.appendChild(tempContainer);
-
-      // Generate PDF from the hidden container
-      console.log('Converting to PDF...');
-      const pdf = await html2canvas(tempContainer).then(canvas => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF();
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        console.log('PDF generated successfully');
-        return pdf;
-      });
-
-      // Clean up - remove the temporary container
-      document.body.removeChild(tempContainer);
-
-      // Convert PDF to base64
-      const pdfBase64 = pdf.output('datauristring');
-
-      // Send email using EmailJS
-      console.log('Preparing email parameters...');
-      const emailParams = {
-        to_email: prescriptionForm.patientEmail,
-        from_name: doctorName,
-        from_email: 'pawasthi063@gmail.com',
-        subject: 'Your Medical Prescription',
-        message: 'Please find your prescription attached.',
-        pdf_attachment: pdfBase64
+      const payload = {
+        patient_email: prescriptionForm.patientEmail,
+        doctor_email: prescriptionForm.doctorEmail,
+        date: prescriptionForm.date,
+        diagnosis: prescriptionForm.diagnosis,
+        instruction: prescriptionForm.instructions,
+        medications: prescriptionForm.medicines.filter(m => m.name), // Filter out empty medicines
       };
-      console.log('Email parameters prepared:', { ...emailParams, pdf_attachment: '[BASE64_DATA]' });
 
-      console.log('Sending email with EmailJS...');
-      try {
-        const result = await emailjs.send(
-          'service_er4o93a',
-          'template_pxfq7mf',
-          emailParams,
-          'ChNx9vs8ZLde4sGrm'
-        );
-        console.log('Email sent successfully:', result);
-      } catch (emailError) {
-        console.error('EmailJS error:', emailError);
-        throw emailError;
+      if (!payload.patient_email) {
+        throw new Error('Patient email is required');
+      }
+      if (!payload.doctor_email) {
+        throw new Error('Doctor email is required');
+      }
+      if (!payload.diagnosis) {
+        throw new Error('Diagnosis is required');
       }
 
-      alert('Prescription has been sent successfully!');
+      const response = await fetch(buildApiUrl('/api/prescriptions/create'), {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create prescription');
+      }
+
+      const result = await response.json();
+      console.log('Prescription created:', result);
+      
+      setErrorMessage('');
+      alert('Prescription created and patient notified successfully!');
+      
+      // Reset form
+      setPrescriptionForm({
+        patientEmail: '',
+        doctorEmail: email,
+        date: new Date().toISOString().split('T')[0],
+        diagnosis: '',
+        medicines: [{ name: '', dosage: '', duration: '' }],
+        instructions: ''
+      });
+
     } catch (error) {
-      console.error('Error sending prescription:', error);
+      console.error('Error:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
       setErrorMessage(`Failed to send prescription: ${errorMsg}`);
-      alert(`Failed to send prescription: ${errorMsg}`);
+      alert(`Failed: ${errorMsg}`);
     } finally {
       setIsGenerating(false);
     }
@@ -1202,19 +1195,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             <button
               type="button"
               onClick={() => {
-                alert('Basic test button clicked!');
-                console.log('Basic test clicked');
-              }}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg"
-            >
-              Click Me (Basic Test)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
                 console.log('Share button clicked');
-                alert('Share button clicked');
                 generateAndEmailPrescription();
               }}
               className={`${isGenerating ? 'bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-3 rounded-lg`}
@@ -1232,39 +1213,35 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         {/* Form */}
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Patient ID</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Your Email (Doctor)</label>
             <input
-              type="text"
-              className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg"
-              placeholder="Enter Patient's ID..."
-              value={prescriptionForm.patientId}
-              onChange={(e) => handlePrescriptionChange('patientId', e.target.value)}
+              type="email"
+              className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg bg-gray-50"
+              placeholder="Auto-filled from profile"
+              value={prescriptionForm.doctorEmail}
+              disabled
             />
+            <p className="text-xs text-gray-500 mt-1">Auto-filled from your profile</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Patient Email</label>
             <input
               type="email"
               className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg"
-              placeholder="Enter Patient's Email..."
+              placeholder="e.g., patient@example.com"
               value={prescriptionForm.patientEmail}
               onChange={(e) => handlePrescriptionChange('patientEmail', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Doctor ID</label>
-            <input
-              type="text"
-              className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg"
-              placeholder="Enter Your ID..."
-              value={prescriptionForm.doctorId}
-              onChange={(e) => handlePrescriptionChange('doctorId', e.target.value)}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-            <input type="date" className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-lg" />
+            <input 
+              type="date" 
+              className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-lg"
+              value={prescriptionForm.date}
+              onChange={(e) => handlePrescriptionChange('date', e.target.value)}
+            />
           </div>
         </div>
 
@@ -1273,6 +1250,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <textarea
             className="w-full px-4 py-2 border text-gray-700 border-gray-300 rounded-lg h-20"
             placeholder="Enter diagnosis..."
+            value={prescriptionForm.diagnosis}
+            onChange={(e) => handlePrescriptionChange('diagnosis', e.target.value)}
           />
         </div>
 
@@ -1321,6 +1300,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <textarea
             className="w-full px-4 py-2 text-gray-700 border border-gray-300 rounded-lg h-20"
             placeholder="Special instructions for patient..."
+            value={prescriptionForm.instructions}
+            onChange={(e) => handlePrescriptionChange('instructions', e.target.value)}
           />
         </div>
 
@@ -1389,98 +1370,165 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   // ---------------- Analytics view ---------------------------------------
   const renderAnalyticsOverview = () => {
+    if (!analyticsData) {
+      return (
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded mb-4"></div>
+            <div className="h-10 bg-gray-300 rounded"></div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded mb-4"></div>
+            <div className="h-10 bg-gray-300 rounded"></div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded mb-4"></div>
+            <div className="h-10 bg-gray-300 rounded"></div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded mb-4"></div>
+            <div className="h-10 bg-gray-300 rounded"></div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-600">Total Patients This Month</h3>
-          <p className="text-3xl font-bold text-gray-900">342</p>
-          <p className="text-sm text-green-600">+12% from last month</p>
+          <p className="text-3xl font-bold text-gray-900">{analyticsData.total_patients_this_month}</p>
+          <p className={`text-sm mt-1 ${analyticsData.patient_change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {analyticsData.patient_change_percent >= 0 ? '+' : ''}{analyticsData.patient_change_percent}% from last month
+          </p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-600">Avg Consultation Time</h3>
-          <p className="text-3xl font-bold text-gray-900">15min</p>
-          <p className="text-sm text-red-600">+2min from last month</p>
+          <p className="text-3xl font-bold text-gray-900">{analyticsData.avg_consultation_time}</p>
+          <p className="text-sm text-red-600">{analyticsData.consultation_time_change}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-600">Patient Satisfaction</h3>
-          <p className="text-3xl font-bold text-gray-900">4.8/5</p>
-          <p className="text-sm text-green-600">+0.2 from last month</p>
+          <p className="text-3xl font-bold text-gray-900">{analyticsData.patient_satisfaction}</p>
+          <p className={`text-sm mt-1 ${analyticsData.satisfaction_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {analyticsData.satisfaction_change >= 0 ? '+' : ''}{analyticsData.satisfaction_change} from last month
+          </p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-sm font-medium text-gray-600">Prescriptions Issued</h3>
-          <p className="text-3xl font-bold text-gray-900">289</p>
-          <p className="text-sm text-green-600">+8% from last month</p>
+          <p className="text-3xl font-bold text-gray-900">{analyticsData.prescriptions_issued}</p>
+          <p className={`text-sm mt-1 ${analyticsData.prescription_change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {analyticsData.prescription_change_percent >= 0 ? '+' : ''}{analyticsData.prescription_change_percent}% from last month
+          </p>
         </div>
       </div>
     );
   };
 
   const renderPatientFeedback = () => {
-    const feedback = [
-      { name: 'Pradeep Awasthi', rating: 5, comment: 'Excellent consultation. Doctor was very patient and thorough.' },
-      { name: 'Vishal Buttler', rating: 5, comment: 'Great experience. The platform is easy to use.' },
-      { name: 'Gunjan Saxena', rating: 2, comment: 'Did not give proper time to consult' },
-    ];
+    if (!analyticsData?.patient_feedback) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Patient Feedback</h3>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="border border-gray-200 rounded-lg p-4 animate-pulse">
+                <div className="h-5 bg-gray-300 rounded mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    const feedback = analyticsData.patient_feedback;
 
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Patient Feedback</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Patient Feedback {feedback.length > 0 && `(${feedback.length})`}</h3>
 
         <div className="space-y-4">
-          {feedback.map((f, i) => (
-            <div key={i} className="border border-white/8 rounded-lg p-4">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="font-semibold text-gray-900">{f.name}</h4>
-
-                <div className="flex">
-                  {[...Array(f.rating)].map((_, idx) => (
-                    <span key={idx} className="text-yellow-400">
-                      ★
-                    </span>
-                  ))}
+          {feedback.length > 0 ? (
+            feedback.map((f: any, i: number) => (
+              <div key={i} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-semibold text-gray-900">{f.patient_name}</h4>
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span key={star} className={star <= f.rating ? 'text-yellow-400' : 'text-gray-300'}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
                 </div>
+                <p className="text-sm text-gray-600 mb-1">
+                  {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+                {f.feedback_text && (
+                  <p className="text-gray-700 text-sm italic">"{f.feedback_text}"</p>
+                )}
               </div>
-
-              <p className="text-sm text-gray-600">{f.comment}</p>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>No patient feedback yet</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
   };
 
   const renderCommonDiagnoses = () => {
-    const items = [
-      { diagnosis: 'Common Cold', count: 45, percentage: 35 },
-      { diagnosis: 'Hypertension', count: 32, percentage: 25 },
-      { diagnosis: 'Diabetes Follow-up', count: 28, percentage: 22 },
-      { diagnosis: 'Skin Conditions', count: 23, percentage: 18 },
-    ];
+    if (!analyticsData?.common_diagnoses) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Common Diagnoses</h3>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex justify-between items-center animate-pulse">
+                <div className="h-4 bg-gray-300 rounded w-24"></div>
+                <div className="h-6 bg-gray-200 rounded w-16"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    const items = analyticsData.common_diagnoses;
 
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Common Diagnoses</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Common Diagnoses {items.length > 0 && `(${items.length})`}</h3>
 
         <div className="space-y-3">
-          {items.map((item, idx) => (
-            <div key={idx} className="flex justify-between items-center">
-              <div>
-                <p className="font-medium text-gray-900">{item.diagnosis}</p>
-                <p className="text-sm text-gray-600">{item.count} cases</p>
-              </div>
+          {items.length > 0 ? (
+            items.map((item: any, idx: number) => (
+              <div key={idx} className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium text-gray-900">{item.diagnosis}</p>
+                  <p className="text-sm text-gray-600">{item.cases} case{item.cases !== 1 ? 's' : ''}</p>
+                </div>
 
-              <div className="text-right">
-                <p className="font-bold text-emerald-600">{item.percentage}%</p>
+                <div className="text-right">
+                  <p className="font-bold text-emerald-600">{item.percentage}%</p>
 
-                <div className="w-36 bg-gray-200 rounded-full h-2 mt-1 overflow-hidden">
-                  <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${item.percentage}%` }} />
+                  <div className="w-36 bg-gray-200 rounded-full h-2 mt-1 overflow-hidden">
+                    <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${item.percentage}%` }} />
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>No diagnosis data yet</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
