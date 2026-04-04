@@ -71,6 +71,7 @@ def serialize_user(user: models.User) -> dict:
         "age": user.age,
         "gender": user.gender,
         "bloodgroup": user.bloodgroup,
+        "abha_id": user.abha_id,
         "allergy": user.allergy,
         "profile_picture_url": user.profile_picture_url,
         "picture": user.profile_picture_url,
@@ -105,6 +106,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         age=user.age,
         gender=user.gender,
         bloodgroup=user.bloodgroup,
+        abha_id=user.abha_id,
         allergy=user.allergy,
         profile_picture_url=user.profile_picture_url or user.picture,
     )
@@ -171,6 +173,7 @@ async def google_login(
                     "age": None,
                     "gender": None,
                     "bloodgroup": None,
+                    "abha_id": None,
                     "allergy": None,
                     "profile_picture_url": picture,
                     "google_id": google_id,
@@ -206,6 +209,7 @@ async def google_login(
                 "age": user.age,
                 "gender": user.gender,
                 "bloodgroup": user.bloodgroup,
+                "abha_id": user.abha_id,
                 "allergy": user.allergy,
                 "profile_picture_url": user.profile_picture_url,
                 "google_id": google_id,
@@ -266,6 +270,7 @@ async def complete_profile(
         user.age = age
         user.gender = gender
         user.bloodgroup = bloodgroup
+        user.abha_id = payload.get('abha_id') if payload.get('abha_id') is not None else user.abha_id
         user.allergy = allergy
         user.role = role
         
@@ -284,6 +289,7 @@ async def complete_profile(
                 "age": user.age,
                 "gender": user.gender,
                 "bloodgroup": user.bloodgroup,
+                "abha_id": user.abha_id,
                 "allergy": user.allergy,
                 "profile_picture_url": user.profile_picture_url
             }
@@ -347,6 +353,7 @@ async def login(
             "age": getattr(user, 'age', None),
             "gender": getattr(user, 'gender', None),
             "bloodgroup": getattr(user, 'bloodgroup', None),
+            "abha_id": getattr(user, 'abha_id', None),
             "allergy": getattr(user, 'allergy', None),
             "dob": getattr(user, 'dob', None),
             "phone": getattr(user, 'phone', None),
@@ -387,6 +394,7 @@ async def update_profile(
         "dob",
         "gender",
         "bloodgroup",
+        "abha_id",
         "age",
         "role",
         "allergy",
@@ -521,7 +529,7 @@ def update_me(payload: dict = Body(...), db: Session = Depends(get_db)):
 
         # Allowed updatable fields
         updatable = [
-            "name", "age", "gender", "bloodgroup", "allergy",
+            "name", "age", "gender", "bloodgroup", "abha_id", "allergy",
             "allergies", "medications", "surgeries", "phone", "dob", "role", "emergency_contact", "profile_picture_url"
         ]
 
