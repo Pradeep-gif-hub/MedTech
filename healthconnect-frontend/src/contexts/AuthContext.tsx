@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
 interface GoogleUser {
   google_id: string;
   email: string;

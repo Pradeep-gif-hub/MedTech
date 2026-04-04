@@ -32,6 +32,7 @@ class User(Base):
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
     bloodgroup = Column(String, nullable=True)
+    abha_id = Column(String, nullable=True)
     allergy = Column(String, nullable=True)  # singular allergy field used by frontend
     profile_picture_url = Column(String, nullable=True)  # URL to user's profile picture
 
@@ -40,13 +41,28 @@ class Prescription(Base):
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("users.id"))
     doctor_id = Column(Integer, ForeignKey("users.id"))
-    date = Column(Date)
+    date = Column(Date, nullable=True)
     diagnosis = Column(String)
     instruction = Column(String)
     medications = Column(String)  # JSON string
+    pdf_url = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     patient = relationship("User", foreign_keys=[patient_id])
     doctor = relationship("User", foreign_keys=[doctor_id])
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False, default="prescription")
+    message = Column(String, nullable=False)
+    related_prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True)
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+    prescription = relationship("Prescription", foreign_keys=[related_prescription_id])
 
 class OTP(Base):
     __tablename__ = "otps"
@@ -59,3 +75,18 @@ class OTP(Base):
     expires_at = Column(DateTime, nullable=False)
     verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+    id = Column(Integer, primary_key=True, index=True)
+    prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    doctor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    rating = Column(Integer, nullable=False)  # 1-5 stars
+    feedback_text = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    
+    prescription = relationship("Prescription", foreign_keys=[prescription_id])
+    patient = relationship("User", foreign_keys=[patient_id])
+    doctor = relationship("User", foreign_keys=[doctor_id])

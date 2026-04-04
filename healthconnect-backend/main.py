@@ -9,14 +9,24 @@ from routers import otp as otp_router
 prescriptions = None
 appointments = None
 webrtc = None
+analytics = None
 try:
     from routers import prescriptions
 except Exception:
     prescriptions = None
+notifications = None
+try:
+    from routers import notifications
+except Exception:
+    notifications = None
 try:
     from routers import appointments
 except Exception:
     appointments = None
+try:
+    from routers import analytics
+except Exception:
+    analytics = None
 try:
     from routers import webrtc
 except Exception:
@@ -46,8 +56,14 @@ app.include_router(otp_router.router, prefix="", tags=["OTP"])
 # mount optional routers if available
 if prescriptions and hasattr(prescriptions, "router"):
     app.include_router(prescriptions.router, prefix="/prescriptions", tags=["Prescriptions"])
+    app.include_router(prescriptions.router, prefix="/api/prescriptions", tags=["Prescriptions"])
+if notifications and hasattr(notifications, "router"):
+    app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
+    app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 if appointments and hasattr(appointments, "router"):
     app.include_router(appointments.router, prefix="/appointments", tags=["Appointments"])
+if analytics and hasattr(analytics, "router"):
+    app.include_router(analytics.router, tags=["Analytics"])
 if webrtc and hasattr(webrtc, "router"):
     app.include_router(webrtc.router, prefix="/webrtc", tags=["WebRTC"])
 
@@ -94,6 +110,9 @@ try:
                     if 'allergy' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN allergy VARCHAR"))
                         added.append('allergy')
+                    if 'abha_id' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN abha_id VARCHAR"))
+                        added.append('abha_id')
                     if 'dob' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN dob VARCHAR"))
                         added.append('dob')
@@ -110,6 +129,18 @@ try:
                         print(f"[startup] Added missing user columns: {added}")
                     else:
                         print("[startup] No missing user columns")
+                    # Ensure prescription table has latest columns
+                    pragma_presc = conn.execute(text("PRAGMA table_info('prescriptions')"))
+                    existing_presc = {row['name'] for row in pragma_presc.mappings()}
+                    presc_added = []
+                    if 'pdf_url' not in existing_presc:
+                        conn.execute(text("ALTER TABLE prescriptions ADD COLUMN pdf_url VARCHAR"))
+                        presc_added.append('pdf_url')
+                    if 'created_at' not in existing_presc:
+                        conn.execute(text("ALTER TABLE prescriptions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
+                        presc_added.append('created_at')
+                    if presc_added:
+                        print(f"[startup] Added missing prescription columns: {presc_added}")
             else:
                 # Non-SQLite DBs: instruct user to run proper migrations
                 print("[startup] Non-sqlite DB detected — run Alembic migrations to update schema if needed.")
