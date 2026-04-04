@@ -24,6 +24,9 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // Prescriptions / PDF state
   const [serverPrescriptions, setServerPrescriptions] = useState([] as any[]);
   const [loadingServerPrescriptions, setLoadingServerPrescriptions] = useState(false);
+  const [notifications, setNotifications] = useState([] as any[]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null as any);
   const [hrHistory, setHrHistory] = useState([vitalSigns.heartRate] as number[]);
@@ -65,6 +68,25 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       pdf.save(`prescription_json_${Date.now()}.pdf`);
     } catch (e) { console.error(e); alert('Failed to export'); } finally { temp.remove(); }
   };
+   
+
+
+  const formatIST = (date) => {
+  if (!date) return "";
+  const utcDate = new Date(date);
+  const istOffset = 5.5 * 60 * 60 * 1000; 
+  const istDate = new Date(utcDate.getTime() + istOffset);
+
+  return istDate.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+};
 
   // Styled multi-page-aware PDF
   const handleDownloadPDF = async (prescription: any) => {
@@ -287,6 +309,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         allergies,
         medications,
         surgeries,
+        abha_id: abhaId,
       };
 
       const res = await fetch(buildApiUrl('/api/users/update-profile'), {
@@ -310,6 +333,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       setAllergies(updated.allergies || updated.allergy || allergies);
       setMedications(updated.medications || medications);
       setSurgeries(updated.surgeries || surgeries);
+      setAbhaId(updated.abha_id || abhaId);
 
       window.dispatchEvent(new CustomEvent('user-updated', { detail: updated }));
       await refreshProfile();
@@ -341,6 +365,13 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [allergies, setAllergies] = useState("");
   const [medications, setMedications] = useState("");
   const [surgeries, setSurgeries] = useState("");
+  const [abhaId, setAbhaId] = useState('');
+
+  // Feedback form state
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [selectedPrescriptionForFeedback, setSelectedPrescriptionForFeedback] = useState<any>(null);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   const userId = profile?.id ? String(profile.id) : '';
 
@@ -348,6 +379,184 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [userName, setUserName] = useState('' as string);
 
   const sessionUser = useStoredUser();
+
+  const fetchPatientPrescriptions = async () => {
+    if (!userId) return;
+    setLoadingServerPrescriptions(true);
+    try {
+      const response = await fetch(buildApiUrl(`/api/prescriptions/patient/${userId}`), {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        console.warn('Prescription fetch failed', response.status);
+        setServerPrescriptions([]);
+        return;
+      }
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
+        setServerPrescriptions(sorted);
+      } else {
+        setServerPrescriptions([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch prescriptions', error);
+      setServerPrescriptions([]);
+    } finally {
+      setLoadingServerPrescriptions(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    if (!userId) return;
+    setLoadingNotifications(true);
+    try {
+      const response = await fetch(buildApiUrl(`/api/notifications/${userId}`), {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const message = await response.text();
+        console.warn('Notification fetch failed', response.status, message);
+        setNotificationError(`Failed to load notifications (${response.status})`);
+        setNotifications([]);
+        return;
+      }
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        setNotifications(sorted);
+        setNotificationError(null);
+      } else {
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications', error);
+      setNotificationError('Failed to load notifications');
+      setNotifications([]);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchPatientPrescriptions();
+    fetchNotifications();
+    const interval = window.setInterval(() => {
+      fetchPatientPrescriptions();
+      fetchNotifications();
+    }, 10000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [userId]);
+
+  const openPrescriptionPdf = (prescription: any) => {
+    const url = prescription.pdf_url || buildApiUrl(`/api/prescriptions/pdf/${prescription.id}`);
+    window.open(url, '_blank');
+  };
+
+  const handleViewNotification = (notification: any) => {
+    setActiveTab('prescriptions');
+    const match = serverPrescriptions.find((pres: any) => pres.id === notification.related_prescription_id);
+    if (match) {
+      setSelectedPrescription(match);
+      setShowPrescriptionModal(true);
+    }
+  };
+
+  const handleDeletePrescription = async (prescriptionId: number) => {
+    if (!window.confirm('Are you sure you want to delete this prescription?')) return;
+    try {
+      const response = await fetch(buildApiUrl(`/api/prescriptions/${prescriptionId}`), {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        alert('Prescription deleted successfully');
+        setShowPrescriptionModal(false);
+        setSelectedPrescription(null);
+        // Remove from notifications in parallel
+        setNotifications(prev => prev.filter(n => n.related_prescription_id !== prescriptionId));
+        await Promise.all([
+          fetchPatientPrescriptions(),
+          fetchNotifications()
+        ]);
+      } else {
+        alert('Failed to delete prescription');
+      }
+    } catch (error) {
+      alert('Error deleting prescription');
+      console.error(error);
+    }
+  };
+
+  const handleMarkPrescriptionRead = async (prescriptionId: number) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/prescriptions/${prescriptionId}/mark-read`), {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        alert('Prescription marked as read');
+        // Remove from notifications in parallel
+        setNotifications(prev => prev.filter(n => n.related_prescription_id !== prescriptionId));
+        await Promise.all([
+          fetchPatientPrescriptions(),
+          fetchNotifications()
+        ]);
+      } else {
+        alert('Failed to mark prescription as read');
+      }
+    } catch (error) {
+      alert('Error marking prescription as read');
+      console.error(error);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!serverPrescriptions.length) {
+      alert('No prescriptions available to rate');
+      return;
+    }
+    if (feedbackRating === 0) {
+      alert('Please select a rating before submitting feedback');
+      return;
+    }
+
+    setSubmittingFeedback(true);
+    try {
+      const prescriptionId = serverPrescriptions[0].id;
+      const response = await fetch(buildApiUrl('/api/analytics/feedback'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          prescription_id: prescriptionId,
+          rating: feedbackRating,
+          feedback_text: feedbackText,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert('Feedback submitted successfully! Thank you for your feedback.');
+        // Reset form
+        setFeedbackRating(0);
+        setFeedbackText('');
+      } else {
+        alert(`Failed to submit feedback: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Feedback submission error:', error);
+      alert('Error submitting feedback: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   const handleLocalLogout = () => {
     try {
@@ -374,6 +583,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       if (s.emergencyContact) setEmergencyContact(s.emergencyContact);
       if (typeof s.allergies === 'string' && s.allergies) setAllergies(s.allergies);
       if (typeof s.medications === 'string' && s.medications) setMedications(s.medications);
+      if (typeof s.abha_id === 'string') setAbhaId(s.abha_id);
+      if (typeof s.abhaId === 'string') setAbhaId(s.abhaId);
     } catch (err) {
       // ignore mapping errors
     }
@@ -412,6 +623,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         if (data.bloodgroup) setBloodGroup(data.bloodgroup);
         if (data.phone) setPhone(data.phone);
         if (data.emergency_contact) setEmergencyContact(data.emergency_contact);
+        if (data.abha_id) setAbhaId(data.abha_id);
+        if (data.abhaId) setAbhaId(data.abhaId);
       } catch (e) {
         // ignore and keep current state
       }
@@ -435,6 +648,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     if (profile.allergies) setAllergies(profile.allergies);
     if (profile.medications) setMedications(profile.medications);
     if (profile.surgeries) setSurgeries(profile.surgeries);
+    if (profile.abha_id) setAbhaId(profile.abha_id);
+    if (profile.abhaId) setAbhaId(profile.abhaId);
   }, [profile]);
 
 
@@ -478,16 +693,16 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       <div className="space-y-6 md:col-start-1 md:col-span-1">
 
         {/* Existing Profile Card */}
-        <div className="bg-emerald-50 rounded-xl shadow-md p-6">
+        <div className="bg-emerald-50 rounded-xl shadow-md p-5">
           {/* Compact Modern Profile Card */}
-          <div className="flex justify-center mt-8">
-            <div className="relative bg-gradient-to-br from-blue-50 via-blue-100 to-white rounded-3xl shadow-xl p-6 w-full max-w-full transform transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
+          <div className="flex justify-center mt-6">
+<div className="relative bg-gradient-to-br from-blue-50 via-blue-100 to-white rounded-3xl shadow-xl p-5 w-full max-w-full transform transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
 
               {/* Header - Profile Image + Name */}
-              <div className="flex items-center gap-4 mb-12">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105">
                   <img
-                    src={profile?.picture || profile?.profile_picture_url || sessionUser?.picture || '/default-avatar.png'}
+                    src={profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
@@ -502,10 +717,10 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5 text-sm">
                 {/* Age */}
-                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
                     🎂
                   </div>
                   <div>
@@ -517,8 +732,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </div>
 
                 {/* Gender (dynamic from signedUser/localStorage) */}
-                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
                     ⚥
                   </div>
                   <div>
@@ -530,8 +745,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </div>
 
                 {/* Blood Group */}
-                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
                     🩸
                   </div>
                   <div>
@@ -541,8 +756,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </div>
 
                 {/* DOB */}
-                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
                     📅
                   </div>
                   <div>
@@ -552,8 +767,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </div>
 
                 {/* Phone */}
-                <div className="bg-white rounded-xl p-3 shadow hover:shadow-lg flex items-center gap-3 cursor-pointer col-span-1 md:col-span-2">
-                  <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer col-span-1 md:col-span-2">
+                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
                     📞
                   </div>
                   <div>
@@ -563,8 +778,22 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </div>
               </div>
 
+              {/* ABHA ID */}
+            <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer col-span-1 md:col-span-2">
+            <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+             🏥
+             </div>
+ 
+             <div>
+             <div className="text-sm font-bold text-gray-800">ABHA ID</div>
+             <div className="text-gray-500 font-medium">
+             {abhaId || '—'}
+            </div>
+           </div>
+           </div>
+
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 mt-3">
+              <div className="flex justify-end gap-2 mt-2">
                 <button
                   onClick={() => setActiveTab('profile')}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
@@ -599,7 +828,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               id="diseaseSelect"  // added ID here
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
             >
-              <option value="">-- Choose an option --</option>
+              <option value="">Select the Disease</option>
               <option>Fever</option>
               <option>Cold & Cough</option>
               <option>Asthma</option>
@@ -683,21 +912,21 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   );
 
   const renderConsultation = () => (
-    <div className="bg-slate-100 rounded-xl shadow-sm overflow-hidden">
-      <div className="grid lg:grid-cols-2 gap-2">
+    <div className="bg-slate-950 rounded-3xl shadow-sm overflow-hidden p-4">
+      <div className="grid lg:grid-cols-2 gap-4">
         {/* LEFT: Doctor's video / placeholder */}
-        <div className="p-2">
-          <div className="bg-gray-900 rounded-xl relative flex items-center justify-center overflow-hidden h-[430px]">
+        <div className="p-4 bg-white rounded-3xl shadow-xl border border-gray-200">
+          <div className="bg-gray-50 rounded-2xl relative flex items-center justify-center overflow-hidden h-[430px]">
             {inConsultation ? (
               <>
                 <video
                   ref={remoteVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-cover rounded-xl bg-black"
+                  className="w-full h-full object-cover rounded-xl bg-gray-200"
                 />
                 {/* floating self-preview when in consultation */}
-                <div className="absolute bottom-2 right-4 w-40 h-30 bg-black rounded-lg overflow-hidden border border-white/20">
+                <div className="absolute bottom-2 right-4 w-40 h-30 bg-gray-200 rounded-lg overflow-hidden border border-gray-300">
                   <video
                     ref={localVideoRef}
                     autoPlay
@@ -708,14 +937,14 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </div>
               </>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-white/90 px-6">
+              <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 px-6">
                 {(() => {
                   // Get pending consultation data
                   const pendingConsultationStr = localStorage.getItem('pendingConsultation');
                   const pendingConsultation = pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
 
                   return pendingConsultation ? (
-                    <div className="bg-white/90 p-6 rounded-xl backdrop-blur-sm w-full max-w-md border border-gray-200">
+<div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-200 w-full max-w-md">
                       <h3 className="text-xl font-semibold mb-4 text-gray-900">Your Consultation Request</h3>
                       
                       <div className="space-y-4">
@@ -739,7 +968,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                         </div>
                       </div>
 
-                      <div className="mt-6 text-center text-sm text-white/80">
+                      <div className="mt-6 text-center text-sm text-gray-600">
                         Waiting for doctor to connect...
                         <div className="mt-2">
                           <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></div>
@@ -761,7 +990,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                   ) : (
                     <>
                       <svg
-                        className="h-24 w-24 text-white/90 animate-spin mb-4"
+                        className="h-24 w-24 text-gray-400 animate-spin mb-4"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -783,7 +1012,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <div className="text-xl font-semibold mb-2 text-white">
+                      <div className="text-xl font-semibold mb-2 text-gray-900">
                         No Active Consultation
                       </div>
                       <div className="text-sm opacity-80 mb-6 text-center">
@@ -805,13 +1034,13 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         </div>
 
         {/* RIGHT: Doctor Info / Live Vitals */}
-        <div className="p-4">
-          <div className="bg-white/90 p-6 rounded-xl backdrop-blur-sm min-h-[420px] flex flex-col justify-between shadow-lg border border-gray-200">
+        <div className="p-2">
+          <div className="bg-white p-6 rounded-3xl min-h-[420px] flex flex-col justify-between shadow-lg border border-gray-200">
             <div className="flex-1">
               {!inConsultation ? (
                 <>
-                  <h3 className="font-bold text-white mb-6 text-2xl">Doctor Information</h3>
-                  <div className="bg-white/90 p-6 rounded-xl border border-gray-200 shadow-md">
+                  <h3 className="font-bold text-gray-900 mb-6 text-2xl">Doctor Information</h3>
+                  <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md">
                     <div className="flex items-start gap-4">
                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
                         <span>DR</span>
@@ -950,121 +1179,6 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     </div>
   );
 
-
-  {/* RIGHT: Doctor Info / Live Vitals */ }
-  <div className="p-4">
-    <div className="bg-white p-6 rounded-lg border min-h-[420px] flex flex-col justify-between shadow-lg max-w-[600px] mx-auto">
-      <div className="flex-1 flex flex-col justify-center">
-        {!inConsultation ? (
-          <>
-            <h3 className="font-bold text-gray-900 mb-6 text-4xl text-center">Doctor Information</h3>
-            <div className="bg-gradient-to-br from-emerald-50 to-white p-6 rounded-xl border border-emerald-100 shadow-md">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
-                  <span>DR</span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg mb-1">Dr. Rajesh Kumar</h3>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                      General Physician
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
-                    MedTech Clinic
-                  </div>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    Expert in family medicine and teleconsultations
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          // Live vitals display when in consultation
-          <>
-            <h3 className="font-bold text-gray-900 mb-6 text-xl text-center">Live Vitals Monitor</h3>
-            <div className="grid grid-cols-2 gap-6 px-4">
-              {/* Heart Rate Card */}
-              <div className="bg-gradient-to-br from-red-50 to-white p-5 rounded-xl border border-red-100 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-red-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                  <span className="text-xs font-medium text-red-600">BPM</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{liveHeartRate}</div>
-                <div className="text-xs text-gray-500 mt-1">Heart Rate</div>
-              </div>
-
-              {/* Blood Pressure Card */}
-              <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border border-blue-100 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-blue-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" />
-                    </svg>
-                  </span>
-                  <span className="text-xs font-medium text-blue-600">mmHg</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{liveBP.sys}/{liveBP.dia}</div>
-                <div className="text-xs text-gray-500 mt-1">Blood Pressure</div>
-              </div>
-
-              {/* Temperature Card */}
-              <div className="bg-gradient-to-br from-orange-50 to-white p-5 rounded-xl border border-orange-100 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-orange-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 2a1 1 0 00-1 1v7.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V3a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                  <span className="text-xs font-medium text-orange-600">°F</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{liveTemperature.toFixed(1)}</div>
-                <div className="text-xs text-gray-500 mt-1">Temperature</div>
-              </div>
-
-              {/* SpO₂ Card */}
-              <div className="bg-gradient-to-br from-green-50 to-white p-5 rounded-xl border border-green-100 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-green-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                  <span className="text-xs font-medium text-green-600">%</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{liveOxygen}</div>
-                <div className="text-xs text-gray-500 mt-1">Oxygen Saturation</div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="mt-4 text-right">
-        {!inConsultation ? (
-          <button
-            onClick={startLiveSender}
-            className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm"
-          >
-            Connect to Doctor
-          </button>
-        ) : (
-          <button
-            onClick={endLiveConsultation}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm"
-          >
-            End Consultation
-          </button>
-        )}
-      </div>
-    </div>
-  </div>
-
   const renderProfile = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -1117,6 +1231,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               <option>B+</option>
               <option>O+</option>
               <option>AB+</option>
+              <option>AB-</option>
+              <option>O-</option>
             </select>
           </div>
           <div>
@@ -1128,6 +1244,28 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Abha-ID</label>
+            <input
+              type="tel"
+              value={abhaId}
+              onChange={(e) => setAbhaId(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+            />
+          </div>
+         <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+            <select
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              value={Gender}
+              onChange={(e) => setGender(e.target.value)}
+            >
+              <option>Male</option>
+              <option>Female</option>
+              <option>Others</option>
+            </select>
+          </div>
+          <div></div>
         </div>
         <button onClick={updateProfile} className="mt-6 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
           Update Profile
@@ -1172,55 +1310,57 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const renderPrescriptions = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Digital Prescriptions</h2>
-        <div className="space-y-4">
-          {[
-            {
-              doctor: 'Dr. Rajesh Kumar',
-              date: 'Dec 15, 2024',
-              medicines: ['Paracetamol 500mg', 'Amoxicillin 250mg'],
-              status: 'Available for pickup'
-            },
-            {
-              doctor: 'Dr. Priya Sharma',
-              date: 'Dec 10, 2024',
-              medicines: ['Vitamin D3', 'Calcium tablets'],
-              status: 'Completed'
-            },
-          ].map((prescription, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900">Prescribed by {prescription.doctor}</h3>
-                  <p className="text-sm text-gray-500">{prescription.date}</p>
-                </div>
-                <span className={`text-xs font-medium px-2 py-1 rounded ${prescription.status === 'Available for pickup'
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-green-100 text-green-800'
-                  }`}>
-                  {prescription.status}
-                </span>
-              </div>
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-700 mb-2">Medicines:</h4>
-                <ul className="list-disc list-inside space-y-1">
-                  {prescription.medicines.map((medicine, i) => (
-                    <li key={i} className="text-gray-600">{medicine}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex space-x-2">
-                <button onClick={() => handleDownloadPDF(prescription)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors flex items-center space-x-2">
-                  <Download className="h-4 w-4" />
-                  <span>Download PDF</span>
-                </button>
-                <button className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-                  View Details
-                </button>
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Digital Prescriptions</h2>
+            <p className="text-sm text-gray-500">Latest prescriptions from your doctor.</p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchPatientPrescriptions}
+           className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+          >
+            Refresh
+          </button>
         </div>
+
+        {loadingServerPrescriptions ? (
+          <div className="text-gray-600">Loading prescriptions...</div>
+        ) : serverPrescriptions.length === 0 ? (
+          <div className="text-gray-600">No prescriptions found yet. Check back after your next consultation.</div>
+        ) : (
+          <div className="space-y-4">
+            {serverPrescriptions.map((prescription, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Prescribed by {prescription.doctor_name || prescription.doctor?.name || prescription.doctor || 'Dr. Unknown'}</h3>
+                    <p>{formatIST(prescription.created_at || prescription.date)}</p>
+                  </div>
+                  <span className="text-xs font-medium px-2 py-1 rounded bg-emerald-100 text-emerald-800">Newest</span>
+                </div>
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-700 mb-2">Medicines</h4>
+                  <ul className="list-disc list-inside space-y-1">
+                    {(prescription.medications || []).map((medicine: any, i: number) => (
+                      <li key={i} className="text-gray-600">
+                        {typeof medicine === 'string' ? medicine : `${medicine.name || medicine.medicine || ''} ${medicine.dosage || medicine.dose || ''} ${medicine.duration || medicine.days || ''}`.trim()}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => { setSelectedPrescription(prescription); setShowPrescriptionModal(true); }}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1228,76 +1368,138 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const renderNotifications = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Recent Notifications</h2>
-        <div className="space-y-4">
-          {[
-            {
-              type: 'appointment',
-              title: 'Appointment Reminder',
-              urgent: true,
-            },
-            {
-              type: 'prescription',
-              title: 'Prescription Ready',
-              message: 'Your prescription from Dec 15 is ready for pickup at MedPlus Pharmacy',
-              time: '1 day ago',
-              urgent: false,
-            },
-            {
-              type: 'feedback',
-              title: 'Feedback Request',
-              message: 'Please rate your recent consultation with Dr. Priya Sharma',
-              time: '2 days ago',
-              urgent: false,
-            },
-          ].map((notification, index) => (
-            <div key={index} className={`border rounded-lg p-4 ${notification.urgent ? 'border-red-200 bg-red-50' : 'border-gray-200'
-              }`}>
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className={`font-semibold ${notification.urgent ? 'text-red-800' : 'text-gray-900'
-                    }`}>
-                    {notification.title}
-                  </h3>
-                  <p className={`mt-1 ${notification.urgent ? 'text-red-700' : 'text-gray-600'
-                    }`}>
-                    {notification.message}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">{notification.time}</p>
-                </div>
-                {notification.urgent && (
-                  <div className="ml-4">
-                    <span className="bg-red-600 text-white text-xs px-2 py-1 rounded">Urgent</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Recent Notifications</h2>
+            <p className="text-sm text-gray-500">Alerts from your care team.</p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchNotifications}
+             className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+          >
+            Refresh
+          </button>
         </div>
+
+        {loadingNotifications ? (
+          <div className="text-gray-600">Loading notifications...</div>
+        ) : notificationError ? (
+          <div className="text-red-600">{notificationError}</div>
+        ) : notifications.length === 0 ? (
+          <div className="text-gray-600">No notifications yet.</div>
+        ) : (
+          <div className="space-y-4">
+            {notifications.map((notification, index) => (
+              <button
+                key={index}
+                onClick={() => handleViewNotification(notification)}
+                className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-gray-900">{notification.message}</p>
+                    <p className="text-sm text-gray-500 mt-2">{new Date(notification.created_at || Date.now()).toLocaleString()}</p>
+                  </div>
+                  <div className="text-xs text-emerald-700 font-semibold">View</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Feedback & Ratings</h2>
-        <div className="space-y-4">
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Rate your recent consultation</h3>
-            <p className="text-gray-600 mb-4">Dr. Priya Sharma - Dec 10, 2024</p>
-            <div className="flex items-center space-x-2 mb-4">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} className="text-yellow-400 hover:text-yellow-500">
-                  <Star className="h-6 w-6 fill-current" />
-                </button>
-              ))}
+        <h2 className="text-xl font-bold text-gray-900 mb-6">Share Your Feedback</h2>
+        
+        {serverPrescriptions.length > 0 ? (
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmitFeedback();
+            }}
+            className="space-y-6"
+          >
+            {/* Prescription Info */}
+            <div className="border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50 rounded">
+              <p className="text-sm text-gray-600">You are rating:</p>
+              <p className="font-semibold text-gray-900">Dr. {serverPrescriptions[0].doctor_name || 'Your Doctor'}</p>
+              <p className="text-xs text-gray-500 mt-1">Prescription Date: {new Date(serverPrescriptions[0].created_at || Date.now()).toLocaleDateString()}</p>
             </div>
-            <textarea
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20"
-              placeholder="Share your feedback about the consultation..."
-            ></textarea>
-            <button className="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
-              Submit Feedback
-            </button>
+
+            {/* Rating Stars */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-3">How satisfied are you with this prescription?</label>
+              <div className="flex items-center space-x-3">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFeedbackRating(star)}
+                    className={`transition-all hover:scale-125 ${
+                      star <= feedbackRating ? 'text-yellow-400 scale-110' : 'text-gray-300 hover:text-yellow-300'
+                    }`}
+                    title={`Rate ${star} star${star !== 1 ? 's' : ''}`}
+                  >
+                    <Star className="h-10 w-10 fill-current" />
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2">
+                {feedbackRating > 0 && (
+                  <p className="text-sm font-medium text-emerald-600">
+                    ★ {feedbackRating === 1 ? 'Poor' : feedbackRating === 2 ? 'Fair' : feedbackRating === 3 ? 'Good' : feedbackRating === 4 ? 'Very Good' : 'Excellent'}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Feedback Text */}
+            <div>
+              <label htmlFor="feedback-text" className="block text-sm font-semibold text-gray-900 mb-2">
+                Tell us more (optional)
+              </label>
+              <textarea
+                id="feedback-text"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg h-24 text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-colors"
+                placeholder="Share your experience with this prescription..."
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={submittingFeedback || feedbackRating === 0}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+              >
+                {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFeedbackRating(0);
+                  setFeedbackText('');
+                }}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold px-6 py-3 rounded-lg transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Helper Text */}
+            <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
+              💡 Your feedback helps doctors improve their service. All feedback is sent to the doctor's analytics dashboard.
+            </p>
+          </form>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-2">No prescriptions to rate yet</p>
+            <p className="text-sm text-gray-500">Once you receive a prescription, you'll be able to share your feedback here.</p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1322,7 +1524,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               <div className="text-sm opacity-90">Signed in as <span className="font-semibold">{sessionUser?.email || 'Not signed in'}</span></div>
               <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
                 <img
-                  src={sessionUser?.picture || '/default-avatar.png'}
+                  src={profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />
@@ -1379,26 +1581,42 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         {activeTab === 'notifications' && renderNotifications()}
       </main>
 
-      {/* Prescription modal — keep original modal markup/behavior */}
+      {/* Prescription modal */}
       {showPrescriptionModal && selectedPrescription && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black opacity-40" onClick={() => setShowPrescriptionModal(false)}></div>
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full z-10 p-6 overflow-auto max-h-[80vh]">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full z-10 p-6 overflow-auto max-h-[80vh] select-none">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Prescription Details</h3>
               <div className="flex items-center space-x-2">
-                <button onClick={() => generatePrescriptionJsonPdf(selectedPrescription)} className="text-sm px-3 py-1 bg-gray-100 rounded">Export JSON</button>
-                <button onClick={() => handleDownloadPDF(selectedPrescription)} className="text-sm px-3 py-1 bg-emerald-600 text-white rounded">Download PDF</button>
-                <button onClick={() => setShowPrescriptionModal(false)} className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded">Close</button>
+                <button onClick={() => handleDownloadPDF(selectedPrescription)} className="text-sm px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700">Download PDF</button>
+                <button onClick={() => handleMarkPrescriptionRead(selectedPrescription.id)} className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Mark as Read</button>
+                <button onClick={() => handleDeletePrescription(selectedPrescription.id)} className="text-sm px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                <button onClick={() => setShowPrescriptionModal(false)} className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Close</button>
               </div>
             </div>
-            <div>
-              <div className="mb-2"><strong>Prescribed by:</strong> {selectedPrescription.doctor?.name || selectedPrescription.doctor || 'Dr. Unknown'}</div>
-              <div className="mb-2"><strong>Date:</strong> {new Date(selectedPrescription.created_at || selectedPrescription.date || Date.now()).toLocaleString()}</div>
-              <div className="mb-4"><strong>Diagnosis / Notes:</strong><div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{selectedPrescription.diagnosis || selectedPrescription.reason || 'No notes provided.'}</div></div>
-              <div>
-                <strong>Medicines</strong>
-                <ul className="list-disc list-inside mt-2">{(selectedPrescription.medicines || []).map((m: any, i: number) => (<li key={i} className="text-gray-700">{typeof m === 'string' ? m : (m.name || JSON.stringify(m))}</li>))}</ul>
+            <div className="text-gray-900 space-y-3">
+              <div className="text-sm">
+                <span className="font-semibold">Prescribed by:  Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'Dr. Unknown'}</span>
+              </div>
+              <div className="text-sm">
+                <span className="font-semibold">Date:</span> <span className="text-gray-800">{new Date(selectedPrescription.created_at || selectedPrescription.date || Date.now()).toLocaleString()}</span>
+              </div>
+              <div className="text-sm">
+                <span className="font-semibold">Diagnosis / Notes:</span>
+                <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 text-gray-800 whitespace-pre-wrap">{selectedPrescription.diagnosis || selectedPrescription.reason || 'No notes provided.'}</div>
+              </div>
+              <div className="text-sm">
+                <span className="font-semibold mb-2 block">Medicines</span>
+                <ul className="list-disc list-inside space-y-1 text-gray-800">
+                  {(selectedPrescription.medicines || []).length > 0 ? (
+                    (selectedPrescription.medicines || []).map((m: any, i: number) => (
+                      <li key={i}>{typeof m === 'string' ? m : (m.name || JSON.stringify(m))}</li>
+                    ))
+                  ) : (
+                    <li>No medicines prescribed</li>
+                  )}
+                </ul>
               </div>
             </div>
           </div>
