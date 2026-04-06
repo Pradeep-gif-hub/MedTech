@@ -28,13 +28,30 @@ class User(Base):
     medications = Column(String, nullable=True)
     surgeries = Column(String, nullable=True)
 
-    # NEW profile fields requested
+    # Patient profile fields
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
     bloodgroup = Column(String, nullable=True)
     abha_id = Column(String, nullable=True)
     allergy = Column(String, nullable=True)  # singular allergy field used by frontend
     profile_picture_url = Column(String, nullable=True)  # URL to user's profile picture
+    
+    # Doctor profile fields
+    specialization = Column(String, nullable=True)
+    years_of_experience = Column(Integer, nullable=True)
+    languages_spoken = Column(String, nullable=True)  # JSON string array
+    full_name = Column(String, nullable=True)  # Additional field for doctor full name
+    license_number = Column(String, nullable=True, unique=True)
+    registration_number = Column(String, nullable=True, unique=True)
+    hospital_name = Column(String, nullable=True)
+    license_status = Column(String, nullable=True)  # e.g., "Active & Verified"
+    license_valid_till = Column(String, nullable=True)  # e.g., "2031"
+    date_of_birth = Column(String, nullable=True)  # Same as dob, but explicit for doctors
+    blood_group = Column(String, nullable=True)  # Alternative to bloodgroup
+    
+    # Timestamps
+    created_at = Column(DateTime, server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
 class Prescription(Base):
     __tablename__ = "prescriptions"
