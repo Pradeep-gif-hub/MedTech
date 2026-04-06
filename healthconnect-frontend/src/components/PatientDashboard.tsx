@@ -188,8 +188,67 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // Simulated vitals updater
   useEffect(() => { let mounted = true; const tick = () => { if (!mounted) return; setLiveHeartRate((h: number) => Math.max(55, Math.min(110, h + Math.round((Math.random() * 2 - 1) * 3)))); setLiveTemperature((t: number) => Math.round((t + ((Math.random() * 2 - 1) * 0.2)) * 10) / 10); setLiveOxygen((o: number) => Math.max(90, Math.min(100, o + Math.round((Math.random() * 2 - 1) * 1)))); setTimeout(tick, 3000 + Math.floor(Math.random() * 1000)); }; const id = window.setTimeout(tick, 1000); return () => { mounted = false; clearTimeout(id); } }, []);
 
+  // Create consultation in backend database
+  const createConsultationInBackend = async () => {
+    try {
+      const pendingConsultationStr = localStorage.getItem('pendingConsultation');
+      if (!pendingConsultationStr) {
+        console.log('No pending consultation found');
+        return;
+      }
+
+      const consultationData = JSON.parse(pendingConsultationStr);
+      
+      // Get patient ID from stored user profile
+      const patientId = profile?.id;
+      if (!patientId) {
+        console.error('Patient ID not found');
+        alert('Error: Patient ID not found');
+        return;
+      }
+
+      // Send to backend API
+      const response = await fetch(buildApiUrl('/api/consultations'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          patient_id: patientId,
+          disease: consultationData.disease,
+          symptoms: consultationData.symptoms,
+          duration: consultationData.duration,
+          appointment_time: new Date().toLocaleTimeString()
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Consultation created:', result);
+        // Store consultation ID for reference
+        localStorage.setItem('currentConsultationId', result.id?.toString() || '');
+        return true;
+      } else {
+        const error = await response.json();
+        console.error('Failed to create consultation:', error);
+        alert(`Failed to create consultation: ${error.detail || 'Unknown error'}`);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error creating consultation:', err);
+      alert('Error submitting consultation to backend');
+      return false;
+    }
+  };
+
   // Start live as sender (patient)
   const startLiveSender = async () => {
+    // First, ensure consultation is created in backend
+    const consultationCreated = await createConsultationInBackend();
+    if (!consultationCreated) {
+      console.log('Consultation not created, but proceeding with WebRTC...');
+    }
     try {
       // open signaling websocket
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -830,6 +889,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
             >
               <option value="">Select the Disease</option>
               <option>Fever</option>
+              <option>Cardiac Arrest</option>
               <option>Cold & Cough</option>
               <option>Asthma</option>
               <option>Diabetes</option>

@@ -12,6 +12,23 @@ class Appointment(Base):
 
     patient = relationship("User", foreign_keys=[patient_id])
 
+
+class Consultation(Base):
+    __tablename__ = "consultations"
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    doctor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    disease = Column(String, nullable=False)  # Specialization/complaint (e.g., "Cardiology")
+    symptoms = Column(String, nullable=True)  # Patient's description of symptoms
+    duration = Column(String, nullable=True)  # Duration of illness (e.g., "2 weeks")
+    status = Column(String, default="waiting", nullable=False)  # waiting, in-progress, completed
+    appointment_time = Column(String, nullable=True)  # Scheduled time
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    patient = relationship("User", foreign_keys=[patient_id], backref="consultations_as_patient")
+    doctor = relationship("User", foreign_keys=[doctor_id], backref="consultations_as_doctor")
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
