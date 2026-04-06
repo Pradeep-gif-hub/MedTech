@@ -171,3 +171,54 @@ class FeedbackResponse(BaseModel):
     @field_serializer('created_at')
     def serialize_created_at(self, value: Optional[datetime]) -> Optional[str]:
         return value.isoformat() if value else None
+
+
+# Doctor Profile Schemas
+class DoctorProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    blood_group: Optional[str] = None
+    specialization: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    languages_spoken: Optional[list[str]] = None
+    license_number: Optional[str] = None
+    registration_number: Optional[str] = None
+    hospital_name: Optional[str] = None
+    profile_photo: Optional[str] = None
+    abha_id: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    license_status: Optional[str] = None
+    license_valid_till: Optional[str] = None
+
+    model_config = {"populate_by_name": True}
+
+
+class DoctorProfileResponse(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    blood_group: Optional[str] = None
+    specialization: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    languages_spoken: Optional[list[str]] = None
+    license_number: Optional[str] = None
+    registration_number: Optional[str] = None
+    hospital_name: Optional[str] = None
+    profile_photo: Optional[str] = None
+    abha_id: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    license_status: Optional[str] = None
+    license_valid_till: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, value: Optional[datetime]) -> Optional[str]:
+        return value.isoformat() if value else None
