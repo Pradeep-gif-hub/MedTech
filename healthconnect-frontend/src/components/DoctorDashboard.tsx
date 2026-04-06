@@ -74,6 +74,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const [liveLDR, setLiveLDR] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [patientQueue, setPatientQueue] = useState<any[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({
     patientEmail: '',
     doctorEmail: '',
@@ -303,6 +305,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // ===== STEP 4: All useEffect hooks (AFTER helpers are defined) =====
   useEffect(() => {
     if (!profile?.id) return;
+    fetchPatientQueue();
+    const interval = setInterval(fetchPatientQueue, 10000); // Refresh every 10s
+    return () => clearInterval(interval);
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
     fetchAnalyticsData();
     const interval = setInterval(fetchAnalyticsData, 10000);
     return () => clearInterval(interval);
@@ -447,7 +456,56 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     return <DoctorProfilePage onBack={handleBackFromProfile} />;
   }
 
-  // ===== STEP 6: Sample patient data =====
+  // ===== STEP 6: Fetch patient queue from backend =====
+  const fetchPatientQueue = async () => {
+    if (!profile?.id) return;
+    setQueueLoading(true);
+    try {
+      const response = await fetch(buildApiUrl(`/api/doctor/patient-queue`), {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[DoctorDashboard] Patient Queue:', data);
+        setPatientQueue(data);
+      } else {
+        console.error('Failed to fetch patient queue:', response.status);
+        setPatientQueue([]);
+      }
+    } catch (err) {
+      console.error('[DoctorDashboard] Error fetching patient queue:', err);
+      setPatientQueue([]);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const updateConsultationStatus = async (consultationId: number, newStatus: string) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/consultations/${consultationId}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (response.ok) {
+        console.log(`[DoctorDashboard] Consultation ${consultationId} updated to ${newStatus}`);
+        // Refresh the queue after status update
+        await fetchPatientQueue();
+        return true;
+      } else {
+        console.error('Failed to update consultation status:', response.status);
+        return false;
+      }
+    } catch (err) {
+      console.error('[DoctorDashboard] Error updating consultation:', err);
+      return false;
+    }
+  };
+
+  // ===== STEP 6a: Sample patient data (for demo purposes only) =====
   const patients = [
     {
       id: 1,
@@ -515,16 +573,36 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
   
   // ===== STEP 7: Interaction helpers =====
-  const startConsultation = (patient: any) => {
-    // Mark the chosen patient as current and toggle consultation UI
-    setCurrentPatient(patient);
-    setInConsultation(true);
-    setActiveTab('consultation');
-    // Start WebRTC as receiver (doctor)
-    setTimeout(() => startLiveReceiver(), 300); // slight delay to allow UI to update
+  const startConsultation = async (patient: any) => {
+    try {
+      // First, redirect to consultation tab immediately for user feedback
+      setActiveTab('consultation');
+      
+      // Then set the current patient and consultation state
+      setCurrentPatient(patient);
+      setInConsultation(true);
+      
+      // Update consultation status to in-progress
+      if (patient.consultation_id) {
+        const success = await updateConsultationStatus(patient.consultation_id, 'in-progress');
+        if (!success) {
+          console.error('Failed to update consultation status');
+        }
+      }
+      
+      // Start WebRTC as receiver (doctor) with proper timing
+      setTimeout(() => startLiveReceiver(), 300); // slight delay to allow UI to update
+    } catch (error) {
+      console.error('Error starting consultation:', error);
+      // Still keep the tab open even if there's an error
+    }
   };
 
-  const endConsultation = () => {
+  const endConsultation = async () => {
+    // Update consultation status to completed if we have one
+    if (currentPatient?.consultation_id) {
+      await updateConsultationStatus(currentPatient.consultation_id, 'completed');
+    }
     endLiveConsultationFull();
   };
 
@@ -814,70 +892,91 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   const renderQueueList = () => {
+    // Use ONLY real patient queue data from backend - NO DUMMY DATA
+    const queueToDisplay = patientQueue || [];
+
     return (
       <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
-        <h2 className="text-xl font-semibold mb-6">Patient Queue</h2>
+        <h2 className="text-xl font-semibold mb-6">Patient Queue {queueLoading && '(Loading...)'}</h2>
 
-        <div className="space-y-4">
-          {patients.map((patient) => {
-            const urgencyColor =
-              patient.urgency === 'urgent'
-                ? 'bg-red-500'
-                : patient.urgency === 'high'
-                ? 'bg-orange-500'
-                : 'bg-green-500';
+        {queueToDisplay.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-white/60 text-lg">No patients currently in queue</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {queueToDisplay.map((patient) => {
+              // Support both real and dummy data formats
+              const patientName = patient.patient_name || patient.name;
+              const patientAge = patient.age;
+              const appointmentTime = patient.appointment_time || patient.time;
+              const disease = patient.disease || 'General';
+              const status = patient.status || 'waiting';
+              const consultationId = patient.consultation_id || patient.id;
 
-            const statusBadge =
-              patient.status === 'waiting'
-                ? 'bg-yellow-100 text-yellow-800'
-                : patient.status === 'in-progress'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-gray-800';
+              const statusBadgeColor =
+                status === 'waiting'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : status === 'in-progress'
+                  ? 'bg-blue-100 text-blue-800'
+                  : status === 'completed'
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 text-gray-800';
 
-            return (
-              <div
-                key={patient.id}
-                className="border border-white/8 rounded-lg p-4 hover:shadow-2xl transition-shadow bg-white/4"
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
-                      <User className="h-6 w-6 text-white/80" />
+              // Urgency color (based on disease severity or explicit urgency field)
+              const urgency = patient.urgency || 'normal';
+              const urgencyColor =
+                urgency === 'urgent'
+                  ? 'bg-red-500'
+                  : urgency === 'high'
+                  ? 'bg-orange-500'
+                  : 'bg-green-500';
+
+              return (
+                <div
+                  key={consultationId}
+                  className="border border-white/8 rounded-lg p-4 hover:shadow-2xl transition-shadow bg-white/4"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-white/80" />
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold">{patientName}</h3>
+                        <p className="text-sm opacity-80">
+                          Age: {patientAge} &nbsp;|&nbsp; Scheduled: {appointmentTime} &nbsp;|&nbsp; {disease}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <h3 className="font-semibold">{patient.name}</h3>
-                      <p className="text-sm opacity-80">
-                        Age: {patient.age} &nbsp;|&nbsp; Scheduled: {patient.time}
-                      </p>
-                    </div>
-                  </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-block w-2 h-2 rounded-full ${urgencyColor}`} />
+                        <span className="text-sm opacity-90 capitalize">{urgency}</span>
+                      </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <span className={`inline-block w-2 h-2 rounded-full ${urgencyColor}`} />
-                      <span className="text-sm opacity-90 capitalize">{patient.urgency}</span>
-                    </div>
+                      <span className={`text-xs font-medium px-2 py-1 rounded ${statusBadgeColor}`}>
+                        {status}
+                      </span>
 
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${statusBadge}`}>
-                      {patient.status}
-                    </span>
-
-                    <div>
-                      <button
-                        onClick={() => startConsultation(patient)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
-                        disabled={patient.status === 'in-progress' || inConsultation}
-                      >
-                        {patient.status === 'in-progress' || inConsultation ? 'In Progress' : 'Start'}
-                      </button>
+                      <div>
+                        <button
+                          onClick={() => startConsultation(patient)}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+                          disabled={status === 'in-progress' || status === 'completed' || inConsultation}
+                        >
+                          {status === 'in-progress' ? 'In Progress' : status === 'completed' ? 'Completed' : 'Start'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   };
@@ -904,12 +1003,17 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // ---------------- Consultation view -------------------------------------
 
   const ConsultationHeader = ({ patient }: { patient: any }) => {
+    const patientName = patient?.patient_name || patient?.name;
+    const patientAge = patient?.age;
+    const disease = patient?.disease || 'General Consultation';
+    const consultationId = patient?.consultation_id || patient?.id;
+
     return (
       <div className="bg-emerald-600 text-white p-4 rounded-t-xl">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold">Consultation with {patient?.name}</h2>
-            <p className="text-sm opacity-90">Age: {patient?.age} • Last visit: {patient?.lastVisit}</p>
+            <h2 className="text-xl font-bold">Consultation with {patientName}</h2>
+            <p className="text-sm opacity-90">Age: {patientAge} • Complaint: {disease} • Last visit: {patient?.lastVisit || 'N/A'}</p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -918,7 +1022,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               <span className="text-sm">Live</span>
             </div>
 
-            <div className="text-sm opacity-90">ID: {patient?.id}</div>
+            <div className="text-sm opacity-90">ID: {consultationId}</div>
           </div>
         </div>
       </div>
@@ -957,9 +1061,25 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const renderConsultationRightTop = (_patient: any) => {
     return (
       <div className="bg-white p-4">
-        <h3 className="font-bold text-gray-900 mb-4">Patient Information</h3>
+        <h3 className="font-bold text-gray-900 mb-4">Patient & Consultation Info</h3>
 
         <div className="space-y-3 text-sm">
+          {/* Disease / Complaint */}
+          {_patient?.disease && (
+            <div>
+              <span className="font-medium text-gray-700">Complaint:</span>
+              <span className="ml-2 text-gray-600">{_patient.disease}</span>
+            </div>
+          )}
+
+          {/* Symptoms */}
+          {_patient?.symptoms && (
+            <div>
+              <span className="font-medium text-gray-700">Symptoms:</span>
+              <span className="ml-2 text-gray-600">{_patient.symptoms}</span>
+            </div>
+          )}
+
           <div>
             <span className="font-medium text-gray-700">Blood Group:</span>
             <span className="ml-2 text-gray-600">{_patient?.bloodGroup || 'N/A'}</span>
