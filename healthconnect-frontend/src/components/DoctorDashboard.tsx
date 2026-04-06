@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import { useStoredUser } from '../hooks/useStoredUser';
 import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
 import { buildApiUrl } from '../config/api';
+import DoctorProfilePage from './DoctorProfilePage';
 
 // Initialize EmailJS
 try {
@@ -43,18 +44,91 @@ interface DoctorDashboardProps {
  */
 
 const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDashboardProps) => {
+  // ===== STEP 1: All hooks FIRST =====
   const sessionUser = useStoredUser();
-  const { profile } = useBackendProfile();
+  const { profile, refreshProfile } = useBackendProfile();
 
   const [activeTab, setActiveTab] = useState<
-    'home' | 'queue' | 'consultation' | 'prescriptions' | 'analytics'
+    'home' | 'queue' | 'consultation' | 'prescriptions' | 'analytics' | 'profile'
   >('home');
+
+  const [showProfilePage, setShowProfilePage] = useState(false);
 
   const [inConsultation, setInConsultation] = useState<boolean>(false);
   const [currentPatient, setCurrentPatient] = useState<any>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState('/default-avatar.png');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const pendingSends = useRef<string[]>([]);
+  const [liveLog, setLiveLog] = useState<string>("");
+  const [inLiveConsult, setInLiveConsult] = useState(false);
+  const [liveHeartRate, setLiveHeartRate] = useState<number>(72);
+  const [liveTemperature, setLiveTemperature] = useState<number>(98.6);
+  const [liveOxygen, setLiveOxygen] = useState<number>(98);
+  const [liveBP, setLiveBP] = useState<{ sys: number; dia: number }>({ sys: 120, dia: 80 });
+  const [liveLDR, setLiveLDR] = useState<number | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    patientEmail: '',
+    doctorEmail: '',
+    date: new Date().toISOString().split('T')[0],
+    diagnosis: '',
+    medicines: [{ name: '', dosage: '', duration: '' }],
+    instructions: ''
+  });
 
+  // ===== STEP 2: Derived variables (AFTER all hooks) =====
+  // Extract email FIRST so it's available to useEffect
+  const doctorName = profile?.full_name || profile?.name || sessionUser?.name || 'Doctor';
+  const email = profile?.email || sessionUser?.email || '';
+  const doctorImage = avatarSrc || profile?.picture || profile?.profile_picture_url || '/default-avatar.png';
+  const specialization = profile?.specialization || (profile as any)?.specialization || 'General Physician';
+  const experience = profile?.experience || profile?.years_of_experience || (profile as any)?.years_practicing || 'General Physician';
+  const doctorId = String(profile?.id || profile?.user_id || sessionUser?.user_id || '');
+  const abhaId = String(profile?.abhaId || profile?.abhaId || sessionUser?.user_id || '');
+  const phone = profile?.phone || sessionUser?.phone || '-';
+  const bloodGroup = profile?.bloodgroup || profile?.blood_group || sessionUser?.bloodgroup || 'AB+';
+  const licenseNumber = profile?.license_number || (profile as any)?.license_number || 'RCXS-24103948';
+  const registrationNumber = profile?.registration_number || profile?.registration_no || (profile as any)?.registration_no || 'RG-932183';
+  const hospitalAffiliation = profile?.hospital || profile?.hospital_name || (profile as any)?.hospital || 'PGI-Chandigarh';
+  const qualifications = profile?.qualifications || (profile as any)?.qualifications || 'MBBS-MD AIIMS';
+  const yearsPracticing = profile?.years_practicing || profile?.experience || (profile as any)?.years_practicing || '15 years';
+  // Fix languages to read from API correctly
+  const languagesArray = Array.isArray(profile?.languages_spoken) ? profile.languages_spoken : (typeof profile?.languages_spoken === 'string' ? profile.languages_spoken.split(',').map((l: string) => l.trim()) : []);
+  const languages = languagesArray.length > 0 ? languagesArray.join(', ') : 'Not specified';
+  const licenseValidTill = profile?.license_valid_till || 'Not specified';
+  const licenseStatus = profile?.license_status || 'Verified';
+  const yearsOfExperience = profile?.years_of_experience || 'Not specified';
+  const clinicAddress = profile?.clinic_address || (profile as any)?.clinic_address || 'Shashtri Nagar, Mandi Govindgarh';
+  const consultationFee = profile?.consultation_fee || (profile as any)?.consultation_fee || 'INR-300';
+
+  const effectiveDoctorName = doctorName;
+  const effectiveDoctorEmail = email;
+  const effectiveDoctorImage = doctorImage;
+  const effectiveDoctorPhone = phone;
+  const effectiveDoctorBloodGroup = bloodGroup;
+  const effectiveDoctorAge = String((profile?.age || sessionUser?.age) || '-');
+
+  const signedUser = {
+    name: doctorName,
+    email: email,
+    role: profile?.role || sessionUser?.role || 'doctor',
+    age: profile?.age || sessionUser?.age,
+    bloodgroup: bloodGroup,
+    phone: phone,
+    picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url,
+  } as any;
+
+  // Helper to log messages
+  const logLive = (msg: string) => setLiveLog((l: string) => `[${new Date().toLocaleTimeString()}] ${msg}\n` + l);
+
+  // ===== STEP 3: Data fetching and WebRTC helpers (can reference derived variables safely) =====
   const fetchAnalyticsData = async () => {
     if (!profile?.id) return;
     setAnalyticsLoading(true);
@@ -74,79 +148,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       setAnalyticsLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!profile?.id) return;
-    fetchAnalyticsData();
-    const interval = setInterval(fetchAnalyticsData, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, [profile?.id]);
-
-  const signedUser = {
-    name: profile?.name || sessionUser?.name || 'Doctor',
-    email: profile?.email || sessionUser?.email || '',
-    role: profile?.role || sessionUser?.role || 'doctor',
-    age: profile?.age || sessionUser?.age,
-    bloodgroup: profile?.bloodgroup || sessionUser?.bloodgroup,
-    phone: profile?.phone || sessionUser?.phone,
-    picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url,
-  } as any;
-
-  // Cross-browser-safe avatar fallback.
-  const [avatarSrc, setAvatarSrc] = useState('/default-avatar.png');
-  useEffect(() => {
-    setAvatarSrc((signedUser?.picture as string) || '/default-avatar.png');
-  }, [signedUser?.picture]);
-
-  const handleAvatarError = (e: any) => {
-    const el = e.currentTarget as HTMLImageElement;
-    if (!el.src.includes('/default-avatar.png')) {
-      el.src = '/default-avatar.png';
-    }
-  };
-
-  // --- Derived doctor info (source of truth: backend profile/session) ---
-  const doctorName = signedUser?.name || 'Doctor';
-  const doctorImage = avatarSrc || '/default-avatar.png';
-  const email = signedUser?.email || '';
-
-  // Use consistent defaults for fields not yet present in backend schema.
-  const specialization = (profile as any)?.specialization || 'General Physician';
-  const experience = (profile as any)?.experience || '15 years';
-  const doctorId = String(profile?.id || sessionUser?.user_id || '');
-  const phone = signedUser?.phone || '-';
-  const bloodGroup = signedUser?.bloodgroup || '-';
-  const licenseNumber = (profile as any)?.license_number || 'RCXS-24103948';
-  const registrationNumber = (profile as any)?.registration_no || 'RG-932183';
-  const hospitalAffiliation = (profile as any)?.hospital || 'PGI-Chandigarh';
-  const qualifications = (profile as any)?.qualifications || 'MBBS-MD AIIMS';
-  const yearsPracticing = (profile as any)?.years_practicing || '15 years';
-  const languages = (profile as any)?.languages || 'English, Hindi, Punjabi';
-  const clinicAddress = (profile as any)?.clinic_address || 'Shashtri Nagar, Mandi Govindgarh';
-  const consultationFee = (profile as any)?.consultation_fee || 'INR-300';
-
-  const effectiveDoctorName = doctorName;
-  const effectiveDoctorEmail = email;
-  const effectiveDoctorImage = doctorImage;
-  const effectiveDoctorPhone = phone;
-  const effectiveDoctorBloodGroup = bloodGroup;
-  const effectiveDoctorAge = String(signedUser?.age || '-');
-
-  // --- Camera feed and WebRTC state  
-  const localVideoRef = useRef<HTMLVideoElement>(null); // Doctor's own camera
-  const remoteVideoRef = useRef<HTMLVideoElement>(null); // Patient's video (remote)
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const pendingSends = useRef<string[]>([]);
-  const [liveLog, setLiveLog] = useState<string>("");
-  const [inLiveConsult, setInLiveConsult] = useState(false);
-
-  // Helper to log messages
-  const logLive = (msg: string) => setLiveLog((l: string) => `[${new Date().toLocaleTimeString()}] ${msg}\n` + l);
-
-  // --- WebRTC config ---
-  const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
   // --- Start as Receiver (Doctor) ---
   const startLiveReceiver = async () => {
@@ -206,7 +207,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         if (data.type === 'offer' && data.sdp) {
           logLive('Received offer, creating answer...');
           try {
-            // set remote description
             await pcRef.current?.setRemoteDescription(data.sdp);
           } catch (err) {
             console.error('setRemoteDescription error', err);
@@ -214,7 +214,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             return;
           }
 
-          // ensure doctor's local camera stream is captured and added to pc so patient sees it
           try {
             const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             if (localVideoRef.current) {
@@ -301,6 +300,18 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     setActiveTab('queue');
   };
 
+  // ===== STEP 4: All useEffect hooks (AFTER helpers are defined) =====
+  useEffect(() => {
+    if (!profile?.id) return;
+    fetchAnalyticsData();
+    const interval = setInterval(fetchAnalyticsData, 10000);
+    return () => clearInterval(interval);
+  }, [profile?.id]);
+
+  useEffect(() => {
+    setAvatarSrc((signedUser?.picture as string) || '/default-avatar.png');
+  }, [signedUser?.picture]);
+
   // Camera preview for waiting state
   useEffect(() => {
     if (activeTab === 'consultation' && !inLiveConsult) {
@@ -332,7 +343,111 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     }
   }, [activeTab]);
 
-  // --- Sample patient data (replace with API data) -----------------------
+  // Set doctor email when email becomes available (NOW email is defined!)
+  useEffect(() => {
+    if (!prescriptionForm.doctorEmail && email) {
+      setPrescriptionForm(prev => ({
+        ...prev,
+        doctorEmail: email,
+      }));
+    }
+  }, [email, prescriptionForm.doctorEmail]);
+
+  // periodic updater (~3-4s) to simulate real measurements
+  useEffect(() => {
+    let mounted = true;
+    let timer: number | null = null;
+    const scheduleNext = () => {
+      const ms = 3000 + Math.floor(Math.random() * 1000);
+      timer = window.setTimeout(() => {
+        if (!mounted) return;
+
+        setLiveHeartRate((prev: number) => {
+          const change = (Math.random() * 2 - 1) * 3;
+          let next = Math.round(prev + change);
+          if (next < 55) next = 55;
+          if (next > 110) next = 110;
+          return next;
+        });
+
+        setLiveTemperature((prev: number) => {
+          const raw = Math.round(Math.round(prev * 10) + Math.floor((Math.random() * 2 - 1) * 4));
+          return Math.round(raw) / 10;
+        });
+
+        setLiveOxygen((prev: number) => {
+          const change = (Math.random() * 2 - 1) * 1;
+          let next = Math.round(prev + change);
+          if (next < 90) next = 90;
+          if (next > 100) next = 100;
+          return next;
+        });
+
+        setLiveBP((prev: { sys: number; dia: number }) => {
+          const sys = Math.max(90, Math.min(140, prev.sys + Math.floor((Math.random() * 2 - 1) * 4)));
+          const dia = Math.max(55, Math.min(95, prev.dia + Math.floor((Math.random() * 2 - 1) * 3)));
+          return { sys, dia };
+        });
+
+        setLiveLDR((prev: number | null) => {
+          const base = prev ?? Math.floor(Math.random() * 4096);
+          const v = Math.max(0, Math.min(4095, base + Math.floor((Math.random() * 2 - 1) * 300)));
+          return v;
+        });
+
+        scheduleNext();
+      }, ms);
+    };
+    scheduleNext();
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  // ===== Refresh profile when returning from profile edit page =====
+  useEffect(() => {
+    if (!showProfilePage) {
+      // User just came back from profile page - refresh profile data
+      console.log('[DoctorDashboard] Refreshing profile after profile page close');
+      refreshProfile();
+    }
+  }, [showProfilePage]);
+
+  // ===== Listen for profile updates from profile page =====
+  useEffect(() => {
+    const handleProfileUpdated = (event: any) => {
+      console.log('[DoctorDashboard] Caught profile-updated event:', event.detail);
+      refreshProfile();
+    };
+
+    window.addEventListener('profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('profile-updated', handleProfileUpdated);
+  }, [refreshProfile]);
+
+  // ===== Step 5: Handle profile page navigation (AFTER hooks, BEFORE rendering) =====
+  const handleEditProfile = () => {
+    setShowProfilePage(true);
+  };
+
+  const handleBackFromProfile = () => {
+    setShowProfilePage(false);
+    setActiveTab('home');
+  };
+
+  const handleAvatarError = (e: any) => {
+    const el = e.currentTarget as HTMLImageElement;
+    if (!el.src.includes('/default-avatar.png')) {
+      el.src = '/default-avatar.png';
+    }
+  };
+
+  // If showing profile page, render it instead (AFTER hooks but BEFORE main content)
+  if (showProfilePage) {
+    return <DoctorProfilePage onBack={handleBackFromProfile} />;
+  }
+
+  // ===== STEP 6: Sample patient data =====
   const patients = [
     {
       id: 1,
@@ -398,64 +513,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     if (!m) return { sys: 120, dia: 80 };
     return { sys: Number(m[1]), dia: Number(m[2]) };
   };
-  const initialBP = parseBP(vitalSigns.bloodPressure);
   
-  const [liveHeartRate, setLiveHeartRate] = useState<number>(vitalSigns.heartRate);
-  const [liveTemperature, setLiveTemperature] = useState<number>(vitalSigns.temperature);
-  const [liveOxygen, setLiveOxygen] = useState<number>(vitalSigns.oxygenLevel);
-  const [liveBP, setLiveBP] = useState<{ sys: number; dia: number }>(initialBP);
-  const [liveLDR, setLiveLDR] = useState<number | null>(null);
-  
-  // helper to smoothly vary values
-  function nextValue(prev: number, min: number, max: number, variance = 2) {
-    const change = (Math.random() * 2 - 1) * variance;
-    let next = Math.round(prev + change);
-    if (next < min) next = min;
-    if (next > max) next = max;
-    return next;
-  }
-
-  // periodic updater (~3-4s) to simulate real measurements
-  useEffect(() => {
-    let mounted = true;
-    let timer: number | null = null;
-    const scheduleNext = () => {
-      const ms = 3000 + Math.floor(Math.random() * 1000);
-      timer = window.setTimeout(() => {
-        if (!mounted) return;
-
-  setLiveHeartRate((prev: number) => nextValue(prev, 55, 110, 3));
-
-        setLiveTemperature((prev: number) => {
-          const raw = nextValue(Math.round(prev * 10), Math.round(97.0 * 10), Math.round(100.5 * 10), 4);
-          return Math.round(raw) / 10;
-        });
-
-  setLiveOxygen((prev: number) => nextValue(prev, 90, 100, 1));
-
-        setLiveBP((prev: { sys: number; dia: number }) => {
-          const sys = Math.max(90, Math.min(140, prev.sys + Math.floor((Math.random() * 2 - 1) * 4)));
-          const dia = Math.max(55, Math.min(95, prev.dia + Math.floor((Math.random() * 2 - 1) * 3)));
-          return { sys, dia };
-        });
-
-        setLiveLDR((prev: number | null) => {
-          const base = prev ?? Math.floor(Math.random() * 4096);
-          const v = Math.max(0, Math.min(4095, base + Math.floor((Math.random() * 2 - 1) * 300)));
-          return v;
-        });
-
-        scheduleNext();
-      }, ms);
-    };
-    scheduleNext();
-    return () => {
-      mounted = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
-
-  // --- Interaction helpers -----------------------------------------------
+  // ===== STEP 7: Interaction helpers =====
   const startConsultation = (patient: any) => {
     // Mark the chosen patient as current and toggle consultation UI
     setCurrentPatient(patient);
@@ -469,7 +528,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     endLiveConsultationFull();
   };
 
-  // --- Render helpers ----------------------------------------------------
+  // ===== STEP 8: Render helper functions =====
   const renderHome = () => {
     try {
       const doctorDetails = {
@@ -487,30 +546,30 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         hospital: hospitalAffiliation,
         qualifications: qualifications,
         languages: languages,
+        specialization: specialization,
+        abhaId:abhaId,
         clinicAddress: clinicAddress,
+        
         consultationFee: consultationFee
       };
 
       return (
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 gap-2 items-start">
           {/* Left side - Details */}
-          <div className="space-y-6">
+          <div className="md:col-span-1 space-y-0">
             {/* Details table */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden sticky top-0">
               {/* Header with Photo */}
-              <div className="flex items-center gap-6 p-6 bg-gradient-to-r from-gray-50 to-white border-b">
-                <div className="w-24 h-24 rounded-xl overflow-hidden border-2 border-emerald-400 shadow-lg">
+              <div className="flex items-center gap-3 p-2 bg-gradient-to-r from-gray-50 to-white border-b">
+                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-emerald-400 shadow-lg flex-shrink-0">
                   <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Dr. {doctorDetails.name}</h2>
-                  <p className="text-sm text-emerald-600 font-medium">{doctorDetails.specialization}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-600">
+                  <h2 className="text-lg font-bold text-gray-900">Dr. {doctorDetails.name}</h2>
+                  <p className="text-xs text-emerald-600 font-medium">{doctorDetails.specialization}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="px-1.5 py-0.5 bg-gray-100 rounded-md text-xs font-medium text-gray-600">
                       ID: {doctorDetails.doctorId}
-                    </span>
-                    <span className="px-2 py-1 bg-emerald-50 rounded-md text-xs font-medium text-emerald-600">
-                      {doctorDetails.experience}
                     </span>
                   </div>
                 </div>
@@ -519,8 +578,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               {/* Details Grid */}
               <div className="divide-y divide-gray-100">
                 {/* Personal Info Section */}
-                <div className="p-4 bg-gray-50">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Personal Information</h3>
+                <div className="p-2.5 bg-gray-50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-colors duration-200 group cursor-default">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 group-hover:text-blue-600 transition-colors">Personal Information</h3>
                   <div className="grid grid-cols-2 border rounded-lg bg-white overflow-hidden">
                     <DetailRow label="Languages" value={doctorDetails.languages} />
                     <DetailRow label="Blood Group" value={doctorDetails.bloodGroup} />
@@ -528,8 +587,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                 </div>
 
                 {/* Professional Info Section */}
-                <div className="p-4 bg-gray-50">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Professional Details</h3>
+                <div className="p-2.5 bg-gray-50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-colors duration-200 group cursor-default">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 group-hover:text-blue-600 transition-colors">Professional Details</h3>
                   <div className="grid grid-cols-2 border rounded-lg bg-white overflow-hidden">
                     <DetailRow label="License No." value={doctorDetails.licenseNumber} />
                     <DetailRow label="Registration" value={doctorDetails.registrationNumber} />
@@ -539,34 +598,27 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                 </div>
 
                 {/* Contact Info Section */}
-                <div className="p-4 bg-gray-50">
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contact & Practice</h3>
-                  <div className="grid grid-cols-1 border rounded-lg bg-white overflow-hidden">
+                <div className="p-2.5 bg-gray-50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-teal-50 transition-colors duration-200 group cursor-default">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 group-hover:text-blue-600 transition-colors">Contact & Practice</h3>
+                  <div className="grid grid-cols-2 border rounded-lg bg-white overflow-hidden">
                     <DetailRow label="Phone" value={doctorDetails.phone} />
-                    <DetailRow label="Consultation Fee" value={doctorDetails.consultationFee} />
-                    <DetailRow 
-                      label="Qualifications" 
-                      value={doctorDetails.qualifications}
-                      fullWidth
-                    />
-                    <DetailRow 
-                      label="Clinic Address" 
-                      value={doctorDetails.clinicAddress}
-                      fullWidth
-                    />
+                    <DetailRow label="Qualifications" value={doctorDetails.qualifications} />
+                    <DetailRow label="Specialization" value={doctorDetails.specialization} />
+                    <DetailRow label="Abha-ID Number" value={doctorDetails.abhaId} />
                   </div>
                 </div>
+  
               </div>
             </div>
           </div>
 
           {/* Right side */}
-          <div className="space-y-6">
+          <div className="md:col-span-1 space-y-3">
             {/* Digital Card moved up */}
-            <div className="flex justify-center -mt-4 mb-6">
-              <div className="w-[340px] h-[200px] perspective-1000 animate-float">
+            <div className="flex justify-center mb-2">
+              <div className="w-[280px] h-[150px] perspective-1000 animate-float">
                 <div className="relative w-full h-full transition-transform duration-500 transform hover:scale-105 hover:rotate-1">
-                  <div className="absolute w-full h-full bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-800 rounded-2xl p-5 shadow-2xl border border-white/20">
+                  <div className="absolute w-full h-full bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-800 rounded-2xl p-3 shadow-2xl border border-white/20">
                     {/* Medical Pattern Background */}
                     <div className="absolute inset-0 opacity-5">
                       <div className="w-full h-full grid grid-cols-8 gap-4">
@@ -579,50 +631,48 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                     {/* Card Content */}
                     <div className="relative h-full flex flex-col justify-between z-10">
                       {/* Card Header */}
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start mb-1">
                         <div>
-                          <h3 className="text-white font-extrabold text-lg tracking-widest drop-shadow-md">
-                            MEDTECH<span className="text-cyan-400">+</span>
+                          <h3 className="text-white font-extrabold text-sm tracking-widest drop-shadow-md">
+                            MEDTECH<span className="text-cyan-400 text-xs">+</span>
                           </h3>
-                          <p className="text-cyan-100 text-[10px] uppercase tracking-[0.2em]">Digital Health ID</p>
+                          <p className="text-cyan-100 text-[8px] uppercase tracking-[0.1em]">Digital Health ID</p>
                         </div>
-                        <div className="w-10 h-10 bg-white/10 rounded-lg p-1.5 shadow-lg backdrop-blur-sm">
+                        <div className="w-7 h-7 bg-white/10 rounded-lg p-1 shadow-lg backdrop-blur-sm">
                           <img src={profileImage} alt="logo" className="w-full h-full object-contain opacity-90" />
                         </div>
                       </div>
 
                       {/* Card Body */}
-                      <div className="flex items-center gap-4 my-2">
-                        <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg">
+                      <div className="flex items-center gap-2 my-1">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-white/30 shadow-lg">
                           <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
                         </div>
-                        <div className="flex-1">
-                          <h4 className="text-white text-sm font-semibold leading-tight tracking-wide">{doctorDetails.name}</h4>
-                          <p className="text-[11px] text-cyan-200 leading-tight">{doctorDetails.specialization}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] text-blue-200 opacity-90">ID: {doctorDetails.doctorId}</span>
-                            <span className="h-1 w-1 bg-blue-300 rounded-full opacity-50"></span>
-                            <span className="text-[10px] text-blue-200 opacity-90">Valid Till: 07/31</span>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-white text-xs font-semibold leading-tight tracking-wide truncate">{doctorDetails.name}</h4>
+                          <p className="text-[9px] text-cyan-200 leading-tight truncate">{doctorDetails.specialization}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[8px] text-blue-200 opacity-90 truncate">ID: {doctorDetails.doctorId}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Card Footer */}
                       <div className="flex justify-between items-end">
-                        <div className="flex items-end gap-3">
-                          <div className="space-y-[2px]">
-                            <div className="w-8 h-[2px] bg-white/40 rounded"></div>
-                            <div className="w-12 h-[2px] bg-white/40 rounded"></div>
-                            <div className="w-6 h-[2px] bg-white/40 rounded"></div>
+                        <div className="flex items-end gap-2">
+                          <div className="space-y-[1px]">
+                            <div className="w-6 h-[1px] bg-white/40 rounded"></div>
+                            <div className="w-8 h-[1px] bg-white/40 rounded"></div>
+                            <div className="w-5 h-[1px] bg-white/40 rounded"></div>
                           </div>
-                          <div className="text-[8px] text-cyan-200 opacity-80 leading-tight">
-                            <div>Verified Medical</div>
-                            <div>Professional ID- 9354 9238 7416</div>
+                          <div className="text-[7px] text-cyan-200 opacity-80 leading-tight">
+                            <div>Verified</div>
+                            <div>ID- {licenseNumber}</div>
                           </div>
                         </div>
 
                         {/* QR Code */}
-                        <div className="h-12 w-12 bg-white rounded-lg p-1 shadow-lg overflow-hidden flex items-center justify-center">
+                        <div className="h-9 w-9 bg-white rounded-lg p-0.5 shadow-lg overflow-hidden flex items-center justify-center flex-shrink-0">
   <img 
     src={doctorImg} 
     alt="Doctor" 
@@ -641,66 +691,50 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             </div>
 
             {/* New Credentials Display */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-2 rounded-lg mr-3">
-                  <FileText className="w-5 h-5" />
+            <div className="bg-white rounded-xl shadow-sm p-3">
+              <h3 className="text-base font-bold text-gray-800 mb-2 flex items-center">
+                <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3 rounded-lg mr-2">
+                  <FileText className="w-4 h-4" />
                 </span>
-                Professional Credentials
+                <span className="text-sm">Professional Credentials</span>
               </h3>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 {/* Animated Credential Cards */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                  <div className="text-xs text-indigo-500 font-semibold mb-1">License Status</div>
-                  <div className="text-sm text-gray-800">Active & Verified</div>
-                  <div className="mt-2 flex items-center">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                    <span className="text-xs text-gray-500">Valid till 2031</span>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-2.5 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 border border-indigo-100">
+                  <div className="text-xs text-indigo-500 font-semibold mb-0.5">License Status</div>
+                  <div className="text-xs text-gray-800 truncate">{licenseStatus}</div>
+                  <div className="mt-1 flex items-center">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse mr-1"></div>
+                    <span className="text-[10px] text-gray-500 truncate">Valid till {licenseValidTill}</span>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                  <div className="text-xs text-emerald-500 font-semibold mb-1">Experience Level</div>
-                  <div className="text-sm text-gray-800">{doctorDetails.experience}</div>
-                  <div className="mt-2 text-xs text-gray-500">Specialist Verified</div>
-                </div>
-              </div>
-
-              {/* Achievement Stats */}
-              <div className="mt-6 grid grid-cols-3 gap-4">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-800">467</div>
-                  <div className="text-xs text-gray-500">Patients Treated</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-800">4.6</div>
-                  <div className="text-xs text-gray-500">Rating</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-800">15+</div>
-                  <div className="text-xs text-gray-500">Years Practice</div>
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-2.5 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 border border-emerald-100">
+                  <div className="text-xs text-emerald-500 font-semibold mb-0.5">Experience</div>
+                  <div className="text-xs text-gray-800 truncate">{yearsOfExperience} years</div>
+                  <div className="mt-1 text-[10px] text-gray-500 truncate">Specialist Verified</div>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions */}
-<div className="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-6">
-  <h4 className="text-sm font-semibold text-gray-800 mb-4">Quick Actions</h4>
-  <div className="grid grid-cols-2 gap-3">
+<div className="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-8">
+  <h4 className="text-xs font-semibold text-gray-800 mb-1.5">Diagnose</h4>
+  <div className="grid grid-cols-2 gap-4">
     <button 
       onClick={() => setActiveTab('consultation')}
-      className="flex items-center justify-center gap-2 bg-white/80 hover:bg-white p-3 rounded-lg text-sm font-medium text-gray-700 transition-all hover:shadow-md"
+      className="flex items-center justify-center gap-3 bg-white/80 hover:bg-green p-2 rounded-lg text-xs font-medium text-gray-700 transition-all hover:shadow-md"
     >
-      <Video className="w-4 h-4 text-purple-600" />
-      Start Consultation
+      <Video className="w-3.5 h-4.5 text-purple-600" />
+      <span className="hidden sm:inline">Consultation</span>
     </button>
     <button 
       onClick={() => setActiveTab('prescriptions')}
-      className="flex items-center justify-center gap-2 bg-white/80 hover:bg-white p-3 rounded-lg text-sm font-medium text-gray-700 transition-all hover:shadow-md"
+      className="flex items-center justify-center gap-1 bg-white/80 hover:bg-white p-2 rounded-lg text-xs font-medium text-gray-700 transition-all hover:shadow-md"
     >
-      <FileText className="w-4 h-4 text-purple-600" />
-      Write Prescription
+      <FileText className="w-3.5 h-4.5 text-purple-600" />
+      <span className="hidden sm:inline">Prescription</span>
     </button>
   </div>
 </div>
@@ -1068,18 +1102,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   // ---------------- Prescriptions view -----------------------------------
-  // Prescription form state (email-based, no IDs needed)
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [prescriptionForm, setPrescriptionForm] = useState({
-    patientEmail: '',
-    doctorEmail: email || '',
-    date: new Date().toISOString().split('T')[0],
-    diagnosis: '',
-    medicines: [{ name: '', dosage: '', duration: '' }],
-    instructions: ''
-  });
-
   // Test function for button click
   const testButtonClick = () => {
     console.log('Button clicked!');
@@ -1104,15 +1126,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       medicines: [...prev.medicines, { name: '', dosage: '', duration: '' }]
     }));
   };
-
-  useEffect(() => {
-    if (!prescriptionForm.doctorEmail && email) {
-      setPrescriptionForm(prev => ({
-        ...prev,
-        doctorEmail: email,
-      }));
-    }
-  }, [email]);
 
   const generateAndEmailPrescription = async () => {
     if (!prescriptionForm.patientEmail) {
@@ -1619,7 +1632,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     );
   };
 
-  // ---------------- Main render ------------------------------------------
+  // ----------- STEP 9: Main component render -------  
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white">
       {/* Header */}
@@ -1725,6 +1738,18 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             </button>
 
             <button
+              onClick={handleEditProfile}
+              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+                showProfilePage
+                  ? 'bg-white/6 ring-1 ring-white/20 text-white'
+                  : 'text-white/70 hover:text-white hover:bg-white/3'
+              }`}
+            >
+              <User className="h-5 w-5" />
+              <span>Profile</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('analytics')}
               className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
                 activeTab === 'analytics'
@@ -1760,9 +1785,9 @@ const DetailRow = ({ label, value, fullWidth = false }: {
   value: string; 
   fullWidth?: boolean;
 }) => (
-  <div className={`${fullWidth ? 'col-span-2' : ''} border-b border-gray-100 p-3 group`}>
-    <div className="text-sm font-semibold text-gray-800">{label}</div>
-    <div className="text-sm text-gray-500 mt-1">{value}</div>
+  <div className={`${fullWidth ? 'col-span-2' : ''} border-b border-gray-100 p-1.5 group`}>
+    <div className="text-xs font-semibold text-gray-800">{label}</div>
+    <div className="text-xs text-gray-500 mt-0.5 truncate">{value}</div>
   </div>
 );
 
@@ -1781,5 +1806,4 @@ const styles = `
 // Add style tag to head
 const styleSheet = document.createElement("style");
 styleSheet.innerText = styles;
-document.head.appendChild(styleSheet);
 document.head.appendChild(styleSheet);

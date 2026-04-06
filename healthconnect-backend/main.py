@@ -6,6 +6,11 @@ from routers import users
 from routers import otp as otp_router
 
 # optional routers - import if available to avoid import errors during startup
+doctors = None
+try:
+    from routers import doctors
+except Exception:
+    doctors = None
 prescriptions = None
 appointments = None
 webrtc = None
@@ -48,6 +53,10 @@ app.add_middleware(
 # mount users router at both common prefixes to handle frontend path differences
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
+
+# mount doctors router
+if doctors and hasattr(doctors, "router"):
+    app.include_router(doctors.router)
 
 # Ensure OTP endpoints available at /api and root (already returning debug_otp when needed)
 app.include_router(otp_router.router, prefix="/api", tags=["OTP"])
@@ -125,6 +134,47 @@ try:
                     if 'profile_picture_url' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN profile_picture_url VARCHAR"))
                         added.append('profile_picture_url')
+                    # New doctor profile fields
+                    if 'full_name' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR"))
+                        added.append('full_name')
+                    if 'specialization' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN specialization VARCHAR"))
+                        added.append('specialization')
+                    if 'years_of_experience' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN years_of_experience INTEGER"))
+                        added.append('years_of_experience')
+                    if 'languages_spoken' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN languages_spoken VARCHAR"))
+                        added.append('languages_spoken')
+                    if 'license_number' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN license_number VARCHAR"))
+                        added.append('license_number')
+                    if 'registration_number' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN registration_number VARCHAR"))
+                        added.append('registration_number')
+                    if 'hospital_name' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN hospital_name VARCHAR"))
+                        added.append('hospital_name')
+                    if 'license_status' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN license_status VARCHAR"))
+                        added.append('license_status')
+                    if 'license_valid_till' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN license_valid_till VARCHAR"))
+                        added.append('license_valid_till')
+                    if 'date_of_birth' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN date_of_birth VARCHAR"))
+                        added.append('date_of_birth')
+                    if 'blood_group' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN blood_group VARCHAR"))
+                        added.append('blood_group')
+                    if 'created_at' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
+                        added.append('created_at')
+                    if 'updated_at' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN updated_at DATETIME"))
+                        added.append('updated_at')
+                    conn.commit()
                     if added:
                         print(f"[startup] Added missing user columns: {added}")
                     else:
