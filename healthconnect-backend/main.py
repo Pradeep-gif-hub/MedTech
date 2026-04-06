@@ -7,10 +7,15 @@ from routers import otp as otp_router
 
 # optional routers - import if available to avoid import errors during startup
 doctors = None
+consultations = None
 try:
     from routers import doctors
 except Exception:
     doctors = None
+try:
+    from routers import consultations
+except Exception:
+    consultations = None
 prescriptions = None
 appointments = None
 webrtc = None
@@ -57,6 +62,10 @@ app.include_router(users.router, prefix="/users", tags=["Users"])
 # mount doctors router
 if doctors and hasattr(doctors, "router"):
     app.include_router(doctors.router)
+
+# mount consultations router
+if consultations and hasattr(consultations, "router"):
+    app.include_router(consultations.router, tags=["Consultations"])
 
 # Ensure OTP endpoints available at /api and root (already returning debug_otp when needed)
 app.include_router(otp_router.router, prefix="/api", tags=["OTP"])
