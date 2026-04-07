@@ -1439,9 +1439,24 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         </div>
 
         <div className="mt-6 flex space-x-4">
-          <button className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
-            Generate Prescription
-          </button>
+         <button
+  className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+  onClick={() => {
+    if (
+      !prescriptionForm.patientEmail ||
+      !prescriptionForm.diagnosis ||
+      prescriptionForm.medicines.length === 0 ||
+      !prescriptionForm.medicines[0].name
+    ) {
+      window.alert("Please fill the required fields");
+      return;
+    }
+
+    window.alert("Prescription generated successfully. Now share it.");
+  }}
+>
+  Generate Prescription
+</button>
 
           <button className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors">
             Save as Draft

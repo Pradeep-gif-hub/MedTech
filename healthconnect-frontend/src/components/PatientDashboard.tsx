@@ -363,7 +363,10 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // Minimal profile save handler (was referenced from UI)
   const updateProfile = async () => {
   try {
-
+     if (abhaId && !/^\d{14}$/.test(abhaId)) {
+    window.alert("ABHA ID must be exactly 14 digits.");
+    return;
+  }
     const payload = {
       name: fullName,
       role: profile?.role || sessionUser?.role || localStorage.getItem('role') || 'patient',
@@ -379,10 +382,6 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       surgeries,
       abha_id: abhaId,
     };
-   if (abhaId && !/^\d{14}$/.test(abhaId)) {
-      window.alert("ABHA ID must be exactly 14 digits");
-      return;
-    }
     const res = await fetch(buildApiUrl('/api/users/update-profile'), {
       method: 'PUT',
       headers: getAuthHeaders(),
@@ -812,13 +811,6 @@ useEffect(() => {
     if (profile.surgeries) setSurgeries(profile.surgeries);
     const abha = profile.abha_id || profile.abhaId;
 
-    if (abha) {
-  if (!/^\d{14}$/.test(abha)) {
-    window.alert("ABHA ID must be exactly 14 digits");
-  } else {
-    setAbhaId(abha);
-  }
-}
   }, [profile]);
 
 
@@ -1636,9 +1628,9 @@ useEffect(() => {
                     </button>
                     <button
                       onClick={() => deleteNotification(notification.id || index, index)}
-                      className="text-sm text-red-600 hover:text-red-800 font-semibold whitespace-nowrap"
+                      className="text-sm text-blue-600 hover:text-red-800 font-semibold whitespace-nowrap"
                     >
-                      Delete
+                      Mark as Read
                     </button>
                   </div>
                 </div>
