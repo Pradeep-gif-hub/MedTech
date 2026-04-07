@@ -354,55 +354,61 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
   // Minimal profile save handler (was referenced from UI)
   const updateProfile = async () => {
-    try {
-      const payload = {
-        name: fullName,
-        role: profile?.role || sessionUser?.role || localStorage.getItem('role') || 'patient',
-        age: dob ? Math.max(0, Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))) : null,
-        phone,
-        dob,
-        gender: Gender,
-        bloodgroup: bloodGroup,
-        emergency_contact: emergencyContact,
-        allergy: allergies,
-        allergies,
-        medications,
-        surgeries,
-        abha_id: abhaId,
-      };
+  try {
 
-      const res = await fetch(buildApiUrl('/api/users/update-profile'), {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const updated = await res.json();
-      setFullName(updated.name || fullName);
-      setEmail(updated.email || email);
-      setPhone(updated.phone || phone);
-      setDob(updated.dob || dob);
-      setGender(updated.gender || Gender);
-      setBloodGroup(updated.bloodgroup || bloodGroup);
-      setEmergencyContact(updated.emergency_contact || emergencyContact);
-      setAllergies(updated.allergies || updated.allergy || allergies);
-      setMedications(updated.medications || medications);
-      setSurgeries(updated.surgeries || surgeries);
-      setAbhaId(updated.abha_id || abhaId);
-
-      window.dispatchEvent(new CustomEvent('user-updated', { detail: updated }));
-      await refreshProfile();
-      alert('Profile updated successfully.');
-    } catch (e) {
-      console.error('updateProfile error', e);
-      alert('Failed to update profile.');
+    // ABHA ID validation (must be exactly 14 digits)
+    if (abhaId && !/^\d{14}$/.test(abhaId)) {
+      window.alert("ABHA ID must be exactly 14 digits");
+      return;
     }
-  };
 
+    const payload = {
+      name: fullName,
+      role: profile?.role || sessionUser?.role || localStorage.getItem('role') || 'patient',
+      age: dob ? Math.max(0, Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))) : null,
+      phone,
+      dob,
+      gender: Gender,
+      bloodgroup: bloodGroup,
+      emergency_contact: emergencyContact,
+      allergy: allergies,
+      allergies,
+      medications,
+      surgeries,
+      abha_id: abhaId,
+    };
+
+    const res = await fetch(buildApiUrl('/api/users/update-profile'), {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const updated = await res.json();
+    setFullName(updated.name || fullName);
+    setEmail(updated.email || email);
+    setPhone(updated.phone || phone);
+    setDob(updated.dob || dob);
+    setGender(updated.gender || Gender);
+    setBloodGroup(updated.bloodgroup || bloodGroup);
+    setEmergencyContact(updated.emergency_contact || emergencyContact);
+    setAllergies(updated.allergies || updated.allergy || allergies);
+    setMedications(updated.medications || medications);
+    setSurgeries(updated.surgeries || surgeries);
+    setAbhaId(updated.abha_id || abhaId);
+
+    window.dispatchEvent(new CustomEvent('user-updated', { detail: updated }));
+    await refreshProfile();
+    alert('Profile updated successfully.');
+  } catch (e) {
+    console.error('updateProfile error', e);
+    alert('Failed to update profile.');
+  }
+};
   // cleanup on unload
   useEffect(() => {
     const onUnload = () => {
@@ -707,8 +713,15 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     if (profile.allergies) setAllergies(profile.allergies);
     if (profile.medications) setMedications(profile.medications);
     if (profile.surgeries) setSurgeries(profile.surgeries);
-    if (profile.abha_id) setAbhaId(profile.abha_id);
-    if (profile.abhaId) setAbhaId(profile.abhaId);
+    const abha = profile.abha_id || profile.abhaId;
+
+    if (abha) {
+  if (!/^\d{14}$/.test(abha)) {
+    window.alert("ABHA ID must be exactly 14 digits");
+  } else {
+    setAbhaId(abha);
+  }
+}
   }, [profile]);
 
 
@@ -1312,11 +1325,16 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Abha-ID</label>
             <input
-              type="tel"
-              value={abhaId}
-              onChange={(e) => setAbhaId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
-            />
+  type="tel"
+  value={abhaId}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, ""); // allow only digits
+    if (value.length <= 14) {
+      setAbhaId(value);
+    }
+  }}
+  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+/>
           </div>
          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
