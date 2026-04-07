@@ -462,13 +462,25 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         setServerPrescriptions([]);
         return;
       }
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
-        setServerPrescriptions(sorted);
-      } else {
-        setServerPrescriptions([]);
-      }
+     const data = await response.json();
+
+if (Array.isArray(data)) {
+
+  const parseUTC = (t: any) => {
+    if (!t) return 0;
+    return new Date(String(t).replace(" ", "T") + "Z").getTime();
+  };
+
+  const sorted = data.slice().sort(
+    (a: any, b: any) =>
+      parseUTC(b.created_at || b.date) - parseUTC(a.created_at || a.date)
+  );
+
+  setServerPrescriptions(sorted);
+
+} else {
+  setServerPrescriptions([]);
+}
     } catch (error) {
       console.error('Failed to fetch prescriptions', error);
       setServerPrescriptions([]);
@@ -478,64 +490,93 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   };
 
   const fetchNotifications = async () => {
-    if (!userId) return;
-    setLoadingNotifications(true);
-    try {
-      const response = await fetch(buildApiUrl(`/api/notifications/${userId}`), {
-        headers: getAuthHeaders(),
-      });
-      if (!response.ok) {
-        const message = await response.text();
-        console.warn('Notification fetch failed', response.status, message);
-        setNotificationError(`Failed to load notifications (${response.status})`);
-        setNotifications([]);
-        return;
-      }
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        // Filter out deleted notifications - handle both number and string IDs
-        const filtered = data.filter(n => {
-          const notifId = Number(n.id);
-          return !deletedNotificationIds.has(notifId);
-        });
-        const sorted = filtered.slice().sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-        console.log(`[Notifications] Fetched ${data.length}, Deleted IDs: ${Array.from(deletedNotificationIds).join(',')}, Filtered: ${filtered.length}`);
-        setNotifications(sorted);
-        setNotificationError(null);
-      } else {
-        setNotifications([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications', error);
-      setNotificationError('Failed to load notifications');
+  if (!userId) return;
+  setLoadingNotifications(true);
+
+  try {
+    const response = await fetch(buildApiUrl(`/api/notifications/${userId}`), {
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      console.warn('Notification fetch failed', response.status, message);
+      setNotificationError(`Failed to load notifications (${response.status})`);
       setNotifications([]);
-    } finally {
-      setLoadingNotifications(false);
+      return;
     }
-  };
 
-  // Persist deleted notification IDs to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('deletedNotificationIds', JSON.stringify(Array.from(deletedNotificationIds)));
-    } catch (e) {
-      console.error('Failed to persist deleted notification IDs', e);
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+
+      // Helper to force UTC parsing
+      const parseUTC = (t: any) => {
+        if (!t) return 0;
+        return new Date(String(t).replace(" ", "T") + "Z").getTime();
+      };
+
+      // Filter deleted notifications
+      const filtered = data.filter(n => {
+        const notifId = Number(n.id);
+        return !deletedNotificationIds.has(notifId);
+      });
+
+      // Sort by correct UTC time
+      const sorted = filtered.slice().sort((a: any, b: any) =>
+        parseUTC(b.created_at) - parseUTC(a.created_at)
+      );
+
+      console.log(
+        `[Notifications] Fetched ${data.length}, Deleted IDs: ${Array.from(deletedNotificationIds).join(',')}, Filtered: ${filtered.length}`
+      );
+
+      setNotifications(sorted);
+      setNotificationError(null);
+
+    } else {
+      setNotifications([]);
     }
-  }, [deletedNotificationIds]);
 
-  useEffect(() => {
-    if (!userId) return;
+  } catch (error) {
+    console.error('Failed to fetch notifications', error);
+    setNotificationError('Failed to load notifications');
+    setNotifications([]);
+  } finally {
+    setLoadingNotifications(false);
+  }
+};
+
+
+// Persist deleted notification IDs
+useEffect(() => {
+  try {
+    localStorage.setItem(
+      'deletedNotificationIds',
+      JSON.stringify(Array.from(deletedNotificationIds))
+    );
+  } catch (e) {
+    console.error('Failed to persist deleted notification IDs', e);
+  }
+}, [deletedNotificationIds]);
+
+
+useEffect(() => {
+  if (!userId) return;
+
+  fetchPatientPrescriptions();
+  fetchNotifications();
+
+  const interval = window.setInterval(() => {
     fetchPatientPrescriptions();
     fetchNotifications();
-    const interval = window.setInterval(() => {
-      fetchPatientPrescriptions();
-      fetchNotifications();
-    }, 10000);
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [userId]);
+  }, 10000);
 
+  return () => {
+    window.clearInterval(interval);
+  };
+
+}, [userId]);
   const openPrescriptionPdf = (prescription: any) => {
     const url = prescription.pdf_url || buildApiUrl(`/api/prescriptions/pdf/${prescription.id}`);
     window.open(url, '_blank');
@@ -1581,9 +1622,11 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-semibold text-gray-900">{notification.message}</p>
-                    <p className="text-sm text-gray-500 mt-2">{new Date(notification.created_at || Date.now()).toLocaleString()}</p>
-                  </div>
+  <p className="font-semibold text-gray-900">{notification.message}</p>
+  <p className="text-sm text-gray-500 mt-2">
+    {formatIST(notification.created_at)}
+  </p>
+</div>
                   <div className="flex gap-3 flex-shrink-0">
                     <button
                       onClick={() => handleViewNotification(notification)}
@@ -1796,7 +1839,27 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 <span className="font-semibold">Prescribed by:  Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'Dr. Unknown'}</span>
               </div>
               <div className="text-sm">
-                <span className="font-semibold">Date:</span> <span className="text-gray-800">{new Date(selectedPrescription.created_at || selectedPrescription.date || Date.now()).toLocaleString()}</span>
+                <span className="font-semibold">Date:</span>{" "}
+<span className="text-gray-800">
+  {(() => {
+    const raw = selectedPrescription.created_at || selectedPrescription.date;
+    if (!raw) return "";
+
+    // Force interpret as UTC then convert to IST
+    const utcDate = new Date(raw.replace(" ", "T") + "Z");
+
+    return utcDate.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: true,
+    });
+  })()}
+</span>
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Diagnosis / Notes:</span>

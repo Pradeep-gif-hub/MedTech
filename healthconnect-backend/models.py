@@ -1,6 +1,9 @@
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
+from sqlalchemy.sql import func
+from sqlalchemy import DateTime
+from datetime import datetime, timezone
 
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -23,7 +26,7 @@ class Consultation(Base):
     duration = Column(String, nullable=True)  # Duration of illness (e.g., "2 weeks")
     status = Column(String, default="waiting", nullable=False)  # waiting, in-progress, completed
     appointment_time = Column(String, nullable=True)  # Scheduled time
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     patient = relationship("User", foreign_keys=[patient_id], backref="consultations_as_patient")
