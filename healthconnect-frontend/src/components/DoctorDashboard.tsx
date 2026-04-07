@@ -1457,10 +1457,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 >
   Generate Prescription
 </button>
-
-          <button className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-            Save as Draft
-          </button>
         </div>
       </div>
     );
@@ -1511,7 +1507,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       <div className="space-y-6">
         {renderPrescriptionsForm()}
 
-        {renderRecentPrescriptions()}
+        {}
       </div>
     );
   };
@@ -1575,6 +1571,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       </div>
     );
   };
+  const formatIST = (date: any) => {
+  if (!date) return "";
+
+  const utcDate = new Date(date + "Z"); // from backend, ensure it's treated as UTC by appending 'Z'
+  // from UTC to IST and format as "15 Dec 2024, 10:30 AM"
+
+  return utcDate.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+};
 
   const renderPatientFeedback = () => {
     if (!analyticsData?.patient_feedback) {
@@ -1614,8 +1626,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 mb-1">
-                  {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </p>
+  {formatIST(f.created_at)}
+</p>
                 {f.feedback_text && (
                   <p className="text-gray-700 text-sm italic">"{f.feedback_text}"</p>
                 )}
