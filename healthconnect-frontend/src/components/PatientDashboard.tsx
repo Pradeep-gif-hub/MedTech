@@ -42,6 +42,11 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [liveOxygen, setLiveOxygen] = useState(98 as number);
   const { profile, refreshProfile } = useBackendProfile();
 
+  // Consultation state (from API, not localStorage)
+  const [currentConsultationId, setCurrentConsultationId] = useState<number | null>(null);
+  const [currentConsultation, setCurrentConsultation] = useState<any>(null);
+  const [loadingConsultation, setLoadingConsultation] = useState(false);
+
   // WebRTC / signaling refs (patient = sender)
   const localVideoRef = useRef(null as HTMLVideoElement | null);
   const remoteVideoRef = useRef(null as HTMLVideoElement | null);
@@ -191,53 +196,16 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // Create consultation in backend database
   const createConsultationInBackend = async () => {
     try {
-      const pendingConsultationStr = localStorage.getItem('pendingConsultation');
-      if (!pendingConsultationStr) {
-        console.log('No pending consultation found');
+      if (!currentConsultationId) {
+        console.log('[PatientDashboard] No active consultation');
         return;
       }
 
-      const consultationData = JSON.parse(pendingConsultationStr);
-      
-      // Get patient ID from stored user profile
-      const patientId = profile?.id;
-      if (!patientId) {
-        console.error('Patient ID not found');
-        alert('Error: Patient ID not found');
-        return;
-      }
-
-      // Send to backend API
-      const response = await fetch(buildApiUrl('/api/consultations'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
-        },
-        body: JSON.stringify({
-          patient_id: patientId,
-          disease: consultationData.disease,
-          symptoms: consultationData.symptoms,
-          duration: consultationData.duration,
-          appointment_time: new Date().toLocaleTimeString()
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Consultation created:', result);
-        // Store consultation ID for reference
-        localStorage.setItem('currentConsultationId', result.id?.toString() || '');
-        return true;
-      } else {
-        const error = await response.json();
-        console.error('Failed to create consultation:', error);
-        alert(`Failed to create consultation: ${error.detail || 'Unknown error'}`);
-        return false;
-      }
+      // Consultation is already created in backend when we stored currentConsultationId
+      // This function is now a no-op since submission happens inline above
+      return true;
     } catch (err) {
       console.error('Error creating consultation:', err);
-      alert('Error submitting consultation to backend');
       return false;
     }
   };
@@ -250,9 +218,11 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       console.log('Consultation not created, but proceeding with WebRTC...');
     }
     try {
-      // open signaling websocket
+      // open signaling websocket - connect to BACKEND, not frontend
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws/live-consultation/sender`;
+      const backendHost = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+      const wsUrl = `${protocol}://${backendHost}/webrtc/ws/live-consultation/sender`;
+      console.log('[PatientDashboard] Connecting to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -295,24 +265,98 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           const msg = JSON.stringify({ type: 'ice', candidate: e.candidate });
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(msg);
           else pendingSends.current.push(msg);
+          console.log('[PatientDashboard] ICE candidate queued/sent');
         }
       };
 
       // when remote track arrives, show doctor's stream
       pc.ontrack = (e) => {
-        if (remoteVideoRef.current) {
+        console.log('[PatientDashboard] Received remote track:', e.track.kind, 'streams:', e.streams.length);
+        if (remoteVideoRef.current && e.streams[0]) {
+          console.log('[PatientDashboard] Setting remoteVideoRef.srcObject');
           remoteVideoRef.current.srcObject = e.streams[0];
-          remoteVideoRef.current.play().catch(() => { });
+          try {
+            const playPromise = remoteVideoRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.then(() => console.log('[PatientDashboard] Remote video playing'))
+                .catch(err => console.error('[PatientDashboard] Remote video play error:', err));
+            }
+          } catch (err) {
+            console.error('[PatientDashboard] Remote video play error:', err);
+          }
+        } else {
+          console.warn('[PatientDashboard] remoteVideoRef.current is null or no streams!');
         }
       };
 
       // capture local media and add tracks
-      const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = localStream;
-        localVideoRef.current.play().catch(() => { });
+      // First, clean up any existing streams
+      if (localVideoRef.current && localVideoRef.current.srcObject) {
+        const existingStream = localVideoRef.current.srcObject as MediaStream;
+        existingStream.getTracks().forEach(track => {
+          console.log('[PatientDashboard] Stopping existing track:', track.kind);
+          track.stop();
+        });
+        localVideoRef.current.srcObject = null;
       }
-      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+      
+      console.log('[PatientDashboard] Requesting user media...');
+      let localStream: MediaStream;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
+          audio: true 
+        });
+        console.log('[PatientDashboard] Got local stream:', localStream);
+      } catch (mediaErr: any) {
+        console.error('[PatientDashboard] getUserMedia error:', mediaErr);
+        let errorMsg = 'Could not access camera/microphone: ';
+        
+        if (mediaErr.name === 'NotAllowedError' || mediaErr.name === 'PermissionDeniedError') {
+          errorMsg += 'Permission denied. Please allow camera/microphone access in browser settings.';
+        } else if (mediaErr.name === 'NotFoundError' || mediaErr.name === 'DevicesNotFoundError') {
+          errorMsg += 'No camera or microphone device found.';
+        } else if (mediaErr.name === 'NotReadableError') {
+          errorMsg += 'Camera is in use by another application. Close other apps using your camera and try again.';
+        } else if (mediaErr.name === 'OverconstrainedError') {
+          errorMsg += 'Camera does not support requested resolution. Trying with default settings...';
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            console.log('[PatientDashboard] Got local stream with default settings:', localStream);
+          } catch (retryErr) {
+            console.error('[PatientDashboard] Retry failed:', retryErr);
+            throw retryErr;
+          }
+        } else {
+          errorMsg += mediaErr.message;
+        }
+        
+        if (mediaErr.name !== 'OverconstrainedError') {
+          alert(errorMsg);
+          throw mediaErr;
+        }
+      }
+      
+      if (localVideoRef.current) {
+        console.log('[PatientDashboard] Attaching local stream to localVideoRef');
+        localVideoRef.current.srcObject = localStream;
+        try {
+          const playPromise = localVideoRef.current.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('[PatientDashboard] Local video playing ✓');
+          }
+        } catch (e) {
+          console.error('[PatientDashboard] Local video play error:', e);
+        }
+      } else {
+        console.warn('[PatientDashboard] localVideoRef.current is null!');
+      }
+      
+      localStream!.getTracks().forEach((t) => {
+        console.log('[PatientDashboard] Adding track:', t.kind);
+        pc.addTrack(t, localStream!);
+      });
 
       // create offer and send
       const offer = await pc.createOffer();
@@ -509,6 +553,35 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       window.clearInterval(interval);
     };
   }, [userId]);
+
+  // Poll for consultation status changes (every 5 seconds)
+  useEffect(() => {
+    const pollConsultationStatus = async () => {
+      try {
+        if (!currentConsultationId) return;
+
+        const response = await fetch(buildApiUrl(`/api/consultations/${currentConsultationId}`), {
+          headers: getAuthHeaders(),
+        });
+
+        if (response.ok) {
+          const consultationData = await response.json();
+          console.log('[PatientDashboard] Consultation status:', consultationData.status);
+          
+          // Update state with latest consultation data
+          setCurrentConsultation(consultationData);
+        }
+      } catch (error) {
+        console.error('[PatientDashboard] Error polling consultation status:', error);
+      }
+    };
+
+    if (currentConsultationId) {
+      pollConsultationStatus();
+      const pollInterval = window.setInterval(pollConsultationStatus, 5000);
+      return () => window.clearInterval(pollInterval);
+    }
+  }, [currentConsultationId]);
 
   const openPrescriptionPdf = (prescription: any) => {
     const url = prescription.pdf_url || buildApiUrl(`/api/prescriptions/pdf/${prescription.id}`);
@@ -884,23 +957,54 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               Select Disease
             </label>
             <select
-              id="diseaseSelect"  // added ID here
+              id="diseaseSelect"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
             >
               <option value="">Select the Disease</option>
-              <option>Fever</option>
+              {/* Cardiology */}
               <option>Cardiac Arrest</option>
-              <option>Cold & Cough</option>
-              <option>Asthma</option>
-              <option>Diabetes</option>
+              <option>Cardiomyopathy</option>
+              <option>Heart Attack</option>
+              <option>Arrhythmia</option>
               <option>Hypertension</option>
-              <option>Heart Disease</option>
-              <option>Liver Issues</option>
-              <option>Kidney Problems</option>
-              <option>Arthritis</option>
-              <option>Skin Disorders</option>
-              <option>Neurological Problems</option>
-              <option>Mental Health</option>
+              <option>Angina</option>
+              <option>Heart Block</option>
+              <option>Valve Disease</option>
+              {/* Respiratory */}
+              <option>Respiratory Failure</option>
+              <option>Respiratory Infection</option>
+              <option>Asthma</option>
+              <option>COPD</option>
+              <option>Pneumonia</option>
+              <option>Bronchitis</option>
+              <option>Lung Disease</option>
+              <option>Shortness of Breath</option>
+              {/* Neurology */}
+              <option>Neurological Disorder</option>
+              <option>Neuralgic Pain</option>
+              <option>Migraine</option>
+              <option>Epilepsy</option>
+              <option>Stroke</option>
+              <option>Parkinson</option>
+              <option>Alzheimer</option>
+              <option>Neuropathy</option>
+              {/* Dermatology */}
+              <option>Dermatological Issue</option>
+              <option>Dermatitis</option>
+              <option>Eczema</option>
+              <option>Psoriasis</option>
+              <option>Acne</option>
+              <option>Fungal Infection</option>
+              <option>Skin Allergy</option>
+              <option>Rash</option>
+              {/* General Medicine */}
+              <option>General Checkup</option>
+              <option>Fever</option>
+              <option>Cold</option>
+              <option>Flu</option>
+              <option>Infection</option>
+              <option>Weakness</option>
+              <option>Fatigue</option>
               <option>Other</option>
             </select>
           </div>
@@ -930,7 +1034,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               // Get form values
               const diseaseSelect = document.getElementById('diseaseSelect') as HTMLSelectElement;
               const symptomsTextarea = document.getElementById('symptomsTextarea') as HTMLTextAreaElement;
@@ -950,17 +1054,47 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 return;
               }
 
-              // Store consultation data in localStorage for persistence
-              const consultationData = {
-                disease: diseaseSelect.value,
-                symptoms: symptomsTextarea.value,
-                duration: durationInput.value,
-                timestamp: new Date().toISOString()
-              };
-              localStorage.setItem('pendingConsultation', JSON.stringify(consultationData));
-              
-              // Switch to consultation tab
-              setActiveTab('consultation');
+              try {
+                // Submit consultation to backend API
+                const consultationPayload = {
+                  patient_id: parseInt(userId),
+                  disease: diseaseSelect.value,
+                  symptoms: symptomsTextarea.value,
+                  duration: durationInput.value
+                };
+
+                const response = await fetch(buildApiUrl('/api/consultations'), {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders(),
+                  },
+                  body: JSON.stringify(consultationPayload),
+                });
+
+                if (response.ok) {
+                  const result = await response.json();
+                  console.log('[PatientDashboard] Consultation created:', result);
+                  
+                  // Store consultation ID and data in state (not localStorage)
+                  setCurrentConsultationId(result.id);
+                  setCurrentConsultation(result);
+                  
+                  // Clear form
+                  diseaseSelect.value = '';
+                  symptomsTextarea.value = '';
+                  durationInput.value = '';
+                  
+                  // Switch to consultation tab to show waiting screen
+                  setActiveTab('consultation');
+                  alert('Consultation request submitted! Waiting for a doctor...');
+                } else {
+                  alert('Failed to submit consultation. Please try again.');
+                }
+              } catch (error) {
+                console.error('[PatientDashboard] Error submitting consultation:', error);
+                alert('Error submitting consultation. Please try again.');
+              }
             }}
             className="w-full bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
           >
@@ -973,74 +1107,94 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
   const renderConsultation = () => (
     <div className="bg-slate-950 rounded-3xl shadow-sm overflow-hidden p-4">
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* LEFT: Doctor's video / placeholder */}
-        <div className="p-4 bg-white rounded-3xl shadow-xl border border-gray-200">
-          <div className="bg-gray-50 rounded-2xl relative flex items-center justify-center overflow-hidden h-[430px]">
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* LEFT & CENTER: Video / placeholder - spans 2 columns */}
+        <div className="lg:col-span-2 bg-gray-900 rounded-3xl shadow-xl overflow-hidden">
+          <div className="relative flex items-center justify-center overflow-hidden h-[400px]">
             {inConsultation ? (
-              <>
+              <div data-testid="remote-video-container" className="w-full h-full relative">
                 <video
                   ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover rounded-xl bg-gray-200"
+                  autoPlay={true}
+                  playsInline={true}
+                  className="w-full h-full object-cover rounded-xl bg-black"
+                  style={{ display: 'block' }}
                 />
-                {/* floating self-preview when in consultation */}
-                <div className="absolute bottom-2 right-4 w-40 h-30 bg-gray-200 rounded-lg overflow-hidden border border-gray-300">
+                {/* floating self-preview when in consultation - fixed aspect ratio */}
+                <div className="absolute bottom-4 right-4 w-40 h-28 bg-gray-800 rounded-lg overflow-hidden border-2 border-white shadow-xl">
                   <video
                     ref={localVideoRef}
-                    autoPlay
-                    muted
-                    playsInline
+                    autoPlay={true}
+                    muted={true}
+                    playsInline={true}
                     className="w-full h-full object-cover rounded-lg"
+                    style={{ display: 'block' }}
                   />
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 px-6">
-                {(() => {
-                  // Get pending consultation data
-                  const pendingConsultationStr = localStorage.getItem('pendingConsultation');
-                  const pendingConsultation = pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
-
-                  return pendingConsultation ? (
-<div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-200 w-full max-w-md">
+              <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 px-6 bg-gray-900">
+                {currentConsultation ? (
+<div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-300 w-full max-w-md">
                       <h3 className="text-xl font-semibold mb-4 text-gray-900">Your Consultation Request</h3>
                       
                       <div className="space-y-4">
                         <div>
                           <div className="text-sm text-gray-600">Condition</div>
-                          <div className="text-gray-900 font-medium">{pendingConsultation.disease}</div>
+                          <div className="text-gray-900 font-medium">{currentConsultation.disease}</div>
                         </div>
                         
                         <div>
                           <div className="text-sm text-gray-600">Symptoms</div>
-                          <div className="text-gray-900 font-medium">{pendingConsultation.symptoms}</div>
+                          <div className="text-gray-900 font-medium">{currentConsultation.symptoms}</div>
                         </div>
                         
                         <div>
                           <div className="text-sm text-gray-600">Duration</div>
-                          <div className="text-gray-900 font-medium">{pendingConsultation.duration}</div>
+                          <div className="text-gray-900 font-medium">{currentConsultation.duration}</div>
                         </div>
 
                         <div className="text-sm text-gray-600 pt-2">
-                          Submitted on: {new Date(pendingConsultation.timestamp).toLocaleString()}
+                          Doctor: {currentConsultation.doctor_name || 'Assigning...'}
                         </div>
                       </div>
 
-                      <div className="mt-6 text-center text-sm text-gray-600">
-                        Waiting for doctor to connect...
-                        <div className="mt-2">
-                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></div>
-                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1" style={{animationDelay: '0.2s'}}></div>
-                          <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full" style={{animationDelay: '0.4s'}}></div>
-                        </div>
+                      <div className="mt-6 text-center">
+                        {(() => {
+                          const status = currentConsultation.status || 'waiting';
+                          const doctorAccepted = status === 'in-progress' || status === 'in-consultation';
+
+                          if (doctorAccepted) {
+                            return (
+                              <div className="text-sm text-emerald-600 font-semibold mb-4">
+                                ✓ Doctor has accepted your consultation!
+                                <br />
+                                Ready to start video consultation
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="text-sm text-gray-600">
+                                Waiting for doctor to connect...
+                                <div className="mt-2">
+                                  <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></div>
+                                  <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1" style={{animationDelay: '0.2s'}}></div>
+                                  <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full" style={{animationDelay: '0.4s'}}></div>
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
 
                       <div className="mt-6">
                         <button
                           onClick={startLiveSender}
-                          className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full justify-center"
+                          disabled={!(() => {
+                            const status = currentConsultation.status || 'waiting';
+                            return status === 'in-progress' || status === 'in-consultation';
+                          })()}
+                          className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Video className="h-5 w-5" />
                           Start Video Consultation
@@ -1050,7 +1204,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                   ) : (
                     <>
                       <svg
-                        className="h-24 w-24 text-gray-400 animate-spin mb-4"
+                        className="h-24 w-24 text-gray-500 animate-spin mb-4"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -1072,7 +1226,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <div className="text-xl font-semibold mb-2 text-gray-900">
+                      <div className="text-xl font-semibold mb-2">
                         No Active Consultation
                       </div>
                       <div className="text-sm opacity-80 mb-6 text-center">
@@ -1086,15 +1240,14 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                         Go to Home
                       </button>
                     </>
-                  );
-                })()}
+                  )}
               </div>
             )}
           </div>
         </div>
 
         {/* RIGHT: Doctor Info / Live Vitals */}
-        <div className="p-2">
+        <div className="lg:col-span-1 flex flex-col gap-4">
           <div className="bg-white p-6 rounded-3xl min-h-[420px] flex flex-col justify-between shadow-lg border border-gray-200">
             <div className="flex-1">
               {!inConsultation ? (
@@ -1106,17 +1259,19 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                         <span>DR</span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-lg mb-1">Dr. Rajesh Kumar</h3>
+                        <h3 className="font-semibold text-gray-900 text-lg mb-1">
+                          {currentConsultation?.doctor_name || 'Assigning doctor...'}
+                        </h3>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                            General Physician
+                            {currentConsultation?.specialization || 'General Physician'}
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
                           MedTech Clinic
                         </div>
                         <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                          Expert in family medicine and teleconsultations
+                          {currentConsultation?.status === 'waiting' ? 'Waiting for doctor assignment...' : 'Attending to your consultation'}
                         </p>
                       </div>
                     </div>
@@ -1124,20 +1279,20 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 </>
               ) : (
                 <>
-                  <h3 className="font-bold text-gray-800 mb-6 text-2xl text-center bg-white/90 py-3 rounded-lg shadow-sm">Live Vitals Monitor</h3>
-                  <div className="grid grid-cols-2 gap-6 px-4">
+                  <h3 className="font-bold text-gray-800 mb-3 text-lg text-center bg-white/90 py-2 rounded-lg shadow-sm">Live Vitals Monitor</h3>
+                  <div className="grid grid-cols-2 gap-3 px-2">
                     {/* Heart Rate Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-red-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-red-500 rounded-full">
-                            <Heart className="h-5 w-5 text-white" />
+                    <div className="bg-white p-3 rounded-lg border-2 border-red-500 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          <span className="p-1 bg-red-500 rounded-full">
+                            <Heart className="h-4 w-4 text-white" />
                           </span>
-                          <span className="text-base font-semibold text-gray-900">Heart Rate</span>
+                          <span className="text-xs font-semibold text-gray-900">Heart Rate</span>
                         </div>
-                        <span className="text-xs font-bold bg-red-500 text-white px-3 py-1 rounded-full">BPM</span>
+                        <span className="text-xs font-bold bg-red-500 text-white px-2 py-0.5 rounded-full">BPM</span>
                       </div>
-                      <div className="text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-gray-900 ml-1 flex items-baseline gap-1">
                         {liveHeartRate}
                         <div className="flex gap-1">
                           <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse delay-100"></div>
@@ -1148,17 +1303,17 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                     </div>
 
                     {/* Blood Pressure Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-blue-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-blue-500 rounded-full">
-                            <Activity className="h-5 w-5 text-white" />
+                    <div className="bg-white p-3 rounded-lg border-2 border-blue-500 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          <span className="p-1 bg-blue-500 rounded-full">
+                            <Activity className="h-4 w-4 text-white" />
                           </span>
-                          <span className="text-base font-semibold text-gray-900">Blood Pressure</span>
+                          <span className="text-xs font-semibold text-gray-900">Blood Pressure</span>
                         </div>
-                        <span className="text-xs font-bold bg-blue-500 text-white px-3 py-1 rounded-full">mmHg</span>
+                        <span className="text-xs font-bold bg-blue-500 text-white px-2 py-0.5 rounded-full">mmHg</span>
                       </div>
-                      <div className="text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-gray-900 ml-1 flex items-baseline gap-1">
                         {liveBP.sys}/{liveBP.dia}
                         <div className="flex gap-1">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse delay-100"></div>
@@ -1169,17 +1324,17 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                     </div>
 
                     {/* Temperature Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-amber-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-amber-500 rounded-full">
-                            <Clock className="h-5 w-5 text-white" />
+                    <div className="bg-white p-3 rounded-lg border-2 border-amber-500 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          <span className="p-1 bg-amber-500 rounded-full">
+                            <Clock className="h-4 w-4 text-white" />
                           </span>
-                          <span className="text-base font-semibold text-gray-900">Temperature</span>
+                          <span className="text-xs font-semibold text-gray-900">Temperature</span>
                         </div>
-                        <span className="text-xs font-bold bg-amber-500 text-white px-3 py-1 rounded-full">°F</span>
+                        <span className="text-xs font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">°F</span>
                       </div>
-                      <div className="text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-gray-900 ml-1 flex items-baseline gap-1">
                         {liveTemperature.toFixed(1)}
                         <div className="flex gap-1">
                           <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse delay-100"></div>
@@ -1190,17 +1345,17 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                     </div>
 
                     {/* SpO₂ Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-emerald-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-emerald-500 rounded-full">
-                            <Activity className="h-5 w-5 text-white" />
+                    <div className="bg-white p-3 rounded-lg border-2 border-emerald-500 shadow-sm hover:shadow-md transition-all duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          <span className="p-1 bg-emerald-500 rounded-full">
+                            <Activity className="h-4 w-4 text-white" />
                           </span>
-                          <span className="text-base font-semibold text-gray-900">Oxygen Saturation</span>
+                          <span className="text-xs font-semibold text-gray-900">Oxygen Saturation</span>
                         </div>
-                        <span className="text-xs font-bold bg-emerald-500 text-white px-3 py-1 rounded-full">%</span>
+                        <span className="text-xs font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">%</span>
                       </div>
-                      <div className="text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
+                      <div className="text-2xl font-bold text-gray-900 ml-1 flex items-baseline gap-1">
                         {liveOxygen}
                         <div className="flex gap-1">
                           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse delay-100"></div>

@@ -188,7 +188,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
     // Connect WebSocket
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws/live-consultation/receiver`;
+    const backendHost = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+    const wsUrl = `${protocol}://${backendHost}/webrtc/ws/live-consultation/receiver`;
+    console.log('[DoctorDashboard] Connecting to WebSocket:', wsUrl);
     const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -217,15 +219,75 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           }
 
           try {
-            const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            // Clean up any existing streams first
+            if (localVideoRef.current && localVideoRef.current.srcObject) {
+              const existingStream = localVideoRef.current.srcObject as MediaStream;
+              existingStream.getTracks().forEach(track => {
+                console.log('[DoctorDashboard] Stopping existing track:', track.kind);
+                track.stop();
+              });
+              localVideoRef.current.srcObject = null;
+            }
+            
+            console.log('[DoctorDashboard] Requesting user media...');
+            let localStream: MediaStream;
+            try {
+              localStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
+                audio: true 
+              });
+              console.log('[DoctorDashboard] Got local stream:', localStream);
+            } catch (mediaErr: any) {
+              console.error('[DoctorDashboard] getUserMedia error:', mediaErr);
+              let errorMsg = 'Camera Error: ';
+              
+              if (mediaErr.name === 'NotAllowedError' || mediaErr.name === 'PermissionDeniedError') {
+                errorMsg += 'Permission denied. Please allow camera/microphone access.';
+              } else if (mediaErr.name === 'NotFoundError' || mediaErr.name === 'DevicesNotFoundError') {
+                errorMsg += 'No camera or microphone found.';
+              } else if (mediaErr.name === 'NotReadableError') {
+                errorMsg += 'Camera in use by another app. Close other apps and retry.';
+              } else if (mediaErr.name === 'OverconstrainedError') {
+                errorMsg += 'Camera does not support requested resolution. Trying default...';
+                try {
+                  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                  console.log('[DoctorDashboard] Got stream with default settings');
+                } catch (retryErr) {
+                  console.error('[DoctorDashboard] Retry failed:', retryErr);
+                  throw retryErr;
+                }
+              } else {
+                errorMsg += mediaErr.message;
+              }
+              
+              if (mediaErr.name !== 'OverconstrainedError') {
+                logLive(errorMsg);
+                throw mediaErr;
+              }
+            }
+            
             if (localVideoRef.current) {
               localVideoRef.current.srcObject = localStream;
-              try { localVideoRef.current.play().catch(()=>{}); } catch {}
+              localVideoRef.current.play()
+                .then(() => {
+                  console.log('[DoctorDashboard] Local video playing ✓');
+                  logLive('Doctor local video playing');
+                })
+                .catch(err => {
+                  console.error('[DoctorDashboard] Local video play error:', err);
+                  logLive('Local play error: ' + err);
+                });
+            } else {
+              console.warn('[DoctorDashboard] localVideoRef.current is null!');
             }
-            localStream.getTracks().forEach(t => pcRef.current?.addTrack(t, localStream));
+            localStream!.getTracks().forEach(t => {
+              console.log('[DoctorDashboard] Adding track:', t.kind);
+              pcRef.current?.addTrack(t, localStream!);
+            });
+            console.log('[DoctorDashboard] Doctor local stream added to pc');
             logLive('Doctor local stream added to pc');
           } catch (err) {
-            console.error('getUserMedia error', err);
+            console.error('[DoctorDashboard] getUserMedia error', err);
             logLive('Doctor getUserMedia error: ' + String(err));
           }
 
@@ -1036,20 +1098,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         {/* Remote video (patient) fullscreen, match PatientDashboard size */}
         <video
           ref={remoteVideoRef}
-          autoPlay
-          playsInline
+          autoPlay={true}
+          playsInline={true}
           className="w-full h-[350px] md:h-[400px] object-cover rounded-xl bg-black border-4 border-emerald-500 shadow-lg"
-          style={{ background: '#111' }}
+          style={{ background: '#111', display: 'block' }}
+          data-testid="doctor-remote-video"
         />
         {/* Doctor's own video as floating window, match PatientDashboard size */}
         <div className="absolute bottom-10 right-2 w-40 h-28 bg-black rounded-lg overflow-hidden border-2 border-white shadow-xl flex items-center justify-center">
           <video
             ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
+            autoPlay={true}
+            muted={true}
+            playsInline={true}
             className="w-full h-full object-cover rounded-lg"
-            style={{ background: '#222' }}
+            style={{ background: '#222', display: 'block' }}
+            data-testid="doctor-local-video"
           />
         </div>
         {/* Camera error message */}
@@ -1204,11 +1268,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             <div className="w-64 h-48 bg-black rounded-xl flex items-center justify-center mx-auto mb-4 overflow-hidden border-4 border-emerald-500 shadow-lg">
               <video
                 ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
+                autoPlay={true}
+                muted={true}
+                playsInline={true}
                 className="w-full h-full object-cover rounded-xl"
-                style={{ background: '#222' }}
+                style={{ background: '#222', display: 'block' }}
+                data-testid="doctor-preview-video"
               />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">No Active Consultation</h2>
