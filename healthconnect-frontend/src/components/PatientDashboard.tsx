@@ -27,6 +27,14 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [notifications, setNotifications] = useState([] as any[]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [deletedNotificationIds, setDeletedNotificationIds] = useState<Set<number>>(() => {
+    try {
+      const stored = localStorage.getItem('deletedNotificationIds');
+      return new Set(stored ? JSON.parse(stored) : []);
+    } catch {
+      return new Set();
+    }
+  });
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null as any);
   const [hrHistory, setHrHistory] = useState([vitalSigns.heartRate] as number[]);
@@ -485,7 +493,13 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       }
       const data = await response.json();
       if (Array.isArray(data)) {
-        const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        // Filter out deleted notifications - handle both number and string IDs
+        const filtered = data.filter(n => {
+          const notifId = Number(n.id);
+          return !deletedNotificationIds.has(notifId);
+        });
+        const sorted = filtered.slice().sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        console.log(`[Notifications] Fetched ${data.length}, Deleted IDs: ${Array.from(deletedNotificationIds).join(',')}, Filtered: ${filtered.length}`);
         setNotifications(sorted);
         setNotificationError(null);
       } else {
@@ -499,6 +513,15 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       setLoadingNotifications(false);
     }
   };
+
+  // Persist deleted notification IDs to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('deletedNotificationIds', JSON.stringify(Array.from(deletedNotificationIds)));
+    } catch (e) {
+      console.error('Failed to persist deleted notification IDs', e);
+    }
+  }, [deletedNotificationIds]);
 
   useEffect(() => {
     if (!userId) return;
@@ -578,22 +601,35 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
   const deleteNotification = async (notificationId: number, index: number) => {
     try {
-      const response = await fetch(buildApiUrl(`/api/notifications/${notificationId}`), {
+      // Ensure ID is a number
+      const idToDelete = Number(notificationId);
+      
+      // Track deleted notification ID to prevent it from coming back on refresh
+      setDeletedNotificationIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(idToDelete);
+        console.log(`[Delete] Added ${idToDelete} to deleted set. Set now: ${Array.from(newSet).join(',')}`);
+        return newSet;
+      });
+      
+      // Remove from local state immediately for UX
+      setNotifications(prev => prev.filter((_, i) => i !== index));
+      
+      // Call backend to delete - don't wait for it
+      fetch(buildApiUrl(`/api/notifications/${idToDelete}`), {
         method: 'DELETE',
         headers: getAuthHeaders(),
+      }).then(response => {
+        if (response.ok) {
+          console.log(`[Delete] Server confirmed deletion of notification ${idToDelete}`);
+        } else {
+          console.warn(`[Delete] Server returned ${response.status} when deleting notification ${idToDelete}`);
+        }
+      }).catch(error => {
+        console.warn(`[Delete] Error calling delete API for ${idToDelete}:`, error);
       });
-      if (response.ok) {
-        // Remove from local state immediately
-        setNotifications(prev => prev.filter((_, i) => i !== index));
-      } else {
-        console.warn('Failed to delete notification from backend', response.status);
-        // Still remove from local state for UX
-        setNotifications(prev => prev.filter((_, i) => i !== index));
-      }
     } catch (error) {
       console.error('Error deleting notification:', error);
-      // Still remove from local state for UX
-      setNotifications(prev => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -645,6 +681,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     try {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
+      localStorage.removeItem('deletedNotificationIds');
+      setDeletedNotificationIds(new Set());
       window.dispatchEvent(new CustomEvent('user-updated', { detail: null }));
     } catch {
       // no-op
@@ -1763,18 +1801,6 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               <div className="text-sm">
                 <span className="font-semibold">Diagnosis / Notes:</span>
                 <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 text-gray-800 whitespace-pre-wrap">{selectedPrescription.diagnosis || selectedPrescription.reason || 'No notes provided.'}</div>
-              </div>
-              <div className="text-sm">
-                <span className="font-semibold mb-2 block">Medicines</span>
-                <ul className="list-disc list-inside space-y-1 text-gray-800">
-                  {(selectedPrescription.medicines || []).length > 0 ? (
-                    (selectedPrescription.medicines || []).map((m: any, i: number) => (
-                      <li key={i}>{typeof m === 'string' ? m : (m.name || JSON.stringify(m))}</li>
-                    ))
-                  ) : (
-                    <li>No medicines prescribed</li>
-                  )}
-                </ul>
               </div>
             </div>
           </div>
