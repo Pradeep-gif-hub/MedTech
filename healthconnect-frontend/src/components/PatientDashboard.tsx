@@ -1265,11 +1265,16 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
             <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
-            />
+  type="tel"
+  value={phone}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+    if (value.length <= 10) {
+      setPhone(value);
+    }
+  }}
+  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+/>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
