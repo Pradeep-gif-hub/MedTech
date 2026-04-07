@@ -887,100 +887,145 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
       </div>
       {/* RIGHT HALF - Form */}
-      <div className="bg-gray-50 rounded-xl shadow-md p-6 md:col-start-2 md:col-span-1 self-start">
-        <h3 className="text-xl font-semibold text-gray-900 mb-6">
-          Consultation Form
-        </h3>
-        <div className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Disease
-            </label>
-            <select
-              id="diseaseSelect"  // added ID here
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
-            >
-              <option value="">Select the Disease</option>
-              <option>Fever</option>
-              <option>Cardiac Arrest</option>
-              <option>Cold & Cough</option>
-              <option>Asthma</option>
-              <option>Diabetes</option>
-              <option>Hypertension</option>
-              <option>Heart Disease</option>
-              <option>Liver Issues</option>
-              <option>Kidney Problems</option>
-              <option>Arthritis</option>
-              <option>Skin Disorders</option>
-              <option>Neurological Problems</option>
-              <option>Mental Health</option>
-              <option>Other</option>
-            </select>
-          </div>
+<div className="bg-gray-50 rounded-xl shadow-md p-6 md:col-start-2 md:col-span-1 self-start">
+  <h3 className="text-xl font-semibold text-gray-900 mb-6">
+    Consultation Form
+  </h3>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Symptoms
-            </label>
-            <textarea
-              id="symptomsTextarea"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
-              placeholder="Describe your symptoms..."
-            ></textarea>
-          </div>
+  <div className="space-y-5">
+    
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Select Disease
+      </label>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Duration of Illness
-            </label>
-            <input
-              id="durationInput"
-              type="text"
-              placeholder="e.g. 2 weeks"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
-            />
-          </div>
+      <input
+  id="diseaseSelect"
+  type="text"
+  list="diseaseList"
+  placeholder="Search or select disease"
+  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-black"
+/>
 
-          <button
-            type="button"
-            onClick={() => {
-              // Get form values
-              const diseaseSelect = document.getElementById('diseaseSelect') as HTMLSelectElement;
-              const symptomsTextarea = document.getElementById('symptomsTextarea') as HTMLTextAreaElement;
-              const durationInput = document.getElementById('durationInput') as HTMLInputElement;
-              
-              // Validate form
-              if (!diseaseSelect.value) {
-                alert('Please select a disease');
-                return;
-              }
-              if (!symptomsTextarea.value) {
-                alert('Please describe your symptoms');
-                return;
-              }
-              if (!durationInput.value) {
-                alert('Please enter illness duration');
-                return;
-              }
+      <datalist id="diseaseList">
+        <option value="Allergies"/>
+        <option value="Alzheimer's Disease"/>
+        <option value="Anemia"/>
+        <option value="Arthritis"/>
+        <option value="Asthma"/>
+        <option value="Back Pain"/>
+        <option value="Bronchitis"/>
+        <option value="Cancer"/>
+        <option value="Cardiac Arrest"/>
+        <option value="Cold & Cough"/>
+        <option value="COVID-19"/>
+        <option value="Depression"/>
+        <option value="Diabetes"/>
+        <option value="Diarrhea"/>
+        <option value="Dizziness"/>
+        <option value="Epilepsy"/>
+        <option value="Eye Infection"/>
+        <option value="Fatigue"/>
+        <option value="Fever"/>
+        <option value="Food Poisoning"/>
+        <option value="Fracture"/>
+        <option value="Gastritis"/>
+        <option value="GERD / Acid Reflux"/>
+        <option value="Headache / Migraine"/>
+        <option value="Heart Disease"/>
+        <option value="Hepatitis"/>
+        <option value="Hypertension"/>
+        <option value="Influenza"/>
+        <option value="Insomnia"/>
+        <option value="Kidney Problems"/>
+        <option value="Liver Issues"/>
+        <option value="Lung Infection"/>
+        <option value="Mental Health"/>
+        <option value="Neurological Problems"/>
+        <option value="Obesity"/>
+        <option value="Osteoporosis"/>
+        <option value="Pneumonia"/>
+        <option value="Skin Disorders"/>
+        <option value="Stomach Pain"/>
+        <option value="Stroke"/>
+        <option value="Thyroid Disorder"/>
+        <option value="Tuberculosis"/>
+        <option value="Urinary Tract Infection"/>
+        <option value="Vertigo"/>
+        <option value="Viral Infection"/>
+        <option value="Vomiting"/>
+        <option value="Weakness"/>
+        <option value="Other"/>
+      </datalist>
+    </div>
 
-              // Store consultation data in localStorage for persistence
-              const consultationData = {
-                disease: diseaseSelect.value,
-                symptoms: symptomsTextarea.value,
-                duration: durationInput.value,
-                timestamp: new Date().toISOString()
-              };
-              localStorage.setItem('pendingConsultation', JSON.stringify(consultationData));
-              
-              // Switch to consultation tab
-              setActiveTab('consultation');
-            }}
-            className="w-full bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
-          >
-            Submit Consultation
-          </button>
-        </div>
-      </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Symptoms
+      </label>
+      <textarea
+        id="symptomsTextarea"
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
+        placeholder="Describe your symptoms..."
+      ></textarea>
+    </div>
+
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Duration of Illness
+      </label>
+      <input
+        id="durationInput"
+        type="text"
+        placeholder="e.g. 2 weeks"
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+      />
+    </div>
+
+
+    <button
+      type="button"
+      onClick={() => {
+
+        const diseaseInput = document.getElementById('diseaseSelect') as HTMLInputElement;
+        const symptomsTextarea = document.getElementById('symptomsTextarea') as HTMLTextAreaElement;
+        const durationInput = document.getElementById('durationInput') as HTMLInputElement;
+
+        if (!diseaseInput.value) {
+          alert('Please select a disease');
+          return;
+        }
+
+        if (!symptomsTextarea.value) {
+          alert('Please describe your symptoms');
+          return;
+        }
+
+        if (!durationInput.value) {
+          alert('Please enter illness duration');
+          return;
+        }
+
+        const consultationData = {
+          disease: diseaseInput.value,
+          symptoms: symptomsTextarea.value,
+          duration: durationInput.value,
+          timestamp: new Date().toISOString()
+        };
+
+        localStorage.setItem('pendingConsultation', JSON.stringify(consultationData));
+
+        setActiveTab('consultation');
+      }}
+      className="w-full bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+    >
+      Submit Consultation
+    </button>
+
+  </div>
+</div>
     </div>
   );
 
