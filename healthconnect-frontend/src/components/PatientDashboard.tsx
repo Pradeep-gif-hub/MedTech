@@ -579,6 +579,27 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     }
   };
 
+  const deleteNotification = async (notificationId: number, index: number) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/notifications/${notificationId}`), {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        // Remove from local state immediately
+        setNotifications(prev => prev.filter((_, i) => i !== index));
+      } else {
+        console.warn('Failed to delete notification from backend', response.status);
+        // Still remove from local state for UX
+        setNotifications(prev => prev.filter((_, i) => i !== index));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      // Still remove from local state for UX
+      setNotifications(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
   const handleSubmitFeedback = async () => {
     if (!serverPrescriptions.length) {
       alert('No prescriptions available to rate');
@@ -979,7 +1000,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       <input
         id="durationInput"
         type="text"
-        placeholder="e.g. 2 weeks"
+        placeholder=" in Days"
         className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
       />
     </div>
@@ -1499,7 +1520,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Recent Notifications</h2>
-            <p className="text-sm text-gray-500">Alerts from your care team.</p>
+            <p className="text-sm text-gray-500">Check Notifications Regularly</p>
           </div>
           <button
             type="button"
@@ -1519,9 +1540,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         ) : (
           <div className="space-y-4">
             {notifications.map((notification, index) => (
-              <button
+              <div
                 key={index}
-                onClick={() => handleViewNotification(notification)}
                 className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
               >
                 <div className="flex items-start justify-between gap-4">
@@ -1529,9 +1549,22 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                     <p className="font-semibold text-gray-900">{notification.message}</p>
                     <p className="text-sm text-gray-500 mt-2">{new Date(notification.created_at || Date.now()).toLocaleString()}</p>
                   </div>
-                  <div className="text-xs text-emerald-700 font-semibold">View</div>
+                  <div className="flex gap-3 flex-shrink-0">
+                    <button
+                      onClick={() => handleViewNotification(notification)}
+                      className="text-sm text-emerald-600 hover:text-emerald-800 font-semibold whitespace-nowrap"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => deleteNotification(notification.id || index, index)}
+                      className="text-sm text-red-600 hover:text-red-800 font-semibold whitespace-nowrap"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
