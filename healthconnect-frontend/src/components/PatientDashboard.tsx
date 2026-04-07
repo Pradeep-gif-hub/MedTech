@@ -356,12 +356,6 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const updateProfile = async () => {
   try {
 
-    // ABHA ID validation (must be exactly 14 digits)
-    if (abhaId && !/^\d{14}$/.test(abhaId)) {
-      window.alert("ABHA ID must be exactly 14 digits");
-      return;
-    }
-
     const payload = {
       name: fullName,
       role: profile?.role || sessionUser?.role || localStorage.getItem('role') || 'patient',
@@ -377,13 +371,16 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       surgeries,
       abha_id: abhaId,
     };
-
+   if (abhaId && !/^\d{14}$/.test(abhaId)) {
+      window.alert("ABHA ID must be exactly 14 digits");
+      return;
+    }
     const res = await fetch(buildApiUrl('/api/users/update-profile'), {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
-
+   
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
