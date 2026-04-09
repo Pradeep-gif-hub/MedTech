@@ -378,7 +378,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok || res.status === 200) {
         setForgotPasswordStep('success');
         setForgotPasswordMessage(data.detail || 'Check your inbox for the reset link');
       } else {
@@ -658,15 +658,16 @@ return (
                       placeholder="Enter the email address associated with your MedTech account." 
                       value={forgotEmail} 
                       onChange={(e) => setForgotEmail(e.target.value)} 
-                      className="w-full px-4 py-3 pl-10 border rounded-lg text-sm placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" 
+                      className="w-full px-4 py-3 pl-10 border rounded-lg text-sm placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" 
                       required 
                     />
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">We'll send a password reset link to this email address.</p>
                 </div>
 
                 {forgotPasswordMessage && (
-                  <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm border border-red-200">
-                    {forgotPasswordMessage}
+                  <div className="p-4 bg-red-50 rounded-lg text-red-800 text-sm border border-red-200">
+                    <p><strong>⚠️ Error:</strong> {forgotPasswordMessage}</p>
                   </div>
                 )}
 
@@ -678,8 +679,8 @@ return (
                   {isSendingReset ? 'Sending Reset Link...' : 'Send Reset Link'}
                 </button>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-blue-800 text-xs">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-blue-800 text-sm">
                     <span className="font-semibold">💡 Tip:</span> Make sure to check your email's spam folder if you don't see the reset link within a few minutes.
                   </p>
                 </div>
@@ -698,31 +699,33 @@ return (
 
             {forgotPasswordStep === 'success' && (
               <div className="space-y-6">
-                <button 
-                  onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2 transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back to Login</span>
-                </button>
-
-                <div className="text-center space-y-4">
-                  <h2 className="text-2xl font-bold text-gray-900">Check Your Email</h2>
-                  <p className="text-gray-600">We've sent a password reset link to</p>
-                  
+                <div className="text-center space-y-6">
                   <div className="flex justify-center">
                     <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
                       <CheckCircle className="h-12 w-12 text-emerald-600" />
                     </div>
                   </div>
 
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">Check Your Email</h2>
+                    <p className="text-gray-600 mt-2">We've sent a password reset link</p>
+                  </div>
+                  
                   <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
                     <p className="text-emerald-800 font-medium text-sm">{forgotEmail}</p>
                   </div>
 
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p>The link will expire in 1 hour. If you don't see the email, check your spam folder.</p>
-                    <p className="text-xs text-gray-500 pt-2">Didn't receive an email? Make sure the address is correct or try again.</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="space-y-2 text-sm text-blue-800">
+                      <p><strong>✓ Email sent successfully!</strong></p>
+                      <p className="text-blue-700">The reset link will expire in <strong>1 hour</strong>. Check your inbox and spam folder.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-red-800 text-xs">
+                      <strong>⚠️ Security:</strong> Do not share the reset link with anyone. Never share passwords.
+                    </p>
                   </div>
                 </div>
 

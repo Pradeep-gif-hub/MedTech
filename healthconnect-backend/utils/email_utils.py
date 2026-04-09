@@ -42,7 +42,13 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
     msg["Subject"] = subject
     msg["From"] = from_email
     msg["To"] = to_address
-    msg.set_content(body)
+    
+    # Check if body is HTML
+    if body.strip().startswith("<!DOCTYPE") or body.strip().startswith("<html"):
+        msg.set_content("Please view this email in an HTML-compatible email client.")
+        msg.add_alternative(body, subtype="html")
+    else:
+        msg.set_content(body)
 
     try:
         print(f"[EMAIL] Attempting to connect to SMTP server {host}:{port}")
