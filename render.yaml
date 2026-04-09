@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: medtech-backend
+    env: node
+    rootDir: healthconnect-backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
