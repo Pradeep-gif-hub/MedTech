@@ -396,250 +396,18 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
 
  if (loggedIn) return null;
 
-return (
-  <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
-    <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8"> 
-      <button 
-        onClick={onBack} 
-        className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        <span>Back to Home</span>
-      </button>
-
-      <div className="flex items-center space-x-3 mb-8">
-        <div className={`w-10 h-12 rounded-lg ${roleData[selectedRole].bgColor} flex items-center justify-center`}>
-          {roleData[selectedRole].icon}
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {roleData[selectedRole].title} {showSignUp ? 'Sign Up' : 'Login'}
-          </h1>
-          <p className="text-gray-600">{roleData[selectedRole].description}</p>
-        </div>
-      </div>
-
-      {showSignUp ? (
-        <>
-          {signUpStep === 'form' && (
-            <form onSubmit={sendOtp} className="space-y-4">
-              
-              <div>
-                <label className="block text-base font-medium text-gray-800 mb-2">Full Name</label>
-                <input 
-                  type="text" 
-                  placeholder="Enter Your Name" 
-                  value={fullname} 
-                  onChange={(e) => setName(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
-                  required 
-                />
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Age</label>
-                <select 
-                  value={age} 
-                  onChange={(e) => setAge(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-lg text-sm" 
-                  required
-                >
-                  <option value="">Select Your Age</option>
-                  {Array.from({ length: 100 }, (_, i) => i + 1).map((num) => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-1">Gender</label>
-                <select 
-                  value={gender} 
-                  onChange={e => setSelectgender(e.target.value)} 
-                  className="w-full px-2 py-2 border rounded-lg text-sm" 
-                  required
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="transgender">Transgender</option>
-                  <option value="other">Rather Not to Say</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Blood Group</label>
-                <select 
-                  value={bloodgroup} 
-                  onChange={e => setShowBg(e.target.value)} 
-                  className="w-full px-2 py-2 border rounded-lg text-sm" 
-                  required
-                >
-                  <option value="">Select Blood Group</option>
-                  <option value="A+">A+</option>
-                  <option value="B+">B+</option>
-                  <option value="AB+">AB+</option>
-                  <option value="O+">O+</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Allergy</label>
-                <input 
-                  type="text" 
-                  placeholder="Any Allergy/Null" 
-                  value={allergy} 
-                  onChange={(e) => setAllergy(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Email Address</label>
-                <input 
-                  type="email" 
-                  placeholder="Enter your email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
-                  required 
-                />
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Password</label>
-                <div className="relative">
-                  <input 
-                    type={showPassword ? 'text' : 'password'} 
-                    placeholder="Enter your password" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    className="w-full px-4 py-3 border rounded-lg pr-12 text-sm placeholder:text-sm" 
-                    required 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)} 
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Role</label>
-                <select 
-                  value={selectedRole} 
-                  onChange={e => setSelectedRole(e.target.value as UserRole)} 
-                  className="w-full px-2 py-2 border rounded-lg text-sm" 
-                  required
-                >
-                  <option value="">Select Role</option>
-                  <option value="patient">Patient</option>
-                  <option value="doctor">Doctor</option>
-                  <option value="pharmacy">Pharmacy</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button 
-                  type="submit" 
-                  disabled={isSendingOtp} 
-                  className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}
-                >
-                  {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
-                </button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-emerald-50 text-gray-500">Or sign up with</span>
-                  </div>
-                </div>
-
-                <div className="w-full">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSignupSuccess}
-                    onError={handleGoogleError}
-                    text="signup_with"
-                    theme="outline"
-                  />
-                </div>
-
-                <p className="text-base text-gray-600 mt-4 text-center">
-                  Already have an account? 
-                  <button 
-                    type="button" 
-                    onClick={() => { setShowSignUp(false); setSignUpStep('form'); }} 
-                    className="text-emerald-600 font-medium"
-                  >
-                    Login
-                  </button>
-                </p>
-              </div>
-            </form>
-          )}
-
-            {signUpStep === 'otpSent' && (
-              <form onSubmit={verifyOtp} className="space-y-4">
-                <div><p className="text-sm text-gray-700">{signUpMessage}</p></div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Enter OTP</label>
-                  <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full px-4 py-3 border rounded-lg" required />
-                  {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
-                </div>
-
-                <div className="flex gap-2">
-                  <button type="submit" className={`flex-1 py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Verify OTP</button>
-                  <button type="button" onClick={sendOtp} className="flex-1 py-3 px-4 rounded-lg border">Resend OTP</button>
-                </div>
-              </form>
-            )}
-
-            {signUpStep === 'setPassword' && (
-              <form onSubmit={completeSignup} className="space-y-4">
-                <div><p className="text-sm text-gray-700">{signUpMessage}</p></div>
-
-                <div>
-                  <label className="block text-lm font-medium text-gray-700 mb-2">Password</label>
-                  <div className="relative">
-                    <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border rounded-lg pr-12" required />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Complete Sign Up</button>
-              </form>
-            )}
-
-            {signUpStep === 'success' && (
-              <div className="space-y-4">
-                <div className="p-4 bg-green-50 rounded-lg text-green-800">
-                  <p className="font-semibold">Sign up successful</p>
-                  <p className="text-sm mt-1">{signUpMessage}</p>
-                </div>
-
-                <div className="flex gap-2">
-                  <button onClick={() => { setShowSignUp(false); setSignUpStep('form'); }} className="flex-1 py-3 px-4 rounded-lg border">Back to Login</button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : showForgotPassword ? (
-          <div className="space-y-6">
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
+      <div className="max-w-4xl w-full">
+        {showForgotPassword ? (
+          // Forgot Password Layout - Left aligned
+          <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8 ml-0">
             <button 
-              onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+              onClick={onBack} 
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Login</span>
+              <ArrowLeft className="h-5 w-5" />
+              <span>Back to Home</span>
             </button>
 
             {forgotPasswordStep === 'email' && (
@@ -699,34 +467,31 @@ return (
 
             {forgotPasswordStep === 'success' && (
               <div className="space-y-6">
-                <div className="text-center space-y-6">
-                  <div className="flex justify-center">
-                    <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <CheckCircle className="h-12 w-12 text-emerald-600" />
-                    </div>
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle className="h-10 w-10 text-emerald-600" />
                   </div>
+                </div>
 
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900">Check Your Email</h2>
-                    <p className="text-gray-600 mt-2">We've sent a password reset link</p>
-                  </div>
-                  
-                  <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
-                    <p className="text-emerald-800 font-medium text-sm">{forgotEmail}</p>
-                  </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 text-center">Check Your Email</h3>
+                  <p className="text-gray-600 text-sm text-center mt-2">We've sent a password reset link to</p>
+                </div>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="space-y-2 text-sm text-blue-800">
-                      <p><strong>✓ Email sent successfully!</strong></p>
-                      <p className="text-blue-700">The reset link will expire in <strong>1 hour</strong>. Check your inbox and spam folder.</p>
-                    </div>
-                  </div>
+                <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                  <p className="text-emerald-800 font-medium text-sm text-center">{forgotEmail}</p>
+                </div>
 
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-red-800 text-xs">
-                      <strong>⚠️ Security:</strong> Do not share the reset link with anyone. Never share passwords.
-                    </p>
-                  </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-blue-800 text-xs text-center">
+                    The link will expire in <strong>1 hour</strong>. Check your inbox and spam folder.
+                  </p>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-red-800 text-xs text-center">
+                    <strong>⚠️ Security:</strong> Don't share the link with anyone.
+                  </p>
                 </div>
 
                 <button 
@@ -739,68 +504,285 @@ return (
             )}
           </div>
         ) : (
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-              <input 
-                type="email" 
-                placeholder="Enter your email" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
-                required 
-              />
-            </div>
+          // Normal Login/Signup Layout - Centered
+          <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8">
+            {showSignUp ? (
+              <>
+                {signUpStep === 'form' && (
+                  <form onSubmit={sendOtp} className="space-y-4">
+                    <div>
+                      <label className="block text-base font-medium text-gray-800 mb-2">Full Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="Enter Your Name" 
+                        value={fullname} 
+                        onChange={(e) => setName(e.target.value)} 
+                        className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                        required 
+                      />
+                    </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <div className="relative">
-                <input 
-                  type={showPassword ? 'text' : 'password'} 
-                  placeholder="Enter your password" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-lg pr-12 text-sm placeholder:text-sm" 
-                  required 
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">Age</label>
+                      <select 
+                        value={age} 
+                        onChange={(e) => setAge(e.target.value)} 
+                        className="w-full px-4 py-3 border rounded-lg text-sm" 
+                        required
+                      >
+                        <option value="">Select Your Age</option>
+                        {Array.from({ length: 100 }, (_, i) => i + 1).map((num) => (
+                          <option key={num} value={num}>{num}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-1">Gender</label>
+                      <select 
+                        value={gender} 
+                        onChange={e => setSelectgender(e.target.value)} 
+                        className="w-full px-2 py-2 border rounded-lg text-sm" 
+                        required
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="transgender">Transgender</option>
+                        <option value="other">Rather Not to Say</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">Blood Group</label>
+                      <select 
+                        value={bloodgroup} 
+                        onChange={e => setShowBg(e.target.value)} 
+                        className="w-full px-2 py-2 border rounded-lg text-sm" 
+                        required
+                      >
+                        <option value="">Select Blood Group</option>
+                        <option value="A+">A+</option>
+                        <option value="B+">B+</option>
+                        <option value="AB+">AB+</option>
+                        <option value="O+">O+</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">Allergy</label>
+                      <input 
+                        type="text" 
+                        placeholder="Any Allergy/Null" 
+                        value={allergy} 
+                        onChange={(e) => setAllergy(e.target.value)} 
+                        className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">Email Address</label>
+                      <input 
+                        type="email" 
+                        placeholder="Enter your email" 
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                        required 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">Password</label>
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? 'text' : 'password'} 
+                          placeholder="Enter your password" 
+                          value={password} 
+                          onChange={(e) => setPassword(e.target.value)} 
+                          className="w-full px-4 py-3 border rounded-lg pr-12 text-sm placeholder:text-sm" 
+                          required 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => setShowPassword(!showPassword)} 
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        >
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-medium text-gray-700 mb-2">Role</label>
+                      <select 
+                        value={selectedRole} 
+                        onChange={e => setSelectedRole(e.target.value as UserRole)} 
+                        className="w-full px-2 py-2 border rounded-lg text-sm" 
+                        required
+                      >
+                        <option value="">Select Role</option>
+                        <option value="patient">Patient</option>
+                        <option value="doctor">Doctor</option>
+                        <option value="pharmacy">Pharmacy</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <button 
+                        type="submit" 
+                        disabled={isSendingOtp} 
+                        className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}
+                      >
+                        {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
+                      </button>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-emerald-50 text-gray-500">Or sign up with</span>
+                        </div>
+                      </div>
+
+                      <div className="w-full">
+                        <GoogleLogin
+                          onSuccess={handleGoogleSignupSuccess}
+                          onError={handleGoogleError}
+                          text="signup_with"
+                          theme="outline"
+                        />
+                      </div>
+
+                      <p className="text-base text-gray-600 mt-4 text-center">
+                        Already have an account? 
+                        <button 
+                          type="button" 
+                          onClick={() => { setShowSignUp(false); setSignUpStep('form'); }} 
+                          className="text-emerald-600 font-medium"
+                        >
+                          Login
+                        </button>
+                      </p>
+                    </div>
+                  </form>
+                )}
+
+                {signUpStep === 'otpSent' && (
+                  <form onSubmit={verifyOtp} className="space-y-4">
+                    <div><p className="text-sm text-gray-700">{signUpMessage}</p></div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Enter OTP</label>
+                      <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full px-4 py-3 border rounded-lg" required />
+                      {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button type="submit" className={`flex-1 py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Verify OTP</button>
+                      <button type="button" onClick={sendOtp} className="flex-1 py-3 px-4 rounded-lg border">Resend OTP</button>
+                    </div>
+                  </form>
+                )}
+
+                {signUpStep === 'setPassword' && (
+                  <form onSubmit={completeSignup} className="space-y-4">
+                    <div><p className="text-sm text-gray-700">{signUpMessage}</p></div>
+
+                    <div>
+                      <label className="block text-lm font-medium text-gray-700 mb-2">Password</label>
+                      <div className="relative">
+                        <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border rounded-lg pr-12" required />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Complete Sign Up</button>
+                  </form>
+                )}
+
+                {signUpStep === 'success' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-green-50 rounded-lg text-green-800">
+                      <p className="font-semibold">Sign up successful</p>
+                      <p className="text-sm mt-1">{signUpMessage}</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => { setShowSignUp(false); setSignUpStep('form'); }} className="flex-1 py-3 px-4 rounded-lg border">Back to Login</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                    required 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? 'text' : 'password'} 
+                      placeholder="Enter your password" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      className="w-full px-4 py-3 border rounded-lg pr-12 text-sm placeholder:text-sm" 
+                      required 
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Sign In</button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setShowForgotPassword(true)} 
+                  className="w-full py-2 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
+                >
+                  Forgot Password?
                 </button>
-              </div>
-            </div>
 
-            <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Sign In</button>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-emerald-50 text-gray-500">Or continue with</span>
+                  </div>
+                </div>
 
-            <button 
-              type="button" 
-              onClick={() => setShowForgotPassword(true)} 
-              className="w-full py-2 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
-            >
-              Forgot Password?
-            </button>
+                <div className="w-full">
+                  <GoogleLogin
+                    onSuccess={handleGoogleLoginSuccess}
+                    onError={handleGoogleError}
+                    text="signin"
+                    theme="outline"
+                  />
+                </div>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-emerald-50 text-gray-500">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="w-full">
-              <GoogleLogin
-                onSuccess={handleGoogleLoginSuccess}
-                onError={handleGoogleError}
-                text="signin"
-                theme="outline"
-              />
-            </div>
-
-            <p className="text-sm text-gray-600 mt-4 text-center">
-              Don't have an account? <button type="button" onClick={() => setShowSignUp(true)} className="text-emerald-600 font-medium">Sign Up</button>
-            </p>
-          </form>
+                <p className="text-sm text-gray-600 mt-4 text-center">
+                  Don't have an account? <button type="button" onClick={() => setShowSignUp(true)} className="text-emerald-600 font-medium">Sign Up</button>
+                </p>
+              </form>
+            )}
+          </div>
         )}
       </div>
     </div>
