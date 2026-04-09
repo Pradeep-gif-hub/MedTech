@@ -24,6 +24,26 @@ def build_local_token(user_id: int) -> str:
     return f"{LOCAL_TOKEN_PREFIX}{user_id}"
 
 
+@router.get("/email-health")
+def email_health():
+    """
+    SMTP diagnostics endpoint with sanitized output.
+    Useful for production debugging when local works but deployment fails.
+    """
+    try:
+        from utils.email_utils import get_smtp_health
+
+        return {
+            "success": True,
+            "smtp": get_smtp_health(),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "detail": f"email_health_failed: {e}",
+        }
+
+
 async def resolve_current_user(request: Request, db: Session) -> models.User:
     auth_header = request.headers.get("Authorization") or ""
     user = None
@@ -638,25 +658,30 @@ def update_me(payload: dict = Body(...), db: Session = Depends(get_db)):
 # Forgot Password Endpoint
 @router.post("/forgot-password")
 def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
-    """
-    Forgot password endpoint.
-    Sends a professional HTML password reset email.
-    Always returns 200 status for security (not revealing if email exists).
-    """
-    try:
-        email = (data.get("email") or "").strip()
+        """
+        Forgot password endpoint.
+        Sends a professional HTML password reset email.
+        Always returns 200 status for unknown emails to avoid user enumeration.
+        """
+        try:
+                email = (data.get("email") or "").strip()
+                if not email:
+                        raise HTTPException(status_code=400, detail="Email is required")
 
-        if not email:
-            raise HTTPException(status_code=400, detail="Email is required")
+                email_normalized = email.lower()
+                user = db.query(models.User).filter(func.lower(models.User.email) == email_normalized).first()
 
-        # Find user by email
-        email_normalized = email.lower()
-        user = db.query(models.User).filter(func.lower(models.User.email) == email_normalized).first()
+                # Keep enumeration-safe response for unknown users.
+                if not user:
+                        print(f"[FORGOT_PASSWORD] Email not found: {email}")
+                        return {
+                                "success": True,
+                                "message": "Password reset link has been sent to your email.",
+                                "email": email,
+                                "detail": "Check your inbox and spam folder for the reset link. It will expire in 1 hour.",
+                        }
 
-        # Always return success for security (don't reveal if email exists)
-        if user:
-            try:
-                from utils.email_utils import send_email
+                from utils.email_utils import send_email, get_last_email_error
                 import uuid
 
                 reset_token = str(uuid.uuid4())
@@ -683,82 +708,73 @@ MedTech Team
                 html_email_body = f"""
 <!doctype html>
 <html>
-  <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937;\">
-    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 0;\">
-      <tr>
-        <td align=\"center\">
-          <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;\">
+    <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937;\">
+        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 0;\">
             <tr>
-              <td style=\"background:#10b981;padding:20px 24px;text-align:center;color:#ffffff;font-size:34px;font-weight:700;\">MedTech</td>
+                <td align=\"center\">
+                    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;\">
+                        <tr>
+                            <td style=\"background:#10b981;padding:20px 24px;text-align:center;color:#ffffff;font-size:34px;font-weight:700;\">MedTech</td>
+                        </tr>
+                        <tr>
+                            <td style=\"padding:28px 28px 8px 28px;\">
+                                <h2 style=\"margin:0 0 16px 0;font-size:28px;line-height:1.3;color:#111827;\">Password Reset Request</h2>
+                                <p style=\"margin:0 0 14px 0;font-size:22px;line-height:1.5;\">Hello {user.name or 'User'},</p>
+                                <p style=\"margin:0 0 18px 0;font-size:22px;line-height:1.6;\">We received a request to reset your MedTech password. Click the button below to create a new password.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align=\"center\" style=\"padding:8px 28px 20px 28px;\">
+                                <a href=\"{reset_link}\" style=\"display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:22px;font-weight:700;padding:14px 26px;border-radius:8px;\">Reset Password</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style=\"padding:0 28px 8px 28px;\">
+                                <p style=\"margin:0 0 10px 0;font-size:20px;font-weight:700;color:#374151;\">Or copy this link:</p>
+                                <p style=\"margin:0 0 16px 0;font-size:18px;line-height:1.5;word-break:break-all;\"><a href=\"{reset_link}\" style=\"color:#2563eb;\">{reset_link}</a></p>
+                                <div style=\"background:#fef2f2;border-left:4px solid #ef4444;padding:14px;border-radius:8px;\">
+                                    <p style=\"margin:0;font-size:18px;color:#991b1b;\"><strong>Security Notice:</strong> This link expires in 1 hour. Do not share it with anyone.</p>
+                                </div>
+                                <p style=\"margin:16px 0 0 0;font-size:18px;color:#6b7280;line-height:1.5;\">If you did not request this, please ignore this email.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style=\"padding:20px 28px 26px 28px;color:#6b7280;font-size:16px;text-align:center;border-top:1px solid #e5e7eb;\">MedTech Team</td>
+                        </tr>
+                    </table>
+                </td>
             </tr>
-            <tr>
-              <td style=\"padding:28px 28px 8px 28px;\">
-                <h2 style=\"margin:0 0 16px 0;font-size:28px;line-height:1.3;color:#111827;\">Password Reset Request</h2>
-                <p style=\"margin:0 0 14px 0;font-size:22px;line-height:1.5;\">Hello {user.name or 'User'},</p>
-                <p style=\"margin:0 0 18px 0;font-size:22px;line-height:1.6;\">We received a request to reset your MedTech password. Click the button below to create a new password.</p>
-              </td>
-            </tr>
-            <tr>
-              <td align=\"center\" style=\"padding:8px 28px 20px 28px;\">
-                <a href=\"{reset_link}\" style=\"display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:22px;font-weight:700;padding:14px 26px;border-radius:8px;\">Reset Password</a>
-              </td>
-            </tr>
-            <tr>
-              <td style=\"padding:0 28px 8px 28px;\">
-                <p style=\"margin:0 0 10px 0;font-size:20px;font-weight:700;color:#374151;\">Or copy this link:</p>
-                <p style=\"margin:0 0 16px 0;font-size:18px;line-height:1.5;word-break:break-all;\"><a href=\"{reset_link}\" style=\"color:#2563eb;\">{reset_link}</a></p>
-                <div style=\"background:#fef2f2;border-left:4px solid #ef4444;padding:14px;border-radius:8px;\">
-                  <p style=\"margin:0;font-size:18px;color:#991b1b;\"><strong>Security Notice:</strong> This link expires in 1 hour. Do not share it with anyone.</p>
-                </div>
-                <p style=\"margin:16px 0 0 0;font-size:18px;color:#6b7280;line-height:1.5;\">If you did not request this, please ignore this email.</p>
-              </td>
-            </tr>
-            <tr>
-              <td style=\"padding:20px 28px 26px 28px;color:#6b7280;font-size:16px;text-align:center;border-top:1px solid #e5e7eb;\">MedTech Team</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
+        </table>
+    </body>
 </html>
 """
 
                 sent = send_email(
-                    to_address=email,
-                    subject="MedTech - Reset Your Password",
-                    body=email_body,
-                    html_body=html_email_body,
+                        to_address=email,
+                        subject="MedTech - Reset Your Password",
+                        body=email_body,
+                        html_body=html_email_body,
                 )
-                if sent:
-                    print(f"[FORGOT_PASSWORD] Email sent to: {email}")
-                else:
-                    print(f"[FORGOT_PASSWORD] Email send reported failure for: {email}")
-                    return {
-                        "success": False,
-                        "message": "Email service is temporarily unavailable. Please try again in a few minutes.",
-                        "email": email,
-                        "detail": "Could not dispatch reset email from server."
-                    }
-            except Exception as e:
-                print(f"[FORGOT_PASSWORD] Email sending failed: {e}")
-                return {
-                    "success": False,
-                    "message": "Email service is temporarily unavailable. Please try again in a few minutes.",
-                    "email": email,
-                    "detail": "Reset request accepted but delivery failed."
-                }
-        else:
-            print(f"[FORGOT_PASSWORD] Email not found: {email}")
 
-        return {
-            "success": True,
-            "message": "Password reset link has been sent to your email.",
-            "email": email,
-            "detail": "Check your inbox and spam folder for the reset link. It will expire in 1 hour."
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[FORGOT_PASSWORD] error: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
+                if not sent:
+                        err = get_last_email_error() or "unknown_smtp_error"
+                        print(f"[FORGOT_PASSWORD] Email send reported failure for: {email}; reason={err}")
+                        return {
+                                "success": False,
+                                "message": "Email service is temporarily unavailable. Please try again in a few minutes.",
+                                "email": email,
+                                "detail": f"Could not dispatch reset email from server. Reason: {err}",
+                        }
+
+                print(f"[FORGOT_PASSWORD] Email sent to: {email}")
+                return {
+                        "success": True,
+                        "message": "Password reset link has been sent to your email.",
+                        "email": email,
+                        "detail": "Check your inbox and spam folder for the reset link. It will expire in 1 hour.",
+                }
+        except HTTPException:
+                raise
+        except Exception as e:
+                print(f"[FORGOT_PASSWORD] error: {e}")
+                raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

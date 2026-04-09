@@ -8,6 +8,17 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+_LAST_EMAIL_ERROR = ""
+
+
+def _set_last_email_error(message: str) -> None:
+    global _LAST_EMAIL_ERROR
+    _LAST_EMAIL_ERROR = (message or "")[:1000]
+
+
+def get_last_email_error() -> str:
+    return _LAST_EMAIL_ERROR
+
 
 def _write_fallback_log(to_address: str, subject: str, body: str, error: str) -> None:
     try:
@@ -20,6 +31,50 @@ def _write_fallback_log(to_address: str, subject: str, body: str, error: str) ->
             )
     except Exception as e2:
         print(f"[EMAIL] Failed to write fallback log: {e2}")
+
+
+def get_smtp_health() -> dict:
+    """
+    Returns a non-destructive SMTP health snapshot for production diagnostics.
+    Does not send any email.
+    """
+    host = (os.getenv("SMTP_HOST") or "smtp.gmail.com").strip()
+    port = int((os.getenv("SMTP_PORT", "587") or "587").strip())
+    user = (os.getenv("SMTP_USER") or "").strip()
+    password = (os.getenv("SMTP_PASS") or "").strip().replace(" ", "")
+    sender = os.getenv("SENDER_EMAIL") or os.getenv("FROM_EMAIL") or user or ""
+
+    health = {
+        "configured": bool(host and port and user and password and sender),
+        "host": host,
+        "port": port,
+        "user_configured": bool(user),
+        "password_configured": bool(password),
+        "sender": sender,
+        "last_error": get_last_email_error(),
+        "can_connect": False,
+        "tls_ok": False,
+        "auth_ok": False,
+    }
+
+    if not health["configured"]:
+        return health
+
+    try:
+        with smtplib.SMTP(host, port, timeout=7) as server:
+            server.ehlo()
+            health["can_connect"] = True
+            server.starttls(context=ssl.create_default_context())
+            server.ehlo()
+            health["tls_ok"] = True
+            server.login(user, password)
+            health["auth_ok"] = True
+        _set_last_email_error("")
+        return health
+    except Exception as e:
+        _set_last_email_error(f"smtp_health_check_failed: {e}")
+        health["last_error"] = get_last_email_error()
+        return health
 
 def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:
     """
@@ -38,6 +93,7 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
 
     # If SMTP not configured, fallback to logging the email to a file and console
     if not host or not port or not user or not password:
+        _set_last_email_error("smtp_not_configured")
         log_line = f"---\nTime: {datetime.utcnow().isoformat()} UTC\nTo: {to_address}\nSubject: {subject}\n\n{body}\n"
         try:
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -90,10 +146,12 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
             print(f"[EMAIL] Sending email to: {to_address}")
             server.send_message(msg)
             print("[EMAIL] Email sent successfully")
+        _set_last_email_error("")
         return True
     except smtplib.SMTPAuthenticationError as e:
         print(f"[EMAIL] CRITICAL: Authentication failed: {e}")
         print("[EMAIL] Verify SMTP_USER and SMTP_PASS in .env")
+        _set_last_email_error(f"smtp_auth_failed: {e}")
         _write_fallback_log(to_address, subject, body, str(e))
         return False
     except Exception as e:
@@ -111,6 +169,7 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
                 return True
             except Exception as fallback_exc:
                 print(f"[EMAIL] Fallback smtp.gmail.com failed: {fallback_exc}")
+                _set_last_email_error(f"smtp_fallback_failed: {fallback_exc}")
 
         print("[EMAIL] Retrying via SMTP_SSL smtp.gmail.com:465")
         try:
@@ -122,6 +181,7 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
         except Exception as ssl_exc:
             combined_error = f"primary={e}; tls={tls_error}; smtp_ssl={ssl_exc}"
             print(f"[EMAIL] SMTP delivery failed: {combined_error}; falling back to local log")
+            _set_last_email_error(combined_error)
             _write_fallback_log(to_address, subject, body, combined_error)
             print(f"[EMAIL-DRYRUN] To: {to_address}\nSubject: {subject}\n\n{body}")
             return False
