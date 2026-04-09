@@ -135,6 +135,14 @@ class OTP(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
+class OTPVerificationAttempt(Base):
+    __tablename__ = "otp_verification_attempts"
+    id = Column(Integer, primary_key=True, index=True)
+    otp_id = Column(Integer, ForeignKey("otps.id"), nullable=False, index=True)
+    email = Column(String, nullable=False, index=True)
+    attempted_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
 class Feedback(Base):
     __tablename__ = "feedback"
     id = Column(Integer, primary_key=True, index=True)

@@ -73,7 +73,7 @@ if doctors and hasattr(doctors, "router"):
 if consultations and hasattr(consultations, "router"):
     app.include_router(consultations.router, tags=["Consultations"])
 
-# Ensure OTP endpoints available at /api and root (already returning debug_otp when needed)
+# Ensure OTP endpoints are available at /api and root.
 app.include_router(otp_router.router, prefix="/api", tags=["OTP"])
 app.include_router(otp_router.router, prefix="", tags=["OTP"])
 

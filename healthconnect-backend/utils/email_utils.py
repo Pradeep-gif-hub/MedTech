@@ -39,7 +39,7 @@ def _write_fallback_log(to_address: str, subject: str, body: str, error: str) ->
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(
                 f"---\nTime: {datetime.utcnow().isoformat()} UTC\nEMAIL FAILED: {error}\n"
-                f"To: {to_address}\nSubject: {subject}\n\n{body}\n"
+                f"To: {to_address}\nSubject: {subject}\n\n[sensitive content redacted]\n"
             )
     except Exception as e2:
         print(f"[EMAIL] Failed to write fallback log: {e2}")

@@ -103,10 +103,8 @@ class OTPVerify(BaseModel):
     otp: str
 
 class OTPResponse(BaseModel):
-    email: str
-    sent: bool
-    expires_at: Optional[str] = None
-    debug_otp: Optional[str] = None   # NEW: only set when OTP_DEBUG=1 for local debugging
+    success: bool
+    message: str
 
 class PrescriptionBase(BaseModel):
     patient_id: Optional[int] = None

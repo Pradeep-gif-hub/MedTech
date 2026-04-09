@@ -202,12 +202,7 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
       
       if (res.ok) {
         setSignUpStep('otpSent');
-        // Show debug OTP if provided by backend (development mode)
-        if (data.debug_otp) {
-          setSignUpMessage(`Development mode: Use OTP ${data.debug_otp}`);
-        } else {
-          setSignUpMessage('OTP has been sent to your email. Please check your inbox and spam folder.');
-        }
+        setSignUpMessage(data.message || 'OTP has been sent to your email. Please check your inbox and spam folder.');
       } else {
         const err = await extractError(res);
         setOtpError(`Failed to send OTP: ${err}`);
@@ -725,10 +720,13 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
 
                 {signUpStep === 'otpSent' && (
                   <form onSubmit={verifyOtp} className="space-y-4">
-                    <div><p className="text-sm text-gray-700">{signUpMessage}</p></div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900">Verify Your Email</h3>
+                      <p className="text-sm text-gray-600 mt-2">Enter the verification code sent to your email address.</p>
+                    </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Enter OTP</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">OTP</label>
                       <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full px-4 py-3 border rounded-lg" required />
                       {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
                     </div>
