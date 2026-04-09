@@ -2,6 +2,7 @@ const express = require('express');
 const {
   sendTestEmail,
   sendOtpEmail,
+  sendPasswordResetEmail,
   getEmailHealth,
   getLastEmailError,
 } = require('../utils/mailer');
@@ -40,7 +41,7 @@ router.get('/test-email', async (req, res) => {
       success: true,
       message: 'Email sent',
       to: email,
-      provider: 'brevo_smtp',
+      provider: result.provider || 'brevo_smtp',
       messageId: result.messageId,
     });
   } catch (error) {
@@ -81,7 +82,7 @@ router.post('/send-otp-email', async (req, res) => {
       success: true,
       message: 'OTP email sent successfully.',
       to: email,
-      provider: 'brevo_smtp',
+      provider: result.provider || 'brevo_smtp',
       messageId: result.messageId,
     });
   } catch (error) {
@@ -89,6 +90,47 @@ router.post('/send-otp-email', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Unexpected error while sending OTP email.',
+      error: error && error.message ? error.message : 'Unknown error',
+    });
+  }
+});
+
+router.post('/send-reset-email', async (req, res) => {
+  console.log('[MAILER_ROUTE] POST /send-reset-email hit with body keys:', Object.keys(req.body || {}));
+  const email = String((req.body && req.body.email) || '').trim();
+  const resetLink = String((req.body && req.body.resetLink) || '').trim();
+
+  if (!email || !resetLink) {
+    return res.status(400).json({
+      success: false,
+      message: 'email and resetLink are required.',
+    });
+  }
+
+  try {
+    const result = await sendPasswordResetEmail(email, resetLink);
+
+    if (!result.success) {
+      console.error('[MAILER_ROUTE] /send-reset-email Email failed:', result.error || getLastEmailError());
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send password reset email.',
+        error: result.error || getLastEmailError() || 'Unknown email error',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Password reset email sent successfully.',
+      to: email,
+      provider: result.provider || 'brevo_smtp',
+      messageId: result.messageId,
+    });
+  } catch (error) {
+    console.error('[MAILER_ROUTE] /send-reset-email error:', error && error.stack ? error.stack : error);
+    return res.status(500).json({
+      success: false,
+      message: 'Unexpected error while sending password reset email.',
       error: error && error.message ? error.message : 'Unknown error',
     });
   }
