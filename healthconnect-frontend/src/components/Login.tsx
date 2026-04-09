@@ -68,6 +68,14 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
     }
   };
 
+  const parseJsonSafe = async (res: Response) => {
+    try {
+      return await res.json();
+    } catch {
+      return {};
+    }
+  };
+
   const persistSession = (token: string, role: UserRole) => {
     localStorage.setItem('token', token);
     localStorage.setItem('role', role);
@@ -152,7 +160,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
       
       if (res.ok) {
         setSignUpStep('otpSent');
@@ -190,7 +198,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (res.ok && data.verified) {
         setSignUpStep('setPassword');
@@ -246,7 +254,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
       });
 
       if (res.ok) {
-        const response = await res.json();
+        const response = await parseJsonSafe(res);
         const { user, is_new_user } = response;
         
         // Store Google identity in memory only.
@@ -334,7 +342,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
       const truncatedPassword = password.slice(0, 72);
       const res = await tryPost(['/api/users/login', '/users/login'], { email, password: truncatedPassword });
       if (res.ok) {
-        const data = await res.json();
+        const data = await parseJsonSafe(res);
         const appToken = data.token || '';
         if (!appToken) {
           alert('Login failed: missing session token');
@@ -370,18 +378,12 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
     setIsSendingReset(true);
     setForgotPasswordMessage('');
     try {
-      const res = await fetch(buildApiUrl('/api/users/forgot-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail })
-      });
+      const res = await tryPost(
+        ['/api/auth/forgot-password', '/auth/forgot-password', '/api/users/forgot-password'],
+        { email: forgotEmail }
+      );
 
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        data = {};
-      }
+      const data: any = await parseJsonSafe(res);
 
       if ((res.ok || res.status === 200) && data?.success !== false) {
         setForgotPasswordStep('success');
@@ -402,7 +404,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
  if (loggedIn) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       {showForgotPassword ? (
         // Forgot Password Layout - Left aligned
         <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8">

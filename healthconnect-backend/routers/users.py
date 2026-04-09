@@ -1,11 +1,16 @@
+from datetime import datetime, timedelta, timezone
+import os
+import secrets
+
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from passlib.context import CryptContext
 from database import SessionLocal
 from utils.auth import verify_google_token
 import models, schemas
-import os
 
 router = APIRouter(tags=["Users"])
 
@@ -22,6 +27,98 @@ def get_db():
 
 def build_local_token(user_id: int) -> str:
     return f"{LOCAL_TOKEN_PREFIX}{user_id}"
+
+
+def _json_response(success: bool, message: str, status_code: int = 200, **extra):
+        payload = {
+                "success": success,
+                "message": message,
+        }
+        for key, value in extra.items():
+                if value is not None:
+                        payload[key] = value
+        return JSONResponse(status_code=status_code, content=payload)
+
+
+def _build_reset_email_template(user_name: str, reset_link: str) -> tuple[str, str]:
+        text_body = f"""MedTech - Password Reset Request
+
+Hello {user_name},
+
+We received a request to reset your MedTech password.
+Click the button below to create a new password:
+{reset_link}
+
+Security Notice: This link expires in 1 hour. Do not share it with anyone.
+
+If you did not request this, please ignore this email.
+
+MedTech Team
+"""
+
+        html_body = f"""
+<!doctype html>
+<html>
+    <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:24px 0;">
+            <tr>
+                <td align="center">
+                    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+                        <tr>
+                            <td style="background:#10b981;color:#ffffff;text-align:center;font-size:42px;font-weight:700;line-height:1.1;padding:24px 20px;">MedTech</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:28px 32px 10px 32px;">
+                                <h1 style="margin:0 0 16px 0;font-size:40px;line-height:1.2;color:#111827;font-weight:800;">Password Reset Request</h1>
+                                <p style="margin:0 0 14px 0;font-size:30px;line-height:1.35;color:#1f2937;">Hello {user_name},</p>
+                                <p style="margin:0;font-size:28px;line-height:1.35;color:#1f2937;">We received a request to reset your MedTech password.<br/>Click the button below to create a new password.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="padding:18px 32px 18px 32px;">
+                                <a href="{reset_link}" style="display:inline-block;background:#10b981;color:white;border-radius:8px;padding:14px 24px;font-weight:600;font-size:30px;line-height:1.2;text-decoration:none;">Reset Password</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 32px 16px 32px;">
+                                <p style="margin:0 0 10px 0;font-size:30px;line-height:1.3;color:#111827;font-weight:700;">Or copy this link:</p>
+                                <p style="margin:0 0 16px 0;font-size:24px;line-height:1.35;word-break:break-all;"><a href="{reset_link}" style="color:#2563eb;">{reset_link}</a></p>
+                                <div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;padding:14px 16px;">
+                                    <p style="margin:0;font-size:22px;line-height:1.35;color:#991b1b;"><strong>⚠ Security Notice:</strong> This link expires in 1 hour. Do not share it with anyone.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 32px 20px 32px;">
+                                <p style="margin:0;font-size:22px;line-height:1.35;color:#6b7280;">If you did not request this, please ignore this email.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="border-top:1px solid #e5e7eb;padding:16px 20px;text-align:center;font-size:20px;line-height:1.3;color:#6b7280;">MedTech Team</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+"""
+        return text_body, html_body
+
+
+def _get_or_create_auth_meta(db: Session, user: models.User) -> models.UserAuthMeta:
+        meta = db.query(models.UserAuthMeta).filter(models.UserAuthMeta.user_id == user.id).first()
+        if meta:
+                return meta
+
+        meta = models.UserAuthMeta(
+                user_id=user.id,
+                is_google_user=False,
+                profile_completed=bool((getattr(user, "password", "") or "").strip()),
+        )
+        db.add(meta)
+        db.flush()
+        return meta
 
 
 @router.get("/email-health")
@@ -171,7 +268,7 @@ async def google_login(
         # Extract user information from Google token
         email = token_payload.get("email")
         name = token_payload.get("name")
-        google_id = token_payload.get("google_id")
+        google_id = token_payload.get("google_id") or token_payload.get("sub")
         picture = token_payload.get("picture")
         
         print(f"[GOOGLE_LOGIN] Extracted email={email}, name={name}, google_id={google_id}")
@@ -196,6 +293,15 @@ async def google_login(
                 profile_picture_url=picture,
             )
             db.add(user)
+            db.flush()
+
+            meta = models.UserAuthMeta(
+                user_id=user.id,
+                google_id=google_id,
+                is_google_user=True,
+                profile_completed=False,
+            )
+            db.add(meta)
             db.commit()
             db.refresh(user)
 
@@ -216,6 +322,8 @@ async def google_login(
                     "allergy": None,
                     "profile_picture_url": picture,
                     "google_id": google_id,
+                    "is_google_user": True,
+                    "profile_completed": False,
                     "picture": picture,
                     "email_verified": token_payload.get("email_verified"),
                     "token": local_token,
@@ -228,12 +336,34 @@ async def google_login(
             return response
         else:
             print(f"[GOOGLE_LOGIN] Existing user: {user.id}")
+            should_commit = False
+
+            meta = _get_or_create_auth_meta(db, user)
+            if google_id and meta.google_id != google_id:
+                meta.google_id = google_id
+                should_commit = True
+            if not meta.is_google_user:
+                meta.is_google_user = True
+                should_commit = True
+
+            # If user already has a password and at least one profile field, treat profile as completed.
+            has_password = bool((getattr(user, "password", "") or "").strip())
+            has_profile_data = bool(user.phone or user.dob or user.gender or user.age)
+            if has_password and has_profile_data and not meta.profile_completed:
+                meta.profile_completed = True
+                should_commit = True
+
             # Update profile picture if changed
             if picture and picture != user.profile_picture_url:
                 user.profile_picture_url = picture
+                print(f"[GOOGLE_LOGIN] Profile picture updated")
+                should_commit = True
+
+            if should_commit:
                 db.commit()
                 db.refresh(user)
-                print(f"[GOOGLE_LOGIN] Profile picture updated")
+
+            is_new_user = not bool(meta.profile_completed)
         
         # Return response
         local_token = build_local_token(user.id)
@@ -254,6 +384,8 @@ async def google_login(
                 "allergy": user.allergy,
                 "profile_picture_url": user.profile_picture_url,
                 "google_id": google_id,
+                "is_google_user": True,
+                "profile_completed": not is_new_user,
                 "picture": picture or user.profile_picture_url,
                 "email_verified": token_payload.get("email_verified"),
                 "token": local_token,
@@ -368,6 +500,18 @@ async def complete_profile(
             db.commit()
             db.refresh(user)
             print(f"[COMPLETE_PROFILE] Updated user: {user.id}, role={role}")
+
+        # Track profile completion for Google-based users.
+        meta = _get_or_create_auth_meta(db, user)
+        incoming_google_id = payload.get("google_id")
+        if incoming_google_id and meta.google_id != incoming_google_id:
+            meta.google_id = incoming_google_id
+        if incoming_google_id or meta.google_id:
+            meta.is_google_user = True
+        if not meta.profile_completed:
+            meta.profile_completed = True
+        db.commit()
+        db.refresh(user)
         
         return {
             "success": True,
@@ -384,6 +528,7 @@ async def complete_profile(
             "phone": user.phone,
             "dob": user.dob,
             "profile_picture_url": user.profile_picture_url,
+            "profile_completed": True,
             "token": build_local_token(user.id),
         }
     
@@ -655,126 +800,145 @@ def update_me(payload: dict = Body(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+def _create_reset_token(db: Session, user: models.User, email: str) -> tuple[str, datetime]:
+    now_utc = datetime.now(timezone.utc)
+    expires_at = now_utc + timedelta(hours=1)
+    token = secrets.token_urlsafe(32)
+
+    # Invalidate any previous active tokens for this user.
+    db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.user_id == user.id,
+        models.PasswordResetToken.used.is_(False),
+    ).update(
+        {
+            models.PasswordResetToken.used: True,
+            models.PasswordResetToken.used_at: now_utc,
+        },
+        synchronize_session=False,
+    )
+
+    token_row = models.PasswordResetToken(
+        user_id=user.id,
+        email=email,
+        token=token,
+        expires_at=expires_at,
+        used=False,
+    )
+    db.add(token_row)
+    db.commit()
+    return token, expires_at
+
+
 # Forgot Password Endpoint
 @router.post("/forgot-password")
 def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
-        """
-        Forgot password endpoint.
-        Sends a professional HTML password reset email.
-        Always returns 200 status for unknown emails to avoid user enumeration.
-        """
-        try:
-                email = (data.get("email") or "").strip()
-                if not email:
-                        raise HTTPException(status_code=400, detail="Email is required")
+    """
+    Forgot password endpoint.
+    Validates user, stores secure reset token with expiry, and sends reset email.
+    """
+    try:
+        from utils.email_utils import send_email, get_last_email_error
 
-                email_normalized = email.lower()
-                user = db.query(models.User).filter(func.lower(models.User.email) == email_normalized).first()
+        email = (data.get("email") or "").strip()
+        if not email:
+            return _json_response(False, "Email is required", status_code=400, error="email_required")
 
-                # Keep enumeration-safe response for unknown users.
-                if not user:
-                        print(f"[FORGOT_PASSWORD] Email not found: {email}")
-                        return {
-                                "success": True,
-                                "message": "Password reset link has been sent to your email.",
-                                "email": email,
-                                "detail": "Check your inbox and spam folder for the reset link. It will expire in 1 hour.",
-                        }
+        email_normalized = email.lower()
+        user = db.query(models.User).filter(func.lower(models.User.email) == email_normalized).first()
+        if not user:
+            return _json_response(False, "User not found", status_code=404, error="user_not_found")
 
-                from utils.email_utils import send_email, get_last_email_error
-                import uuid
+        reset_token, expires_at = _create_reset_token(db, user, email)
+        frontend_url = (os.getenv("FRONTEND_URL") or "https://medtech-4rjc.onrender.com").rstrip("/")
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}&email={email}"
 
-                reset_token = str(uuid.uuid4())
-                frontend_url = (os.getenv("FRONTEND_URL") or "https://medtech-4rjc.onrender.com").rstrip("/")
-                reset_link = f"{frontend_url}/reset-password?token={reset_token}&email={email}"
+        text_body, html_body = _build_reset_email_template(user.name or "User", reset_link)
+        sent = send_email(
+            to_address=email,
+            subject="MedTech - Reset Your Password",
+            body=text_body,
+            html_body=html_body,
+        )
 
-                email_body = f"""MedTech - Password Reset Request
+        if not sent:
+            err = get_last_email_error() or "SMTP connection failed"
+            print(f"[FORGOT_PASSWORD] Email send failed for {email}: {err}")
+            return _json_response(
+                False,
+                "Email delivery failed",
+                status_code=503,
+                error=err,
+                detail="SMTP connection failed",
+            )
 
-Hello {user.name or 'User'},
+        print(f"[FORGOT_PASSWORD] Email sent to: {email}")
+        return _json_response(
+            True,
+            "Password reset link has been sent to your email.",
+            status_code=200,
+            email=email,
+            expires_at=expires_at.isoformat(),
+        )
+    except Exception as e:
+        print(f"[FORGOT_PASSWORD] error: {e}")
+        return _json_response(False, "Error processing forgot password request", status_code=500, error=str(e))
 
-We received a request to reset your MedTech password.
-Use this link to reset your password:
-{reset_link}
 
-Security notice:
-- This link expires in 1 hour
-- Do not share this link with anyone
+@router.post("/reset-password")
+def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
+    """
+    Reset password endpoint.
+    Validates token and expiry, hashes new password, and updates the user password.
+    """
+    try:
+        token = (data.get("token") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        new_password = (data.get("new_password") or "").strip()
 
-If you did not request this reset, you can safely ignore this email.
+        if not token or not email or not new_password:
+            return _json_response(
+                False,
+                "token, email and new_password are required",
+                status_code=400,
+                error="missing_fields",
+            )
 
-MedTech Team
-"""
+        if len(new_password) < 6:
+            return _json_response(False, "Password must be at least 6 characters", status_code=400, error="weak_password")
 
-                html_email_body = f"""
-<!doctype html>
-<html>
-    <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937;\">
-        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 0;\">
-            <tr>
-                <td align=\"center\">
-                    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;\">
-                        <tr>
-                            <td style=\"background:#10b981;padding:20px 24px;text-align:center;color:#ffffff;font-size:34px;font-weight:700;\">MedTech</td>
-                        </tr>
-                        <tr>
-                            <td style=\"padding:28px 28px 8px 28px;\">
-                                <h2 style=\"margin:0 0 16px 0;font-size:28px;line-height:1.3;color:#111827;\">Password Reset Request</h2>
-                                <p style=\"margin:0 0 14px 0;font-size:22px;line-height:1.5;\">Hello {user.name or 'User'},</p>
-                                <p style=\"margin:0 0 18px 0;font-size:22px;line-height:1.6;\">We received a request to reset your MedTech password. Click the button below to create a new password.</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td align=\"center\" style=\"padding:8px 28px 20px 28px;\">
-                                <a href=\"{reset_link}\" style=\"display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:22px;font-weight:700;padding:14px 26px;border-radius:8px;\">Reset Password</a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style=\"padding:0 28px 8px 28px;\">
-                                <p style=\"margin:0 0 10px 0;font-size:20px;font-weight:700;color:#374151;\">Or copy this link:</p>
-                                <p style=\"margin:0 0 16px 0;font-size:18px;line-height:1.5;word-break:break-all;\"><a href=\"{reset_link}\" style=\"color:#2563eb;\">{reset_link}</a></p>
-                                <div style=\"background:#fef2f2;border-left:4px solid #ef4444;padding:14px;border-radius:8px;\">
-                                    <p style=\"margin:0;font-size:18px;color:#991b1b;\"><strong>Security Notice:</strong> This link expires in 1 hour. Do not share it with anyone.</p>
-                                </div>
-                                <p style=\"margin:16px 0 0 0;font-size:18px;color:#6b7280;line-height:1.5;\">If you did not request this, please ignore this email.</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style=\"padding:20px 28px 26px 28px;color:#6b7280;font-size:16px;text-align:center;border-top:1px solid #e5e7eb;\">MedTech Team</td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-</html>
-"""
+        user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+        if not user:
+            return _json_response(False, "User not found", status_code=404, error="user_not_found")
 
-                sent = send_email(
-                        to_address=email,
-                        subject="MedTech - Reset Your Password",
-                        body=email_body,
-                        html_body=html_email_body,
-                )
+        token_row = db.query(models.PasswordResetToken).filter(
+            models.PasswordResetToken.user_id == user.id,
+            models.PasswordResetToken.email == email,
+            models.PasswordResetToken.token == token,
+            models.PasswordResetToken.used.is_(False),
+        ).first()
 
-                if not sent:
-                        err = get_last_email_error() or "unknown_smtp_error"
-                        print(f"[FORGOT_PASSWORD] Email send reported failure for: {email}; reason={err}")
-                        return {
-                                "success": False,
-                                "message": "Email service is temporarily unavailable. Please try again in a few minutes.",
-                                "email": email,
-                                "detail": f"Could not dispatch reset email from server. Reason: {err}",
-                        }
+        if not token_row:
+            return _json_response(False, "Invalid reset token", status_code=400, error="invalid_token")
 
-                print(f"[FORGOT_PASSWORD] Email sent to: {email}")
-                return {
-                        "success": True,
-                        "message": "Password reset link has been sent to your email.",
-                        "email": email,
-                        "detail": "Check your inbox and spam folder for the reset link. It will expire in 1 hour.",
-                }
-        except HTTPException:
-                raise
-        except Exception as e:
-                print(f"[FORGOT_PASSWORD] error: {e}")
-                raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
+        now_utc = datetime.now(timezone.utc)
+        token_expiry = token_row.expires_at
+        if token_expiry and token_expiry.tzinfo is None:
+            token_expiry = token_expiry.replace(tzinfo=timezone.utc)
+
+        if not token_expiry or token_expiry < now_utc:
+            token_row.used = True
+            token_row.used_at = now_utc
+            db.commit()
+            return _json_response(False, "Reset token has expired", status_code=400, error="token_expired")
+
+        # bcrypt.hashpw as requested.
+        password_hash = bcrypt.hashpw(new_password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        user.password = password_hash
+        token_row.used = True
+        token_row.used_at = now_utc
+        db.commit()
+
+        return _json_response(True, "Password updated", status_code=200)
+    except Exception as e:
+        print(f"[RESET_PASSWORD] error: {e}")
+        return _json_response(False, "Error processing reset password request", status_code=500, error=str(e))

@@ -7,6 +7,7 @@ import AdminPanel from './components/AdminPanel';
 import PublicPages from './components/PublicPages';
 import Login from './components/Login';
 import ProfileCompletion from './components/ProfileCompletion';
+import ResetPassword from './components/ResetPassword';
 import { AuthProvider } from './contexts/AuthContext';
 
 export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'unknown';
@@ -17,6 +18,7 @@ export type CurrentView =
   | 'login-pharmacy'
   | 'login-admin'
   | 'profile-completion'
+  | 'reset-password'
   | 'dashboard'
   | 'public'
   | 'admin';
@@ -56,8 +58,14 @@ function App() {
         const token = localStorage.getItem('token');
         const storedRole = localStorage.getItem('role') as UserRole | null;
         const pendingRaw = sessionStorage.getItem('pending_new_user');
+        const currentPath = window.location.pathname;
 
-        if (pendingRaw && window.location.pathname === '/complete-profile') {
+        if (currentPath === '/reset-password') {
+          setCurrentView('reset-password');
+          return;
+        }
+
+        if (pendingRaw && currentPath === '/complete-profile') {
           const pending = JSON.parse(pendingRaw);
           setPendingNewUser(pending);
           setCurrentView('profile-completion');
@@ -200,6 +208,18 @@ function App() {
           <LandingPage
             onNavigate={setCurrentView}
             onPublicNavigate={navigateToPublic}
+          />
+        );
+
+      case 'reset-password':
+        return (
+          <ResetPassword
+            onBackToLogin={() => {
+              if (window.location.pathname !== '/') {
+                window.history.replaceState({}, '', '/');
+              }
+              setCurrentView('login-patient');
+            }}
           />
         );
 

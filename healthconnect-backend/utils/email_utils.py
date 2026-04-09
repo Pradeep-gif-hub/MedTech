@@ -16,7 +16,7 @@ load_dotenv()
 
 _LAST_EMAIL_ERROR = ""
 _HTTP_TIMEOUT_SECONDS = 10
-_SMTP_TIMEOUT_SECONDS = 4
+_SMTP_TIMEOUT_SECONDS = 10
 
 
 def _env_first(*names: str, default: str = "") -> str:

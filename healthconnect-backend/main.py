@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # required routers
 from routers import users
 from routers import otp as otp_router
+from routers import auth as auth_router
 
 # optional routers - import if available to avoid import errors during startup
 doctors = None
@@ -59,6 +60,10 @@ app.add_middleware(
 # mount users router at both common prefixes to handle frontend path differences
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
+
+# dedicated auth routes
+app.include_router(auth_router.router, prefix="/auth", tags=["Auth"])
+app.include_router(auth_router.router, prefix="/api/auth", tags=["Auth"])
 
 # mount doctors router
 if doctors and hasattr(doctors, "router"):
