@@ -1,6 +1,7 @@
 import os
 import smtplib
 import ssl
+import socket
 from email.message import EmailMessage
 from datetime import datetime
 from dotenv import load_dotenv
@@ -170,6 +171,26 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
             except Exception as fallback_exc:
                 print(f"[EMAIL] Fallback smtp.gmail.com failed: {fallback_exc}")
                 _set_last_email_error(f"smtp_fallback_failed: {fallback_exc}")
+
+        # Some cloud runtimes fail IPv6 routing for smtp.gmail.com.
+        # Retry with direct IPv4 endpoint before giving up.
+        print("[EMAIL] Retrying via direct IPv4 smtp.gmail.com:587")
+        try:
+            ipv4_host = socket.gethostbyname("smtp.gmail.com")
+            tls_context = ssl.create_default_context()
+            tls_context.check_hostname = False
+            with smtplib.SMTP(ipv4_host, 587, timeout=7) as server:
+                server.ehlo()
+                server.starttls(context=tls_context)
+                server.ehlo()
+                server.login(user, password)
+                server.send_message(msg)
+            print("[EMAIL] Direct IPv4 send successful")
+            _set_last_email_error("")
+            return True
+        except Exception as ipv4_exc:
+            print(f"[EMAIL] Direct IPv4 fallback failed: {ipv4_exc}")
+            _set_last_email_error(f"smtp_ipv4_fallback_failed: {ipv4_exc}")
 
         print("[EMAIL] Retrying via SMTP_SSL smtp.gmail.com:465")
         try:
