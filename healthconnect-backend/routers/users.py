@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from passlib.context import CryptContext
 from database import SessionLocal
 from utils.auth import verify_google_token
@@ -649,7 +650,8 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Email is required")
 
         # Find user by email
-        user = db.query(models.User).filter(models.User.email == email).first()
+        email_normalized = email.lower()
+        user = db.query(models.User).filter(func.lower(models.User.email) == email_normalized).first()
 
         # Always return success for security (don't reveal if email exists)
         if user:
@@ -732,8 +734,20 @@ MedTech Team
                     print(f"[FORGOT_PASSWORD] Email sent to: {email}")
                 else:
                     print(f"[FORGOT_PASSWORD] Email send reported failure for: {email}")
+                    return {
+                        "success": False,
+                        "message": "Email service is temporarily unavailable. Please try again in a few minutes.",
+                        "email": email,
+                        "detail": "Could not dispatch reset email from server."
+                    }
             except Exception as e:
                 print(f"[FORGOT_PASSWORD] Email sending failed: {e}")
+                return {
+                    "success": False,
+                    "message": "Email service is temporarily unavailable. Please try again in a few minutes.",
+                    "email": email,
+                    "detail": "Reset request accepted but delivery failed."
+                }
         else:
             print(f"[FORGOT_PASSWORD] Email not found: {email}")
 

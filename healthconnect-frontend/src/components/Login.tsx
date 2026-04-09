@@ -383,11 +383,11 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
         data = {};
       }
 
-      if (res.ok || res.status === 200) {
+      if ((res.ok || res.status === 200) && data?.success !== false) {
         setForgotPasswordStep('success');
         setForgotPasswordMessage(data.detail || 'Check your inbox for the reset link');
       } else {
-        setForgotPasswordMessage(data.detail || 'Failed to send reset link. Please try again.');
+        setForgotPasswordMessage(data.detail || data.message || 'Failed to send reset link. Please try again.');
         setForgotPasswordStep('email');
       }
     } catch (err) {
@@ -510,6 +510,15 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
         ) : (
           // Normal Login/Signup Layout - Centered
           <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span>Back to Home</span>
+            </button>
+
             {showSignUp ? (
               <>
                 {signUpStep === 'form' && (
