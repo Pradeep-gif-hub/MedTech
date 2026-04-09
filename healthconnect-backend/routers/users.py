@@ -590,85 +590,34 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
                 reset_token = str(uuid.uuid4())
                 reset_link = f"https://medtech-hcmo.onrender.com/reset-password?token={reset_token}&email={email}"
                 
-                # Professional HTML email template
-                html_body = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #0f766e 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }}
-        .header h1 {{ margin: 0; font-size: 28px; font-weight: 600; }}
-        .header p {{ margin: 5px 0 0 0; font-size: 14px; opacity: 0.9; }}
-        .content {{ background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; }}
-        .greeting {{ font-size: 16px; margin-bottom: 20px; }}
-        .message {{ color: #4b5563; font-size: 15px; line-height: 1.8; margin-bottom: 30px; }}
-        .button-wrapper {{ text-align: center; margin: 30px 0; }}
-        .reset-button {{ display: inline-block; background: #10b981; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; }}
-        .reset-button:hover {{ background: #059669; }}
-        .divider {{ text-align: center; color: #9ca3af; margin: 30px 0; font-size: 14px; }}
-        .link-section {{ background: white; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px dashed #e5e7eb; }}
-        .link-section p {{ margin: 0 0 10px 0; color: #6b7280; font-size: 13px; }}
-        .link-section a {{ color: #0f766e; word-break: break-all; font-size: 12px; }}
-        .security-notice {{ background: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 4px; }}
-        .security-notice strong {{ color: #991b1b; }}
-        .security-notice p {{ margin: 5px 0; color: #7f1d1d; font-size: 13px; }}
-        .footer {{ background: #f3f4f6; padding: 20px; border: 1px solid #e5e7eb; border-top: none; text-align: center; color: #6b7280; font-size: 12px; border-radius: 0 0 8px 8px; }}
-        .footer a {{ color: #0f766e; text-decoration: none; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🏥 MedTech</h1>
-            <p>Password Reset Request</p>
-        </div>
-        
-        <div class="content">
-            <div class="greeting">Hello {user.name},</div>
-            
-            <div class="message">
-                We received a request to reset your password. Click the button below to create a new password for your MedTech account.
-            </div>
-            
-            <div class="button-wrapper">
-                <a href="{reset_link}" class="reset-button">Reset Password</a>
-            </div>
-            
-            <div class="divider">or copy this link:</div>
-            
-            <div class="link-section">
-                <p><strong>Copy & Paste Link:</strong></p>
-                <a href="{reset_link}">{reset_link}</a>
-            </div>
-            
-            <div class="security-notice">
-                <strong>⚠️ Security Notice:</strong>
-                <p>This link expires in <strong>1 hour</strong>. Do not share it with anyone.</p>
-                <p>If you didn't request this password reset, please ignore this email and your password will remain unchanged.</p>
-            </div>
-            
-            <div class="message" style="font-size: 13px; color: #6b7280; margin-top: 20px;">
-                Best regards,<br>
-                <strong>MedTech Team</strong>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <p>© 2026 MedTech. All rights reserved.</p>
-            <p>If you have any questions, please contact our support team.</p>
-        </div>
-    </div>
-</body>
-</html>
+                # Professional plain text email with clean formatting
+                email_body = f"""🏥 MedTech - Password Reset Request
+{'='*50}
+
+Hello {user.name},
+
+We received a request to reset your MedTech password.
+
+RESET YOUR PASSWORD:
+{reset_link}
+
+IMPORTANT SECURITY INFORMATION:
+⏰ This link expires in: 1 hour
+⚠️  Do not share this link with anyone
+🔒 Never share your password
+
+If you didn't request this reset, please ignore this email.
+
+{'='*50}
+Best regards,
+MedTech Team
+© 2026 MedTech. All rights reserved.
 """
                 
                 send_email(
                     to_address=email,
                     subject="MedTech - Reset Your Password",
-                    body=html_body
+                    body=email_body
                 )
                 print(f"[FORGOT_PASSWORD] Email sent to: {email}")
             except Exception as e:
