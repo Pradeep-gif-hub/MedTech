@@ -644,14 +644,6 @@ return (
 
             {forgotPasswordStep === 'email' && (
               <form onSubmit={handleForgotPasswordRequest} className="space-y-6">
-                <button 
-                  onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2 transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back to Login</span>
-                </button>
-
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">Forgot Password?</h2>
                   <p className="text-gray-600 text-sm">We'll help you reset it</p>
