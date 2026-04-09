@@ -1,19 +1,52 @@
+import json
 import os
 import smtplib
-import ssl
 import socket
-import json
-from html import escape
-from urllib import request as urllib_request
-from urllib import error as urllib_error
-from email.message import EmailMessage
+import ssl
 from datetime import datetime
+from email.message import EmailMessage
+from html import escape
+from urllib import error as urllib_error
+from urllib import request as urllib_request
+
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file.
 load_dotenv()
 
 _LAST_EMAIL_ERROR = ""
+_HTTP_TIMEOUT_SECONDS = 10
+_SMTP_TIMEOUT_SECONDS = 4
+
+
+def _env_first(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return default
+
+
+def _safe_int(value: str, fallback: int) -> int:
+    try:
+        return int((value or "").strip())
+    except Exception:
+        return fallback
+
+
+def _smtp_config() -> dict:
+    host = _env_first("SMTP_HOST", "EMAIL_HOST", "MAIL_HOST", default="smtp.gmail.com")
+    port = _safe_int(_env_first("SMTP_PORT", "EMAIL_PORT", "MAIL_PORT", default="587"), 587)
+    user = _env_first("SMTP_USER", "SMTP_USERNAME", "EMAIL_HOST_USER", "MAIL_USERNAME")
+    password = _env_first("SMTP_PASS", "SMTP_PASSWORD", "EMAIL_HOST_PASSWORD", "MAIL_PASSWORD").replace(" ", "")
+    from_email = _env_first("SENDER_EMAIL", "FROM_EMAIL", "DEFAULT_FROM_EMAIL", "SMTP_FROM_EMAIL", default=user or "no-reply@localhost")
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "from_email": from_email,
+    }
 
 
 def _set_last_email_error(message: str) -> None:
@@ -31,14 +64,14 @@ def _write_fallback_log(to_address: str, subject: str, body: str, error: str) ->
         log_path = os.path.join(project_root, "sent_otps.log")
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(
-                f"---\nTime: {datetime.utcnow().isoformat()} UTC\nSMTP FAILED: {error}\n"
+                f"---\nTime: {datetime.utcnow().isoformat()} UTC\nEMAIL FAILED: {error}\n"
                 f"To: {to_address}\nSubject: {subject}\n\n{body}\n"
             )
     except Exception as e2:
         print(f"[EMAIL] Failed to write fallback log: {e2}")
 
 
-def _post_json(url: str, payload: dict, headers: dict, timeout: int = 10) -> tuple[bool, str]:
+def _post_json(url: str, payload: dict, headers: dict, timeout: int = _HTTP_TIMEOUT_SECONDS) -> tuple[bool, str]:
     try:
         data = json.dumps(payload).encode("utf-8")
         req = urllib_request.Request(url=url, data=data, headers=headers, method="POST")
@@ -59,12 +92,11 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: int = 10) -> tup
 
 
 def _send_via_resend(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
-    api_key = (os.getenv("RESEND_API_KEY") or "").strip()
+    api_key = _env_first("RESEND_API_KEY", "RESEND_KEY")
     if not api_key:
         return False, "resend_not_configured"
 
-    resend_from = (os.getenv("RESEND_FROM_EMAIL") or "onboarding@resend.dev").strip()
-
+    resend_from = _env_first("RESEND_FROM_EMAIL", "RESEND_FROM", default="onboarding@resend.dev")
     payload = {
         "from": resend_from,
         "to": [to_address],
@@ -81,13 +113,12 @@ def _send_via_resend(to_address: str, subject: str, body: str, html_body: str | 
 
 
 def _send_via_brevo(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
-    api_key = (os.getenv("BREVO_API_KEY") or "").strip()
+    api_key = _env_first("BREVO_API_KEY", "SENDINBLUE_API_KEY", "BREVO_KEY", "SENDINBLUE_KEY")
     if not api_key:
         return False, "brevo_not_configured"
 
-    brevo_from = (os.getenv("BREVO_FROM_EMAIL") or from_email).strip()
-    brevo_sender_name = (os.getenv("BREVO_SENDER_NAME") or "MedTech").strip()
-
+    brevo_from = _env_first("BREVO_FROM_EMAIL", "SENDINBLUE_FROM_EMAIL", default=from_email)
+    brevo_sender_name = _env_first("BREVO_SENDER_NAME", "SENDINBLUE_SENDER_NAME", default="MedTech")
     payload = {
         "sender": {"email": brevo_from, "name": brevo_sender_name},
         "to": [{"email": to_address}],
@@ -103,16 +134,155 @@ def _send_via_brevo(to_address: str, subject: str, body: str, html_body: str | N
     return ok, f"brevo:{detail}"
 
 
+def _send_via_sendgrid(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
+    api_key = _env_first("SENDGRID_API_KEY", "SEND_GRID_API_KEY")
+    if not api_key:
+        return False, "sendgrid_not_configured"
+
+    sendgrid_from = _env_first("SENDGRID_FROM_EMAIL", "SENDGRID_SENDER_EMAIL", default=from_email)
+    sendgrid_from_name = _env_first("SENDGRID_SENDER_NAME", default="MedTech")
+    payload = {
+        "personalizations": [{"to": [{"email": to_address}]}],
+        "from": {"email": sendgrid_from, "name": sendgrid_from_name},
+        "subject": subject,
+        "content": [
+            {"type": "text/plain", "value": body},
+            {"type": "text/html", "value": html_body or f"<pre>{escape(body)}</pre>"},
+        ],
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    ok, detail = _post_json("https://api.sendgrid.com/v3/mail/send", payload, headers)
+    return ok, f"sendgrid:{detail}"
+
+
+def _send_via_postmark(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
+    api_key = _env_first("POSTMARK_SERVER_TOKEN", "POSTMARK_API_KEY")
+    if not api_key:
+        return False, "postmark_not_configured"
+
+    postmark_from = _env_first("POSTMARK_FROM_EMAIL", "POSTMARK_SENDER_EMAIL", default=from_email)
+    payload = {
+        "From": postmark_from,
+        "To": to_address,
+        "Subject": subject,
+        "TextBody": body,
+        "HtmlBody": html_body or f"<pre>{escape(body)}</pre>",
+        "MessageStream": _env_first("POSTMARK_MESSAGE_STREAM", default="outbound"),
+    }
+    headers = {
+        "X-Postmark-Server-Token": api_key,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    ok, detail = _post_json("https://api.postmarkapp.com/email", payload, headers)
+    return ok, f"postmark:{detail}"
+
+
+def _try_https_providers(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
+    attempts = []
+    for sender in (_send_via_resend, _send_via_brevo, _send_via_sendgrid, _send_via_postmark):
+        ok, detail = sender(to_address, subject, body, html_body, from_email)
+        attempts.append(detail)
+        if ok:
+            return True, detail
+    return False, "; ".join(attempts)
+
+
+def _resolve_ipv4_hosts(host: str) -> list[str]:
+    addresses: list[str] = []
+    if not host:
+        return addresses
+
+    try:
+        infos = socket.getaddrinfo(host, None, socket.AF_INET, socket.SOCK_STREAM)
+        for info in infos:
+            ip = info[4][0]
+            if ip and ip not in addresses:
+                addresses.append(ip)
+    except Exception:
+        pass
+
+    try:
+        ip = socket.gethostbyname(host)
+        if ip and ip not in addresses:
+            addresses.append(ip)
+    except Exception:
+        pass
+
+    return addresses
+
+
+def _smtp_send_once(
+    host: str,
+    port: int,
+    user: str,
+    password: str,
+    msg: EmailMessage,
+    use_ssl: bool,
+    allow_hostname_mismatch: bool,
+) -> None:
+    tls_context = ssl.create_default_context()
+    if allow_hostname_mismatch:
+        tls_context.check_hostname = False
+
+    if use_ssl:
+        with smtplib.SMTP_SSL(host, port, timeout=_SMTP_TIMEOUT_SECONDS, context=tls_context) as server:
+            server.login(user, password)
+            server.send_message(msg)
+        return
+
+    with smtplib.SMTP(host, port, timeout=_SMTP_TIMEOUT_SECONDS) as server:
+        server.ehlo()
+        server.starttls(context=tls_context)
+        server.ehlo()
+        server.login(user, password)
+        server.send_message(msg)
+
+
+def _smtp_targets(host: str, port: int) -> list[tuple[str, int, bool, bool, str]]:
+    targets: list[tuple[str, int, bool, bool, str]] = []
+    seen = set()
+
+    def add_target(target_host: str, target_port: int, use_ssl: bool, allow_hostname_mismatch: bool, label: str) -> None:
+        key = (target_host, target_port, use_ssl)
+        if target_host and target_port and key not in seen:
+            seen.add(key)
+            targets.append((target_host, target_port, use_ssl, allow_hostname_mismatch, label))
+
+    # Primary target from env.
+    add_target(host, port, use_ssl=(port == 465), allow_hostname_mismatch=False, label="primary")
+
+    # Useful alternates for common providers.
+    if port != 587:
+        add_target(host, 587, use_ssl=False, allow_hostname_mismatch=False, label="starttls_587")
+    if port != 465:
+        add_target(host, 465, use_ssl=True, allow_hostname_mismatch=False, label="smtp_ssl_465")
+
+    # Retry all resolved IPv4 addresses for environments with broken IPv6/routing.
+    for ip in _resolve_ipv4_hosts(host):
+        add_target(ip, port, use_ssl=(port == 465), allow_hostname_mismatch=True, label="ipv4_primary")
+        if port != 587:
+            add_target(ip, 587, use_ssl=False, allow_hostname_mismatch=True, label="ipv4_starttls_587")
+        if port != 465:
+            add_target(ip, 465, use_ssl=True, allow_hostname_mismatch=True, label="ipv4_smtp_ssl_465")
+
+    return targets
+
+
 def get_smtp_health() -> dict:
     """
-    Returns a non-destructive SMTP health snapshot for production diagnostics.
+    Returns a non-destructive email health snapshot for production diagnostics.
     Does not send any email.
     """
-    host = (os.getenv("SMTP_HOST") or "smtp.gmail.com").strip()
-    port = int((os.getenv("SMTP_PORT", "587") or "587").strip())
-    user = (os.getenv("SMTP_USER") or "").strip()
-    password = (os.getenv("SMTP_PASS") or "").strip().replace(" ", "")
-    sender = os.getenv("SENDER_EMAIL") or os.getenv("FROM_EMAIL") or user or ""
+    smtp = _smtp_config()
+    host = smtp["host"]
+    port = smtp["port"]
+    user = smtp["user"]
+    password = smtp["password"]
+    sender = smtp["from_email"]
 
     health = {
         "configured": bool(host and port and user and password and sender),
@@ -121,10 +291,14 @@ def get_smtp_health() -> dict:
         "user_configured": bool(user),
         "password_configured": bool(password),
         "sender": sender,
-        "resend_configured": bool((os.getenv("RESEND_API_KEY") or "").strip()),
-        "resend_from": (os.getenv("RESEND_FROM_EMAIL") or "onboarding@resend.dev").strip(),
-        "brevo_configured": bool((os.getenv("BREVO_API_KEY") or "").strip()),
-        "brevo_from": (os.getenv("BREVO_FROM_EMAIL") or sender).strip(),
+        "resend_configured": bool(_env_first("RESEND_API_KEY", "RESEND_KEY")),
+        "resend_from": _env_first("RESEND_FROM_EMAIL", "RESEND_FROM", default="onboarding@resend.dev"),
+        "brevo_configured": bool(_env_first("BREVO_API_KEY", "SENDINBLUE_API_KEY", "BREVO_KEY", "SENDINBLUE_KEY")),
+        "brevo_from": _env_first("BREVO_FROM_EMAIL", "SENDINBLUE_FROM_EMAIL", default=sender),
+        "sendgrid_configured": bool(_env_first("SENDGRID_API_KEY", "SEND_GRID_API_KEY")),
+        "sendgrid_from": _env_first("SENDGRID_FROM_EMAIL", "SENDGRID_SENDER_EMAIL", default=sender),
+        "postmark_configured": bool(_env_first("POSTMARK_SERVER_TOKEN", "POSTMARK_API_KEY")),
+        "postmark_from": _env_first("POSTMARK_FROM_EMAIL", "POSTMARK_SENDER_EMAIL", default=sender),
         "last_error": get_last_email_error(),
         "can_connect": False,
         "tls_ok": False,
@@ -135,7 +309,7 @@ def get_smtp_health() -> dict:
         return health
 
     try:
-        with smtplib.SMTP(host, port, timeout=7) as server:
+        with smtplib.SMTP(host, port, timeout=_SMTP_TIMEOUT_SECONDS) as server:
             server.ehlo()
             health["can_connect"] = True
             server.starttls(context=ssl.create_default_context())
@@ -150,38 +324,28 @@ def get_smtp_health() -> dict:
         health["last_error"] = get_last_email_error()
         return health
 
+
 def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:
     """
-    Send email using SMTP if environment variables are set:
-    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SENDER_EMAIL/FROM_EMAIL
+    Send email through SMTP first, then HTTPS providers (Resend/Brevo/SendGrid/Postmark).
 
-    Returns True if an SMTP send was attempted/succeeded, False if falling back to local log/console.
+    SMTP env aliases supported:
+    SMTP_HOST/EMAIL_HOST/MAIL_HOST
+    SMTP_PORT/EMAIL_PORT/MAIL_PORT
+    SMTP_USER/SMTP_USERNAME/EMAIL_HOST_USER/MAIL_USERNAME
+    SMTP_PASS/SMTP_PASSWORD/EMAIL_HOST_PASSWORD/MAIL_PASSWORD
+
+    Returns True on successful delivery, False on complete transport failure.
     """
-    host = (os.getenv("SMTP_HOST") or "smtp.gmail.com").strip()
-    port = int((os.getenv("SMTP_PORT", "587") or "587").strip())
-    user = (os.getenv("SMTP_USER") or "").strip()
-    password = (os.getenv("SMTP_PASS") or "").strip().replace(" ", "")
-    from_email = os.getenv("SENDER_EMAIL") or os.getenv("FROM_EMAIL") or user or "no-reply@localhost"
-    
+    smtp = _smtp_config()
+    host = smtp["host"]
+    port = smtp["port"]
+    user = smtp["user"]
+    password = smtp["password"]
+    from_email = smtp["from_email"]
+
     print(f"[EMAIL] Config: SMTP_HOST={host}, SMTP_PORT={port}, SMTP_USER={user}, FROM_EMAIL={from_email}")
 
-    # If SMTP not configured, fallback to logging the email to a file and console
-    if not host or not port or not user or not password:
-        _set_last_email_error("smtp_not_configured")
-        log_line = f"---\nTime: {datetime.utcnow().isoformat()} UTC\nTo: {to_address}\nSubject: {subject}\n\n{body}\n"
-        try:
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-            log_path = os.path.join(project_root, "sent_otps.log")
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(log_line)
-        except Exception as e:
-            # best-effort: still print to console
-            print(f"[EMAIL-DRYRUN] Failed to write OTP log file: {e}")
-
-        print(f"[EMAIL-DRYRUN] To: {to_address}\nSubject: {subject}\n\n{body}")
-        return False
-
-    # SMTP configured: attempt to send
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = from_email
@@ -190,108 +354,42 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
     if html_body:
         msg.add_alternative(html_body, subtype="html")
 
-    tls_error = None
-    try:
-        print(f"[EMAIL] Attempting to connect to SMTP server {host}:{port}")
-        with smtplib.SMTP(host, port, timeout=5) as server:
-            print("[EMAIL] Connected to SMTP server")
-            server.ehlo()
+    smtp_errors = []
+    smtp_configured = bool(host and port and user and password)
+    if smtp_configured:
+        for target_host, target_port, use_ssl, allow_hostname_mismatch, label in _smtp_targets(host, port):
             try:
-                # STARTTLS negotiation - required for Gmail
-                tls_context = ssl.create_default_context()
-                server.starttls(context=tls_context)
-                print("[EMAIL] STARTTLS successful - connection is now encrypted")
-                server.ehlo()
-            except smtplib.SMTPNotSupportedError:
-                print(f"[EMAIL] WARNING: STARTTLS not supported by server")
-                tls_error = "STARTTLS not supported"
-            except smtplib.SMTPServerDisconnected:
-                print(f"[EMAIL] CRITICAL: Server disconnected during STARTTLS")
-                tls_error = "Server disconnected during STARTTLS"
-                raise
-            except Exception as e:
-                print(f"[EMAIL] WARNING: STARTTLS error: {e}")
-                tls_error = str(e)
-                raise
-            
-            print(f"[EMAIL] Attempting login with user: {user}")
-            server.login(user, password)
-            print("[EMAIL] Login successful")
-            print(f"[EMAIL] Sending email to: {to_address}")
-            server.send_message(msg)
-            print("[EMAIL] Email sent successfully")
+                print(f"[EMAIL] SMTP attempt ({label}): host={target_host} port={target_port} ssl={use_ssl}")
+                _smtp_send_once(
+                    host=target_host,
+                    port=target_port,
+                    user=user,
+                    password=password,
+                    msg=msg,
+                    use_ssl=use_ssl,
+                    allow_hostname_mismatch=allow_hostname_mismatch,
+                )
+                print(f"[EMAIL] SMTP send successful via {label}")
+                _set_last_email_error("")
+                return True
+            except Exception as smtp_exc:
+                error_text = f"{label}@{target_host}:{target_port} => {smtp_exc}"
+                smtp_errors.append(error_text)
+                print(f"[EMAIL] SMTP attempt failed: {error_text}")
+    else:
+        smtp_errors.append("smtp_not_configured")
+
+    print("[EMAIL] SMTP delivery failed or unavailable; trying HTTPS providers")
+    https_ok, https_detail = _try_https_providers(to_address, subject, body, html_body, from_email)
+    if https_ok:
+        print(f"[EMAIL] Sent via HTTPS provider: {https_detail}")
         _set_last_email_error("")
         return True
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"[EMAIL] CRITICAL: Authentication failed: {e}")
-        print("[EMAIL] Verify SMTP_USER and SMTP_PASS in .env")
-        _set_last_email_error(f"smtp_auth_failed: {e}")
-        _write_fallback_log(to_address, subject, body, str(e))
-        return False
-    except Exception as e:
-        print(f"[EMAIL] STARTTLS/SMTP send failed on {host}:{port}: {e}")
-        if host != "smtp.gmail.com":
-            print("[EMAIL] Retrying with fallback host smtp.gmail.com:587")
-            try:
-                with smtplib.SMTP("smtp.gmail.com", 587, timeout=7) as server:
-                    server.ehlo()
-                    server.starttls(context=ssl.create_default_context())
-                    server.ehlo()
-                    server.login(user, password)
-                    server.send_message(msg)
-                print("[EMAIL] Fallback send successful")
-                return True
-            except Exception as fallback_exc:
-                print(f"[EMAIL] Fallback smtp.gmail.com failed: {fallback_exc}")
-                _set_last_email_error(f"smtp_fallback_failed: {fallback_exc}")
 
-        # Some cloud runtimes fail IPv6 routing for smtp.gmail.com.
-        # Retry with direct IPv4 endpoint before giving up.
-        print("[EMAIL] Retrying via direct IPv4 smtp.gmail.com:587")
-        try:
-            ipv4_host = socket.gethostbyname("smtp.gmail.com")
-            tls_context = ssl.create_default_context()
-            tls_context.check_hostname = False
-            with smtplib.SMTP(ipv4_host, 587, timeout=7) as server:
-                server.ehlo()
-                server.starttls(context=tls_context)
-                server.ehlo()
-                server.login(user, password)
-                server.send_message(msg)
-            print("[EMAIL] Direct IPv4 send successful")
-            _set_last_email_error("")
-            return True
-        except Exception as ipv4_exc:
-            print(f"[EMAIL] Direct IPv4 fallback failed: {ipv4_exc}")
-            _set_last_email_error(f"smtp_ipv4_fallback_failed: {ipv4_exc}")
-
-        print("[EMAIL] Retrying via SMTP_SSL smtp.gmail.com:465")
-        try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=7, context=ssl.create_default_context()) as server:
-                server.login(user, password)
-                server.send_message(msg)
-            print("[EMAIL] SMTP_SSL send successful")
-            return True
-        except Exception as ssl_exc:
-            combined_error = f"primary={e}; tls={tls_error}; smtp_ssl={ssl_exc}"
-            print(f"[EMAIL] SMTP delivery failed: {combined_error}; trying HTTPS providers")
-
-            # HTTPS provider fallback (works when SMTP ports are blocked).
-            resend_ok, resend_detail = _send_via_resend(to_address, subject, body, html_body, from_email)
-            if resend_ok:
-                print("[EMAIL] Sent via Resend HTTPS API")
-                _set_last_email_error("")
-                return True
-
-            brevo_ok, brevo_detail = _send_via_brevo(to_address, subject, body, html_body, from_email)
-            if brevo_ok:
-                print("[EMAIL] Sent via Brevo HTTPS API")
-                _set_last_email_error("")
-                return True
-
-            final_error = f"{combined_error}; {resend_detail}; {brevo_detail}"
-            print(f"[EMAIL] All transports failed: {final_error}; falling back to local log")
-            _set_last_email_error(final_error)
-            _write_fallback_log(to_address, subject, body, final_error)
-            print(f"[EMAIL-DRYRUN] To: {to_address}\nSubject: {subject}\n\n{body}")
-            return False
+    smtp_error_text = " | ".join(smtp_errors[:6])
+    final_error = f"smtp={smtp_error_text}; providers={https_detail}"
+    print(f"[EMAIL] All transports failed: {final_error}; falling back to local log")
+    _set_last_email_error(final_error)
+    _write_fallback_log(to_address, subject, body, final_error)
+    print(f"[EMAIL-DRYRUN] To: {to_address}\nSubject: {subject}\n\n{body}")
+    return False
