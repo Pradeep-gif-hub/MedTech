@@ -52,6 +52,10 @@ class User(Base):
     abha_id = Column(String, nullable=True)
     allergy = Column(String, nullable=True)  # singular allergy field used by frontend
     profile_picture_url = Column(String, nullable=True)  # URL to user's profile picture
+
+    # Password reset fields used by legacy flows and compatibility checks.
+    reset_token = Column(String, nullable=True)
+    reset_token_expiry = Column(DateTime, nullable=True)
     
     # Doctor profile fields
     specialization = Column(String, nullable=True)

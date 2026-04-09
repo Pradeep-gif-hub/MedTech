@@ -155,6 +155,12 @@ try:
                     if 'profile_picture_url' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN profile_picture_url VARCHAR"))
                         added.append('profile_picture_url')
+                    if 'reset_token' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
+                        added.append('reset_token')
+                    if 'reset_token_expiry' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry DATETIME"))
+                        added.append('reset_token_expiry')
                     # New doctor profile fields
                     if 'full_name' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR"))
@@ -212,9 +218,29 @@ try:
                         presc_added.append('created_at')
                     if presc_added:
                         print(f"[startup] Added missing prescription columns: {presc_added}")
+            elif dialect_name in ("postgresql", "postgres"):
+                with engine.connect() as conn:
+                    rows = conn.execute(
+                        text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_name = 'users'"
+                        )
+                    ).fetchall()
+                    existing = {row[0] for row in rows}
+                    added = []
+                    if 'reset_token' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
+                        added.append('reset_token')
+                    if 'reset_token_expiry' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry TIMESTAMP"))
+                        added.append('reset_token_expiry')
+                    conn.commit()
+                    if added:
+                        print(f"[startup] Added missing user reset columns (postgres): {added}")
+                    else:
+                        print("[startup] Postgres reset columns already present")
             else:
-                # Non-SQLite DBs: instruct user to run proper migrations
-                print("[startup] Non-sqlite DB detected — run Alembic migrations to update schema if needed.")
+                print("[startup] Non-sqlite/non-postgres DB detected — run Alembic migrations to update schema if needed.")
         except Exception as e:
             print(f"[startup] Failed to ensure user columns: {e}")
 

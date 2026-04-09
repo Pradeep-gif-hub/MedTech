@@ -119,10 +119,12 @@ def get_smtp_health() -> dict:
     return get_email_health()
 
 
-def send_reset_email(email: str, token: str) -> bool:
-    reset_link = f"{_get_frontend_url()}/reset-password?token={token}&email={email}"
+def send_reset_email(email: str, token: str, user_name: str | None = None) -> bool:
+    try:
+        reset_link = f"{_get_frontend_url()}/reset-password?token={token}&email={email}"
+        safe_name = escape((user_name or "there").strip() or "there")
 
-    html_template = f"""
+        html_template = f"""
 <div style="font-family:Arial;max-width:600px;margin:auto;border:1px solid #eee;border-radius:10px;overflow:hidden">
 
     <div style="background:#10b981;padding:20px;text-align:center;color:white;font-size:26px;font-weight:bold">
@@ -133,7 +135,7 @@ def send_reset_email(email: str, token: str) -> bool:
 
     <h2>Password Reset Request</h2>
 
-    <p>Hello,</p>
+    <p>Hello {safe_name},</p>
 
     <p>We received a request to reset your MedTech password.</p>
     <p>Click the button below to create a new password.</p>
@@ -164,22 +166,26 @@ def send_reset_email(email: str, token: str) -> bool:
 </div>
 """
 
-    text = (
-        "MedTech - Password Reset Request\n\n"
-        "We received a request to reset your MedTech password.\n"
-        f"Reset link: {reset_link}\n\n"
-        "This link expires in 1 hour. Do not share it with anyone."
-    )
+        text = (
+            "MedTech - Password Reset Request\n\n"
+            "We received a request to reset your MedTech password.\n"
+            f"Reset link: {reset_link}\n\n"
+            "This link expires in 1 hour. Do not share it with anyone."
+        )
 
-    sent = _send_via_resend(
-        to_address=email,
-        subject="Reset your MedTech password",
-        html_body=html_template,
-        text_body=text,
-    )
-    if not sent:
-        _write_fallback_log(email, "Reset your MedTech password", text, get_last_email_error())
-    return sent
+        sent = _send_via_resend(
+            to_address=email,
+            subject="Reset your MedTech password",
+            html_body=html_template,
+            text_body=text,
+        )
+        if not sent:
+            _write_fallback_log(email, "Reset your MedTech password", text, get_last_email_error())
+        return sent
+    except Exception as e:
+        _set_last_email_error("Email delivery failed")
+        print(f"Reset email error: {str(e)}")
+        return False
 
 
 def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:

@@ -756,6 +756,16 @@ def _create_reset_token(db: Session, user: models.User, email: str) -> tuple[str
     )
     db.add(token_row)
     db.commit()
+
+    # Best effort: also persist on user columns for legacy compatibility.
+    try:
+        user.reset_token = token
+        user.reset_token_expiry = expires_at.replace(tzinfo=None)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[FORGOT_PASSWORD] Could not store reset token on user row: {e}")
+
     return token, expires_at
 
 
@@ -764,38 +774,41 @@ def _create_reset_token(db: Session, user: models.User, email: str) -> tuple[str
 def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
     """
     Forgot password endpoint.
-    Validates user, stores secure reset token with expiry, and sends reset email.
+    Always returns a generic success response to prevent account enumeration.
     """
+    generic_message = "If an account exists, a reset email has been sent"
+
     try:
         from utils.email_utils import send_reset_email, get_last_email_error
 
-        email = (data.get("email") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        print(f"Forgot password requested for: {email or '[empty]'}")
+
         if not email:
-            return _json_response(False, "Email is required", status_code=400, error="email_required")
+            return _json_response(True, generic_message, status_code=200)
 
-        email_normalized = email.lower()
-        user = db.query(models.User).filter(func.lower(models.User.email) == email_normalized).first()
+        user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
         if not user:
-            return _json_response(False, "User not found", status_code=404, error="user_not_found")
+            return _json_response(True, generic_message, status_code=200)
 
-        reset_token, _expires_at = _create_reset_token(db, user, email)
-        sent = send_reset_email(email=email, token=reset_token)
-
-        if not sent:
-            err = get_last_email_error() or "Email delivery failed"
-            print(f"[FORGOT_PASSWORD] Email send failed for {email}: {err}")
-            return _json_response(
-                False,
-                "Email delivery failed",
-                status_code=500,
-                error="Email delivery failed",
+        try:
+            reset_token, _expires_at = _create_reset_token(db, user, email)
+            sent = send_reset_email(
+                email=email,
+                token=reset_token,
+                user_name=(getattr(user, "name", None) or "there"),
             )
 
-        print(f"[FORGOT_PASSWORD] Email sent to: {email}")
-        return _json_response(True, "Reset email sent", status_code=200)
+            if not sent:
+                err = get_last_email_error() or "Email delivery failed"
+                print(f"Reset email error: {err}")
+        except Exception as e:
+            print(f"Reset email error: {str(e)}")
+
+        return _json_response(True, generic_message, status_code=200)
     except Exception as e:
-        print(f"[FORGOT_PASSWORD] error: {e}")
-        return _json_response(False, "Email delivery failed", status_code=500, error="Email delivery failed")
+        print(f"Reset email error: {str(e)}")
+        return _json_response(True, generic_message, status_code=200)
 
 
 @router.post("/reset-password")
@@ -842,12 +855,16 @@ def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
         if not token_expiry or token_expiry < now_utc:
             token_row.used = True
             token_row.used_at = now_utc
+            user.reset_token = None
+            user.reset_token_expiry = None
             db.commit()
             return _json_response(False, "This reset link has expired. Please request a new one.", status_code=400, error="token_expired")
 
         # bcrypt.hashpw as requested.
         password_hash = bcrypt.hashpw(new_password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         user.password = password_hash
+        user.reset_token = None
+        user.reset_token_expiry = None
         token_row.used = True
         token_row.used_at = now_utc
         db.commit()
