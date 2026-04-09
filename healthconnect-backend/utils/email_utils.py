@@ -46,14 +46,24 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
 
     try:
         print(f"[EMAIL] Attempting to connect to SMTP server {host}:{port}")
-        with smtplib.SMTP(host, port, timeout=10) as server:
+        # Use shorter timeout (5 seconds instead of 10)
+        with smtplib.SMTP(host, port, timeout=5) as server:
             print("[EMAIL] Connected to SMTP server")
             try:
-                server.starttls()
+                # Set a shorter timeout for STARTTLS
+                server.starttls(timeout=5)
                 print("[EMAIL] STARTTLS successful")
+            except smtplib.SMTPNotSupportedError:
+                print(f"[EMAIL] STARTTLS not supported by server, trying without it")
+                # Server doesn't support STARTTLS; continue anyway
+                pass
+            except smtplib.SMTPServerDisconnected:
+                print(f"[EMAIL] Server disconnected during STARTTLS, reconnecting...")
+                # Reconnect if server disconnected
+                return False
             except Exception as e:
-                print(f"[EMAIL] STARTTLS failed: {e}")
-                # some SMTP servers don't require starttls; ignore if it fails
+                print(f"[EMAIL] STARTTLS timeout/failed: {e}, attempting login anyway")
+                # Try to continue anyway in case of timeout
                 pass
             print(f"[EMAIL] Attempting login with user: {user}")
             server.login(user, password)

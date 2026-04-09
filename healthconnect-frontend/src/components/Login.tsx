@@ -754,7 +754,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
                 <button 
                   type="button" 
                   onClick={() => setShowForgotPassword(true)} 
-                  className="w-full py-2 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
+                  className="text-left py-2 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
                 >
                   Forgot Password?
                 </button>
