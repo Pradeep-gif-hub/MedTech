@@ -493,6 +493,18 @@ return (
               </div>
 
               <div>
+                <label className="block text-base font-medium text-gray-700 mb-2">Email Address</label>
+                <input 
+                  type="email" 
+                  placeholder="Enter your email" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                  required 
+                />
+              </div>
+
+              <div>
                 <label className="block text-base font-medium text-gray-700 mb-2">Password</label>
                 <div className="relative">
                   <input 
@@ -512,6 +524,9 @@ return (
                   </button>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-2">Role</label>
                 <select 
                   value={selectedRole} 
                   onChange={e => setSelectedRole(e.target.value as UserRole)} 
