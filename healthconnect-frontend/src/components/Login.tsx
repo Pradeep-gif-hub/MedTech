@@ -376,7 +376,12 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
         body: JSON.stringify({ email: forgotEmail })
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (res.ok || res.status === 200) {
         setForgotPasswordStep('success');
@@ -398,17 +403,16 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full">
-        {showForgotPassword ? (
-          // Forgot Password Layout - Left aligned
-          <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8 ml-0">
-            <button 
-              onClick={onBack} 
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span>Back to Home</span>
-            </button>
+      {showForgotPassword ? (
+        // Forgot Password Layout - Left aligned
+        <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8">
+          <button 
+            onClick={onBack} 
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back to Home</span>
+          </button>
 
             {forgotPasswordStep === 'email' && (
               <form onSubmit={handleForgotPasswordRequest} className="space-y-6">
@@ -784,7 +788,6 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
             )}
           </div>
         )}
-      </div>
     </div>
   );
 };

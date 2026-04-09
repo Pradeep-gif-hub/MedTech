@@ -19,6 +19,7 @@ type ProfileFormData = {
   gender: string;
   bloodgroup: string;
   allergy: string;
+  password: string;
   role: 'patient' | 'doctor' | 'pharmacy' | 'admin';
 };
 
@@ -30,6 +31,7 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
     gender: '',
     bloodgroup: '',
     allergy: '',
+    password: '',
     role: (user.role || 'patient') as 'patient' | 'doctor' | 'pharmacy' | 'admin'
   } as ProfileFormData);
   const [loading, setLoading] = useState(false);
@@ -64,6 +66,7 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
     try {
       const age = computeAgeFromDob(formData.dob);
       const payload = {
+        user_id: user.user_id,
         name: formData.name,
         email: user.email,
         role: formData.role,
@@ -73,32 +76,38 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
         gender: formData.gender,
         bloodgroup: formData.bloodgroup,
         allergy: formData.allergy,
-        password: '',
+        password: formData.password,
         picture: user.picture || '',
         profile_picture_url: user.picture || ''
       };
 
-      const res = await fetch(buildApiUrl('/api/users/signup'), {
+      const res = await fetch(buildApiUrl('/api/users/complete-profile'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
       if (res.ok) {
-        const data = await res.json();
         const userData = {
           token: data.token || `local:${data.user_id}`,
           user_id: data.user_id,
           id: data.id,
-          email: data.email,
-          name: data.name,
+          email: data.email || user.email,
+          name: data.name || formData.name,
           age: data.age?.toString() || '',
           dob: data.dob || '',
           phone: data.phone || '',
           gender: data.gender || '',
           bloodgroup: data.bloodgroup || '',
           allergy: data.allergy || '',
-          role: data.role,
+          role: data.role || formData.role,
           profile_picture_url: data.profile_picture_url,
           picture: data.picture || data.profile_picture_url || user.picture || ''
         };
@@ -114,8 +123,7 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
         // Call completion handler; App manages role-based dashboard routing.
         onComplete(userData);
       } else {
-        const errorData = await res.json();
-        setError(errorData.detail || 'Failed to complete profile');
+        setError(data.detail || data.message || 'Failed to complete profile');
       }
     } catch (err) {
       console.error('Profile completion error:', err);
@@ -273,6 +281,24 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
               <option value="pharmacy">Pharmacy</option>
               <option value="admin">Admin</option>
             </select>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-2">
+              Password *
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder="Create a strong password"
+              required
+              minLength={6}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">At least 6 characters</p>
           </div>
 
           {/* Submit Button */}

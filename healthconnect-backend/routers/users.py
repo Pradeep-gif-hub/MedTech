@@ -4,6 +4,7 @@ from passlib.context import CryptContext
 from database import SessionLocal
 from utils.auth import verify_google_token
 import models, schemas
+import os
 
 router = APIRouter(tags=["Users"])
 
@@ -161,13 +162,30 @@ async def google_login(
         if not user:
             print(f"[GOOGLE_LOGIN] New user detected: {email}")
             is_new_user = True
-            # New users are not persisted yet. Frontend must call /signup after profile completion.
+            temp_role = data.get("role") or "patient"
+            if temp_role not in ["patient", "doctor", "pharmacy", "admin"]:
+                temp_role = "patient"
+
+            # Persist a temporary Google user so profile completion can update this exact record.
+            user = models.User(
+                email=email,
+                name=name,
+                password="",
+                role=temp_role,
+                profile_picture_url=picture,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            local_token = build_local_token(user.id)
             response = {
                 "user": {
-                    "user_id": None,
+                    "user_id": user.id,
+                    "id": user.id,
                     "email": email,
                     "name": name,
-                    "role": data.get("role") or "patient",
+                    "role": temp_role,
                     "dob": None,
                     "phone": None,
                     "age": None,
@@ -178,9 +196,11 @@ async def google_login(
                     "profile_picture_url": picture,
                     "google_id": google_id,
                     "picture": picture,
-                    "email_verified": token_payload.get("email_verified")
+                    "email_verified": token_payload.get("email_verified"),
+                    "token": local_token,
                 },
                 "is_new_user": True,
+                "token": local_token,
                 "message": "Please complete your profile"
             }
             print(f"[GOOGLE_LOGIN] Response: is_new_user=True, email={email}")
@@ -242,57 +262,108 @@ async def complete_profile(
 ):
     """
     Complete user profile after Google signup.
-    Requires: user_id, name, age, gender, bloodgroup, allergy, role
+    Can accept user_id (if user exists) or create new user.
+    Accepts: user_id (optional), name, age, gender, bloodgroup, allergy, role, password
     """
     try:
         user_id = payload.get("user_id")
-        name = payload.get("name")
+        email = payload.get("email") or ""
+        name = payload.get("name") or ""
         age = payload.get("age")
         gender = payload.get("gender")
         bloodgroup = payload.get("bloodgroup")
         allergy = payload.get("allergy")
         role = payload.get("role", "patient")
-        
-        if not user_id:
-            raise HTTPException(status_code=400, detail="user_id is required")
+        password = payload.get("password") or ""
+        phone = payload.get("phone") or ""
+        dob = payload.get("dob") or ""
+        picture = payload.get("picture") or payload.get("profile_picture_url") or ""
         
         # Validate role
         if role not in ["patient", "doctor", "pharmacy", "admin"]:
             role = "patient"
         
-        # Find user
-        user = db.query(models.User).filter(models.User.id == user_id).first()
+        # Find or create user
+        user = None
+        if user_id:
+            user = db.query(models.User).filter(models.User.id == user_id).first()
+        elif email:
+            user = db.query(models.User).filter(models.User.email == email).first()
+        
+        requires_password = (not user) or (not (getattr(user, "password", "") or "").strip())
+        if requires_password and not password:
+            raise HTTPException(status_code=400, detail="password is required to complete profile")
+
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Update profile
-        user.name = name or user.name
-        user.age = age
-        user.gender = gender
-        user.bloodgroup = bloodgroup
-        user.abha_id = payload.get('abha_id') if payload.get('abha_id') is not None else user.abha_id
-        user.allergy = allergy
-        user.role = role
-        
-        db.commit()
-        db.refresh(user)
-        
-        print(f"[COMPLETE_PROFILE] Profile completed for user: {user.id}, role={role}")
+            # Create new user (for Google signup flow)
+            if not email:
+                raise HTTPException(status_code=400, detail="email is required for new users")
+            if not name:
+                raise HTTPException(status_code=400, detail="name is required")
+            
+            # Hash password for new user
+            hashed_password = pwd_context.hash(password[:72])  # Bcrypt limit
+            
+            user = models.User(
+                email=email,
+                name=name,
+                password=hashed_password,
+                role=role,
+                age=age,
+                gender=gender,
+                bloodgroup=bloodgroup,
+                allergy=allergy,
+                phone=phone,
+                dob=dob,
+                profile_picture_url=picture
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            print(f"[COMPLETE_PROFILE] Created new user: {user.id}, email={email}")
+        else:
+            # Update existing user
+            user.name = name or user.name
+            if age:
+                user.age = age
+            if gender:
+                user.gender = gender
+            if bloodgroup:
+                user.bloodgroup = bloodgroup
+            if allergy:
+                user.allergy = allergy
+            if phone:
+                user.phone = phone
+            if dob:
+                user.dob = dob
+            if picture:
+                user.profile_picture_url = picture
+            
+            # Update password if provided
+            if password:
+                user.password = pwd_context.hash(password[:72])
+            
+            user.role = role
+            db.commit()
+            db.refresh(user)
+            print(f"[COMPLETE_PROFILE] Updated user: {user.id}, role={role}")
         
         return {
+            "success": True,
             "message": "Profile completed successfully",
-            "user": {
-                "user_id": user.id,
-                "email": user.email,
-                "name": user.name,
-                "role": user.role,
-                "age": user.age,
-                "gender": user.gender,
-                "bloodgroup": user.bloodgroup,
-                "abha_id": user.abha_id,
-                "allergy": user.allergy,
-                "profile_picture_url": user.profile_picture_url
-            }
+            "user_id": user.id,
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "role": user.role,
+            "age": user.age,
+            "gender": user.gender,
+            "bloodgroup": user.bloodgroup,
+            "allergy": user.allergy,
+            "phone": user.phone,
+            "dob": user.dob,
+            "profile_picture_url": user.profile_picture_url,
+            "token": build_local_token(user.id),
         }
     
     except HTTPException:
@@ -573,60 +644,99 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
     """
     try:
         email = (data.get("email") or "").strip()
-        
+
         if not email:
             raise HTTPException(status_code=400, detail="Email is required")
 
         # Find user by email
         user = db.query(models.User).filter(models.User.email == email).first()
-        
+
         # Always return success for security (don't reveal if email exists)
         if user:
             try:
                 from utils.email_utils import send_email
                 import uuid
-                
-                # Generate a secure reset token
-                reset_token = str(uuid.uuid4())
-                reset_link = f"https://medtech-hcmo.onrender.com/reset-password?token={reset_token}&email={email}"
-                
-                # Professional plain text email with clean formatting
-                email_body = f"""🏥 MedTech - Password Reset Request
-{'='*50}
 
-Hello {user.name},
+                reset_token = str(uuid.uuid4())
+                frontend_url = (os.getenv("FRONTEND_URL") or "https://medtech-4rjc.onrender.com").rstrip("/")
+                reset_link = f"{frontend_url}/reset-password?token={reset_token}&email={email}"
+
+                email_body = f"""MedTech - Password Reset Request
+
+Hello {user.name or 'User'},
 
 We received a request to reset your MedTech password.
-
-RESET YOUR PASSWORD:
+Use this link to reset your password:
 {reset_link}
 
-IMPORTANT SECURITY INFORMATION:
-⏰ This link expires in: 1 hour
-⚠️  Do not share this link with anyone
-🔒 Never share your password
+Security notice:
+- This link expires in 1 hour
+- Do not share this link with anyone
 
-If you didn't request this reset, please ignore this email.
+If you did not request this reset, you can safely ignore this email.
 
-{'='*50}
-Best regards,
 MedTech Team
-© 2026 MedTech. All rights reserved.
 """
-                
-                send_email(
+
+                html_email_body = f"""
+<!doctype html>
+<html>
+  <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937;\">
+    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 0;\">
+      <tr>
+        <td align=\"center\">
+          <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;\">
+            <tr>
+              <td style=\"background:#10b981;padding:20px 24px;text-align:center;color:#ffffff;font-size:34px;font-weight:700;\">MedTech</td>
+            </tr>
+            <tr>
+              <td style=\"padding:28px 28px 8px 28px;\">
+                <h2 style=\"margin:0 0 16px 0;font-size:28px;line-height:1.3;color:#111827;\">Password Reset Request</h2>
+                <p style=\"margin:0 0 14px 0;font-size:22px;line-height:1.5;\">Hello {user.name or 'User'},</p>
+                <p style=\"margin:0 0 18px 0;font-size:22px;line-height:1.6;\">We received a request to reset your MedTech password. Click the button below to create a new password.</p>
+              </td>
+            </tr>
+            <tr>
+              <td align=\"center\" style=\"padding:8px 28px 20px 28px;\">
+                <a href=\"{reset_link}\" style=\"display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:22px;font-weight:700;padding:14px 26px;border-radius:8px;\">Reset Password</a>
+              </td>
+            </tr>
+            <tr>
+              <td style=\"padding:0 28px 8px 28px;\">
+                <p style=\"margin:0 0 10px 0;font-size:20px;font-weight:700;color:#374151;\">Or copy this link:</p>
+                <p style=\"margin:0 0 16px 0;font-size:18px;line-height:1.5;word-break:break-all;\"><a href=\"{reset_link}\" style=\"color:#2563eb;\">{reset_link}</a></p>
+                <div style=\"background:#fef2f2;border-left:4px solid #ef4444;padding:14px;border-radius:8px;\">
+                  <p style=\"margin:0;font-size:18px;color:#991b1b;\"><strong>Security Notice:</strong> This link expires in 1 hour. Do not share it with anyone.</p>
+                </div>
+                <p style=\"margin:16px 0 0 0;font-size:18px;color:#6b7280;line-height:1.5;\">If you did not request this, please ignore this email.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style=\"padding:20px 28px 26px 28px;color:#6b7280;font-size:16px;text-align:center;border-top:1px solid #e5e7eb;\">MedTech Team</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+
+                sent = send_email(
                     to_address=email,
                     subject="MedTech - Reset Your Password",
-                    body=email_body
+                    body=email_body,
+                    html_body=html_email_body,
                 )
-                print(f"[FORGOT_PASSWORD] Email sent to: {email}")
+                if sent:
+                    print(f"[FORGOT_PASSWORD] Email sent to: {email}")
+                else:
+                    print(f"[FORGOT_PASSWORD] Email send reported failure for: {email}")
             except Exception as e:
                 print(f"[FORGOT_PASSWORD] Email sending failed: {e}")
-                # Still return success to user for security
         else:
             print(f"[FORGOT_PASSWORD] Email not found: {email}")
 
-        # Always return success with the email visible to user
         return {
             "success": True,
             "message": "Password reset link has been sent to your email.",
