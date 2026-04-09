@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Backend deployment fix - reverted to stable version
 # required routers
 from routers import users
 from routers import otp as otp_router
