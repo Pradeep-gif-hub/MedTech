@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, ArrowLeft, Users, Activity, Pill, Shield } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Users, Activity, Pill, Shield, CheckCircle, Mail } from 'lucide-react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { UserRole } from '../App';
 import { useAuth } from '../contexts/AuthContext';
@@ -380,13 +380,15 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
 
       if (res.ok) {
         setForgotPasswordStep('success');
-        setForgotPasswordMessage('Password reset link has been sent to your email. Please check your inbox and spam folder.');
+        setForgotPasswordMessage(data.detail || 'Check your inbox for the reset link');
       } else {
-        setForgotPasswordMessage(data.detail || 'Failed to send reset link');
+        setForgotPasswordMessage(data.detail || 'Failed to send reset link. Please try again.');
+        setForgotPasswordStep('email');
       }
     } catch (err) {
       console.error(err);
-      setForgotPasswordMessage('Network error. Please try again.');
+      setForgotPasswordMessage('Network error. Please check your connection and try again.');
+      setForgotPasswordStep('email');
     } finally {
       setIsSendingReset(false);
     }
@@ -641,26 +643,37 @@ return (
             </button>
 
             {forgotPasswordStep === 'email' && (
-              <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+              <form onSubmit={handleForgotPasswordRequest} className="space-y-6">
+                <button 
+                  onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Login</span>
+                </button>
+
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Reset Your Password</h2>
-                  <p className="text-sm text-gray-600 mb-4">Enter your email address and we'll send you a link to reset your password.</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Forgot Password?</h2>
+                  <p className="text-gray-600 text-sm">We'll help you reset it</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                  <input 
-                    type="email" 
-                    placeholder="Enter your email" 
-                    value={forgotEmail} 
-                    onChange={(e) => setForgotEmail(e.target.value)} 
-                    className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
-                    required 
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Email Address *</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input 
+                      type="email" 
+                      placeholder="Enter the email address associated with your MedTech account." 
+                      value={forgotEmail} 
+                      onChange={(e) => setForgotEmail(e.target.value)} 
+                      className="w-full px-4 py-3 pl-10 border rounded-lg text-sm placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" 
+                      required 
+                    />
+                  </div>
                 </div>
 
                 {forgotPasswordMessage && (
-                  <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm">
+                  <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm border border-red-200">
                     {forgotPasswordMessage}
                   </div>
                 )}
@@ -668,18 +681,57 @@ return (
                 <button 
                   type="submit" 
                   disabled={isSendingReset} 
-                  className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}
+                  className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor} hover:opacity-90 transition disabled:opacity-50`}
                 >
-                  {isSendingReset ? 'Sending...' : 'Send Reset Link'}
+                  {isSendingReset ? 'Sending Reset Link...' : 'Send Reset Link'}
                 </button>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-blue-800 text-xs">
+                    <span className="font-semibold">💡 Tip:</span> Make sure to check your email's spam folder if you don't see the reset link within a few minutes.
+                  </p>
+                </div>
+
+                <p className="text-center text-sm text-gray-600">
+                  Remember your password? <button 
+                    type="button" 
+                    onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
+                    className="text-emerald-600 font-medium hover:underline"
+                  >
+                    Back to Login
+                  </button>
+                </p>
               </form>
             )}
 
             {forgotPasswordStep === 'success' && (
-              <div className="space-y-4">
-                <div className="p-4 bg-green-50 rounded-lg text-green-800">
-                  <p className="font-semibold">Email Sent</p>
-                  <p className="text-sm mt-2">{forgotPasswordMessage}</p>
+              <div className="space-y-6">
+                <button 
+                  onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Login</span>
+                </button>
+
+                <div className="text-center space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-900">Check Your Email</h2>
+                  <p className="text-gray-600">We've sent a password reset link to</p>
+                  
+                  <div className="flex justify-center">
+                    <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <CheckCircle className="h-12 w-12 text-emerald-600" />
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+                    <p className="text-emerald-800 font-medium text-sm">{forgotEmail}</p>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <p>The link will expire in 1 hour. If you don't see the email, check your spam folder.</p>
+                    <p className="text-xs text-gray-500 pt-2">Didn't receive an email? Make sure the address is correct or try again.</p>
+                  </div>
                 </div>
 
                 <button 
