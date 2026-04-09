@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Legacy utility name retained for compatibility.
-This script now validates Resend configuration only.
+This script validates Brevo SMTP email configuration.
 """
 
 from utils.email_utils import get_email_health

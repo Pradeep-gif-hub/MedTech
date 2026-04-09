@@ -1,14 +1,16 @@
 import os
 import re
+import smtplib
 from datetime import datetime
+from email.message import EmailMessage
 from html import escape
-
-import resend
+from urllib.parse import quote_plus
 
 from config import settings
 
 _LAST_EMAIL_ERROR = ""
 _DEFAULT_FRONTEND_URL = "https://medtech-4rjc.onrender.com"
+_OTP_EXPIRY_MINUTES = 5
 
 
 def _set_last_email_error(message: str) -> None:
@@ -39,12 +41,13 @@ def _normalize_from_email(raw_value: str) -> str:
         return raw
 
     if raw == extracted:
-        return raw
+        display_name = (settings.FROM_NAME or "MedTech").strip() or "MedTech"
+        return f"{display_name} <{raw}>"
 
     name = raw.replace(extracted, "").replace("<", "").replace(">", "").strip()
     name = name.replace("[", "").replace("]", "").replace("(mailto:", "").replace(")", "").strip()
     if not name:
-        return extracted
+        name = (settings.FROM_NAME or "MedTech").strip() or "MedTech"
     return f"{name} <{extracted}>"
 
 
@@ -62,56 +65,178 @@ def _write_fallback_log(to_address: str, subject: str, body: str, error: str) ->
         print(f"[EMAIL] Failed to write fallback log: {e2}")
 
 
-def _init_resend_client() -> None:
-    if not settings.RESEND_API_KEY:
-        raise RuntimeError("RESEND_API_KEY not configured")
-    resend.api_key = settings.RESEND_API_KEY
-
-
-def _send_via_resend(to_address: str, subject: str, html_body: str, text_body: str | None = None) -> bool:
-    from_email = _normalize_from_email(settings.FROM_EMAIL)
-
-    if not from_email:
-        _set_last_email_error("FROM_EMAIL missing")
-        return False
+def _smtp_port() -> int:
+    raw_port = (settings.SMTP_PORT or "").strip()
+    if not raw_port:
+        return 587
 
     try:
-        _init_resend_client()
+        return int(raw_port)
+    except ValueError:
+        print(f"Email error: Invalid SMTP_PORT '{raw_port}', defaulting to 587")
+        return 587
 
-        params = {
-            "from": from_email,
-            "to": to_address,
-            "subject": subject,
-            "html": html_body,
-        }
-        if text_body:
-            params["text"] = text_body
 
-        resend.Emails.send(params)
-        _set_last_email_error("")
-        return True
-    except RuntimeError as exc:
-        _set_last_email_error(str(exc))
+def _smtp_config() -> dict:
+    raw_from_email = (settings.FROM_EMAIL or settings.SMTP_USER or "").strip()
+    normalized_from = _normalize_from_email(raw_from_email)
+    return {
+        "server": (settings.SMTP_SERVER or "").strip(),
+        "port": _smtp_port(),
+        "user": (settings.SMTP_USER or "").strip(),
+        "password": (settings.SMTP_PASS or "").strip(),
+        "from_header": normalized_from,
+        "from_address": _extract_first_email(normalized_from),
+    }
+
+
+def _missing_smtp_fields(config: dict) -> list[str]:
+    missing = []
+    if not config["server"]:
+        missing.append("SMTP_SERVER")
+    if not config["user"]:
+        missing.append("SMTP_USER")
+    if not config["password"]:
+        missing.append("SMTP_PASS")
+    if not config["from_address"]:
+        missing.append("FROM_EMAIL")
+    return missing
+
+
+def _is_retryable_smtp_error(exc: Exception) -> bool:
+    return isinstance(
+        exc,
+        (
+            smtplib.SMTPConnectError,
+            smtplib.SMTPServerDisconnected,
+            smtplib.SMTPDataError,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+        ),
+    )
+
+
+def _build_failure_message(exc: Exception) -> str:
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return "SMTP authentication failed. Check SMTP_USER/SMTP_PASS."
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return "SMTP rejected the recipient address."
+    if isinstance(exc, smtplib.SMTPConnectError):
+        return "Could not connect to SMTP server."
+    return str(exc) or "Email delivery failed"
+
+
+def _build_email_message(
+    *,
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: str | None,
+    from_header: str,
+) -> EmailMessage:
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = from_header
+    msg["To"] = to_email
+    msg.set_content(
+        text_content
+        or "This email contains HTML content. Please use an HTML-capable email client."
+    )
+    msg.add_alternative(html_content, subtype="html")
+    return msg
+
+
+def _send_via_smtp(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: str | None = None,
+    retries: int = 1,
+) -> bool:
+    recipient = _extract_first_email(to_email)
+    if not recipient:
+        message = "Invalid recipient email"
+        _set_last_email_error(message)
+        print("Email error:", message)
         return False
-    except Exception:
-        _set_last_email_error("Email delivery failed")
+
+    config = _smtp_config()
+    missing = _missing_smtp_fields(config)
+    if missing:
+        message = f"Missing SMTP config: {', '.join(missing)}"
+        _set_last_email_error(message)
+        print("Email error:", message)
         return False
+
+    total_attempts = max(1, int(retries) + 1)
+    last_exc: Exception | None = None
+
+    print(
+        f"[EMAIL] Triggered SMTP send to={recipient}, subject='{subject}', "
+        f"server={config['server']}:{config['port']}"
+    )
+
+    msg = _build_email_message(
+        to_email=recipient,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        from_header=config["from_header"],
+    )
+
+    for attempt in range(1, total_attempts + 1):
+        try:
+            with smtplib.SMTP(config["server"], config["port"], timeout=30) as smtp:
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.ehlo()
+                smtp.login(config["user"], config["password"])
+                smtp_response = smtp.send_message(msg)
+
+            if smtp_response:
+                raise smtplib.SMTPRecipientsRefused(smtp_response)
+
+            print(f"[EMAIL] SMTP send success to={recipient}")
+            _set_last_email_error("")
+            return True
+        except smtplib.SMTPAuthenticationError as e:
+            last_exc = e
+            # Bad credentials will not succeed on retry.
+            break
+        except Exception as e:
+            last_exc = e
+            if attempt < total_attempts and _is_retryable_smtp_error(e):
+                print(f"[EMAIL] Attempt {attempt} failed, retrying once more...")
+                continue
+            break
+
+    if last_exc is None:
+        last_exc = RuntimeError("Email delivery failed")
+
+    failure_message = _build_failure_message(last_exc)
+    _set_last_email_error(failure_message)
+    print("Email error:", failure_message)
+    _write_fallback_log(recipient, subject, text_content or html_content, failure_message)
+    return False
 
 
 def get_email_health() -> dict:
-    from_email = _normalize_from_email(settings.FROM_EMAIL)
+    config = _smtp_config()
+    missing = _missing_smtp_fields(config)
 
-    if not settings.RESEND_API_KEY:
-        return {
-            "provider": "resend",
-            "configured": False,
-            "error": "RESEND_API_KEY missing",
-        }
-
-    return {
-        "provider": "resend",
-        "configured": bool(from_email),
+    payload = {
+        "provider": "brevo_smtp",
+        "configured": len(missing) == 0,
+        "from_email": config["from_header"],
+        "smtp_server": config["server"],
+        "smtp_port": config["port"],
     }
+
+    if missing:
+        payload["error"] = f"Missing SMTP config: {', '.join(missing)}"
+
+    return payload
 
 
 def get_smtp_health() -> dict:
@@ -119,10 +244,12 @@ def get_smtp_health() -> dict:
     return get_email_health()
 
 
-def send_reset_email(email: str, token: str, user_name: str | None = None) -> bool:
+def send_reset_email(email: str, token: str) -> bool:
     try:
-        reset_link = f"{_get_frontend_url()}/reset-password?token={token}&email={email}"
-        safe_name = escape((user_name or "there").strip() or "there")
+        safe_token = quote_plus(token)
+        safe_email = quote_plus(email)
+        reset_link = f"{_get_frontend_url()}/reset-password?token={safe_token}&email={safe_email}"
+        safe_name = "there"
 
         html_template = f"""
 <div style="font-family:Arial;max-width:600px;margin:auto;border:1px solid #eee;border-radius:10px;overflow:hidden">
@@ -150,7 +277,7 @@ def send_reset_email(email: str, token: str, user_name: str | None = None) -> bo
 
     <p>Or copy this link:</p>
 
-    <p>{reset_link}</p>
+    <p>{escape(reset_link)}</p>
 
     <div style="background:#fee2e2;padding:12px;border-radius:6px;color:#991b1b;margin-top:20px">
     Security Notice: This link expires in 1 hour. Do not share it with anyone.
@@ -173,14 +300,15 @@ def send_reset_email(email: str, token: str, user_name: str | None = None) -> bo
             "This link expires in 1 hour. Do not share it with anyone."
         )
 
-        sent = _send_via_resend(
-            to_address=email,
+        print("Sending reset email to:", email)
+
+        sent = _send_via_smtp(
+            to_email=email,
             subject="Reset your MedTech password",
-            html_body=html_template,
-            text_body=text,
+            html_content=html_template,
+            text_content=text,
+            retries=1,
         )
-        if not sent:
-            _write_fallback_log(email, "Reset your MedTech password", text, get_last_email_error())
         return sent
     except Exception as e:
         _set_last_email_error("Email delivery failed")
@@ -188,18 +316,76 @@ def send_reset_email(email: str, token: str, user_name: str | None = None) -> bo
         return False
 
 
-def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:
-    safe_html = html_body or (
-        "<div style=\"font-family:Arial;max-width:600px;margin:auto;border:1px solid #eee;"
-        "border-radius:10px;padding:20px\">"
-        f"<pre style=\"white-space:pre-wrap\">{escape(body)}</pre></div>"
-    )
-    sent = _send_via_resend(
-        to_address=to_address,
+def send_email(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: str | None = None,
+    retries: int = 1,
+) -> bool:
+    return _send_via_smtp(
+        to_email=to_email,
         subject=subject,
-        html_body=safe_html,
-        text_body=body,
+        html_content=html_content,
+        text_content=text_content,
+        retries=retries,
     )
-    if not sent:
-        _write_fallback_log(to_address, subject, body, get_last_email_error())
-    return sent
+
+
+def send_otp_email(to_email: str, otp: str) -> bool:
+    safe_otp = escape((otp or "").strip())
+    subject = "Your MedTech verification code"
+    text_content = (
+        f"Your MedTech verification code is: {otp}\n"
+        f"This code is valid for {_OTP_EXPIRY_MINUTES} minutes."
+    )
+    html_content = f"""
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="background:#2563eb;padding:18px 22px;color:white;font-size:22px;font-weight:700">MedTech</div>
+  <div style="padding:24px;background:#ffffff;color:#111827">
+    <p style="margin:0 0 14px 0;font-size:16px">Hello,</p>
+    <p style="margin:0 0 18px 0;font-size:15px">Your MedTech verification code is:</p>
+    <div style="margin:0 0 18px 0;padding:14px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;text-align:center">
+      <span style="font-size:34px;font-weight:800;letter-spacing:6px;color:#1d4ed8">{safe_otp}</span>
+    </div>
+    <p style="margin:0 0 8px 0;font-size:14px">This code is valid for {_OTP_EXPIRY_MINUTES} minutes.</p>
+    <p style="margin:0;font-size:14px;color:#374151">If you did not request this code, you can safely ignore this email.</p>
+  </div>
+</div>
+"""
+
+    print("Sending OTP email to:", to_email)
+    return send_email(
+        to_email=to_email,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        retries=1,
+    )
+
+
+def send_test_email(to_email: str) -> bool:
+    subject = "MedTech SMTP Test Email"
+    text_content = (
+        "This is a MedTech SMTP test email from the FastAPI backend.\n"
+        "If you received this, Brevo SMTP integration is working."
+    )
+    html_content = """
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+  <div style="background:#0f766e;padding:18px 22px;color:white;font-size:22px;font-weight:700">MedTech</div>
+  <div style="padding:24px;background:#ffffff;color:#111827">
+    <h2 style="margin:0 0 12px 0">SMTP Integration Test</h2>
+    <p style="margin:0 0 10px 0;font-size:15px">This email confirms your Brevo SMTP setup is active.</p>
+    <p style="margin:0;font-size:14px;color:#4b5563">You can now monitor delivery inside Brevo Transactional Logs.</p>
+  </div>
+</div>
+"""
+
+    print("Sending test email to:", to_email)
+    return send_email(
+        to_email=to_email,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        retries=1,
+    )

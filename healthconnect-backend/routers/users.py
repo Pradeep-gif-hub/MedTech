@@ -64,10 +64,48 @@ def email_health():
 
         return get_email_health()
     except Exception:
+        from config import settings
+
         return {
-            "provider": "resend",
+            "provider": "brevo_smtp",
             "configured": False,
+            "from_email": (settings.FROM_EMAIL or "").strip(),
             "error": "Email health check failed",
+        }
+
+
+@router.get("/test-email")
+def test_email(email: str):
+    """
+    Debug endpoint for SMTP integration checks.
+    Example: GET /api/users/test-email?email=you@example.com
+    """
+    try:
+        from utils.email_utils import send_test_email, get_last_email_error
+
+        sent = send_test_email(email)
+        if sent:
+            return {
+                "success": True,
+                "message": "Test email sent successfully",
+                "provider": "brevo_smtp",
+                "to": email,
+            }
+
+        return {
+            "success": False,
+            "message": "Failed to send test email",
+            "provider": "brevo_smtp",
+            "to": email,
+            "error": get_last_email_error() or "Email delivery failed",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": "Failed to send test email",
+            "provider": "brevo_smtp",
+            "to": email,
+            "error": str(e),
         }
 
 
@@ -796,7 +834,6 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
             sent = send_reset_email(
                 email=email,
                 token=reset_token,
-                user_name=(getattr(user, "name", None) or "there"),
             )
 
             if not sent:

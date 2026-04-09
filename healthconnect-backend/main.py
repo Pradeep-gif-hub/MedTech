@@ -98,9 +98,44 @@ def root():
     return {"status": "ok"}
 
 
+@app.get("/test-email")
+def test_email(email: str):
+    try:
+        from utils.email_utils import send_test_email, get_last_email_error
+
+        sent = send_test_email(email)
+        if sent:
+            return {
+                "success": True,
+                "message": "Test email sent successfully",
+                "provider": "brevo_smtp",
+                "to": email,
+            }
+
+        return {
+            "success": False,
+            "message": "Failed to send test email",
+            "provider": "brevo_smtp",
+            "to": email,
+            "error": get_last_email_error() or "Email delivery failed",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": "Failed to send test email",
+            "provider": "brevo_smtp",
+            "to": email,
+            "error": str(e),
+        }
+
+
 @app.on_event("startup")
-def log_resend_config_startup():
-    print("RESEND_API_KEY loaded:", bool(settings.RESEND_API_KEY))
+def log_email_config_startup():
+    print("SMTP_SERVER loaded:", bool(settings.SMTP_SERVER))
+    print("SMTP_PORT:", (settings.SMTP_PORT or "").strip() or "not set")
+    print("SMTP_USER loaded:", bool(settings.SMTP_USER))
+    print("SMTP_PASS loaded:", bool(settings.SMTP_PASS))
+    print("FROM_EMAIL loaded:", bool(settings.FROM_EMAIL))
 
 # NEW: create DB tables/columns at startup for local dev (runs once on app start)
 # This uses the same Base/engine as your models; it's convenient for development.
