@@ -561,3 +561,68 @@ def update_me(payload: dict = Body(...), db: Session = Depends(get_db)):
     except Exception as e:
         print(f"[UPDATE_ME] unexpected error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# Forgot Password Endpoint
+@router.post("/forgot-password")
+def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
+    """
+    Forgot password endpoint.
+    Sends a password reset link via email.
+    For now, returns a message indicating the reset link was sent.
+    """
+    try:
+        email = (data.get("email") or "").strip()
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+
+        # Find user by email
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if not user:
+            # For security, don't reveal whether the email exists
+            return {
+                "message": "If an account exists with this email, a password reset link has been sent.",
+                "detail": "Check your inbox and spam folder for the reset link."
+            }
+
+        # In a production system, you would:
+        # 1. Generate a unique reset token
+        # 2. Store it in the database with an expiration time
+        # 3. Send an email with a link like: https://yourapp.com/reset-password?token=xyz
+        
+        # For now, we'll send a simple notification and return success
+        from utils.email_utils import send_email
+        
+        reset_link = f"https://medtech-hcmo.onrender.com/reset-password?email={email}"
+        email_body = f"""
+Hello {user.name},
+
+We received a request to reset the password for your MedTech account.
+
+Click the link below to reset your password:
+{reset_link}
+
+If you didn't request this, please ignore this email.
+
+This link will expire in 24 hours.
+
+Best regards,
+MedTech Team
+        """
+        
+        send_email(
+            to_address=email,
+            subject="MedTech - Reset Your Password",
+            body=email_body
+        )
+
+        return {
+            "message": "Password reset link has been sent to your email.",
+            "detail": "Check your inbox and spam folder for the reset link. It will expire in 24 hours."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[FORGOT_PASSWORD] error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

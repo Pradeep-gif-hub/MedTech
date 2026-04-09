@@ -12,13 +12,7 @@ interface LoginProps {
   onNewUser?: (userData: any) => void;
 }
 
-const demoCredentials: Record<UserRole, { email: string; password: string }> = {
-  patient: { email: 'pradeepka.ic.24@nitj.ac.in', password: 'Medtech' },
-  doctor: { email: 'paarthl.ic.24@nitj', password: 'demo123' },
-  pharmacy: { email: 'pharmacy@nitj.ac.in', password: 'demo123' },
-  admin: { email: 'admin@nitj.ac.in', password: 'Admin' },
-  unknown: { email: '', password: '' },
-};
+// Removed demo credentials - users must enter their own email and password
 
 const roleRoutes: Record<Exclude<UserRole, 'unknown'>, string> = {
   patient: '/patient/home',
@@ -39,9 +33,14 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
   const [bloodgroup, setShowBg] = useState('');
   const [allergy, setAllergy] = useState('');
   const [selectedRole, setSelectedRole]: [UserRole, (value: UserRole) => void] = useState(role ?? 'patient');
-  const [email, setEmail] = useState(demoCredentials[role ?? 'patient'].email);
-  const [password, setPassword] = useState(demoCredentials[role ?? 'patient'].password);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loggedIn, setLoggedIn] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotPasswordStep, setForgotPasswordStep] = useState('email' as 'email' | 'reset' | 'success');
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   // Signup flow state
   const [signUpStep, setSignUpStep] = useState('form' as 'form' | 'otpSent' | 'setPassword' | 'success');
@@ -366,6 +365,33 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
     }
   };
 
+  const handleForgotPasswordRequest = async (e: any) => {
+    e.preventDefault();
+    setIsSendingReset(true);
+    setForgotPasswordMessage('');
+    try {
+      const res = await fetch(buildApiUrl('/api/users/forgot-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setForgotPasswordStep('success');
+        setForgotPasswordMessage('Password reset link has been sent to your email. Please check your inbox and spam folder.');
+      } else {
+        setForgotPasswordMessage(data.detail || 'Failed to send reset link');
+      }
+    } catch (err) {
+      console.error(err);
+      setForgotPasswordMessage('Network error. Please try again.');
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
  if (loggedIn) return null;
 
 return (
@@ -467,18 +493,25 @@ return (
               </div>
 
               <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Email Address</label>
-                <input 
-                  type="email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
-                  required 
-                />
+                <label className="block text-base font-medium text-gray-700 mb-2">Password</label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    placeholder="Enter your password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="w-full px-4 py-3 border rounded-lg pr-12 text-sm placeholder:text-sm" 
+                    required 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
-
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-2">Role</label>
                 <select 
                   value={selectedRole} 
                   onChange={e => setSelectedRole(e.target.value as UserRole)} 
@@ -582,17 +615,92 @@ return (
               </div>
             )}
           </>
+        ) : showForgotPassword ? (
+          <div className="space-y-6">
+            <button 
+              onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Login</span>
+            </button>
+
+            {forgotPasswordStep === 'email' && (
+              <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Reset Your Password</h2>
+                  <p className="text-sm text-gray-600 mb-4">Enter your email address and we'll send you a link to reset your password.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email" 
+                    value={forgotEmail} 
+                    onChange={(e) => setForgotEmail(e.target.value)} 
+                    className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                    required 
+                  />
+                </div>
+
+                {forgotPasswordMessage && (
+                  <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm">
+                    {forgotPasswordMessage}
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={isSendingReset} 
+                  className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}
+                >
+                  {isSendingReset ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </form>
+            )}
+
+            {forgotPasswordStep === 'success' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-lg text-green-800">
+                  <p className="font-semibold">Email Sent</p>
+                  <p className="text-sm mt-2">{forgotPasswordMessage}</p>
+                </div>
+
+                <button 
+                  onClick={() => { setShowForgotPassword(false); setForgotPasswordStep('email'); }} 
+                  className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}
+                >
+                  Back to Login
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border rounded-lg" required />
+              <input 
+                type="email" 
+                placeholder="Enter your email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                className="w-full px-4 py-3 border rounded-lg text-sm placeholder:text-sm" 
+                required 
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border rounded-lg pr-12" required />
+                <input 
+                  type={showPassword ? 'text' : 'password'} 
+                  placeholder="Enter your password" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  className="w-full px-4 py-3 border rounded-lg pr-12 text-sm placeholder:text-sm" 
+                  required 
+                />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -600,6 +708,14 @@ return (
             </div>
 
             <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Sign In</button>
+
+            <button 
+              type="button" 
+              onClick={() => setShowForgotPassword(true)} 
+              className="w-full py-2 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
+            >
+              Forgot Password?
+            </button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
