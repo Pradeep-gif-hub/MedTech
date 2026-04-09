@@ -1,9 +1,9 @@
 services:
   - type: web
     name: medtech-backend
-    env: node
+    env: python
     rootDir: healthconnect-backend
-    buildCommand: npm ci
-    startCommand: npm start
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
     autoDeploy: true
