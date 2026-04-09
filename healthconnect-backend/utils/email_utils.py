@@ -46,25 +46,23 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
 
     try:
         print(f"[EMAIL] Attempting to connect to SMTP server {host}:{port}")
-        # Use shorter timeout (5 seconds instead of 10)
         with smtplib.SMTP(host, port, timeout=5) as server:
             print("[EMAIL] Connected to SMTP server")
             try:
-                # Set a shorter timeout for STARTTLS
-                server.starttls(timeout=5)
-                print("[EMAIL] STARTTLS successful")
+                # STARTTLS negotiation - required for Gmail
+                server.starttls()
+                print("[EMAIL] STARTTLS successful - connection is now encrypted")
             except smtplib.SMTPNotSupportedError:
-                print(f"[EMAIL] STARTTLS not supported by server, trying without it")
-                # Server doesn't support STARTTLS; continue anyway
+                print(f"[EMAIL] WARNING: STARTTLS not supported by server")
                 pass
             except smtplib.SMTPServerDisconnected:
-                print(f"[EMAIL] Server disconnected during STARTTLS, reconnecting...")
-                # Reconnect if server disconnected
+                print(f"[EMAIL] CRITICAL: Server disconnected during STARTTLS")
                 return False
             except Exception as e:
-                print(f"[EMAIL] STARTTLS timeout/failed: {e}, attempting login anyway")
-                # Try to continue anyway in case of timeout
+                print(f"[EMAIL] WARNING: STARTTLS error: {e}")
+                # Some servers may work without STARTTLS
                 pass
+            
             print(f"[EMAIL] Attempting login with user: {user}")
             server.login(user, password)
             print("[EMAIL] Login successful")
@@ -72,6 +70,9 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
             server.send_message(msg)
             print("[EMAIL] Email sent successfully")
         return True
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[EMAIL] CRITICAL: Authentication failed: {e}")
+        print("[EMAIL] Verify SMTP_USER and SMTP_PASS in .env")
     except Exception as e:
         # on failure, fall back to logging so OTP isn't lost
         print(f"[EMAIL] SMTP send failed: {e}; falling back to local log")
