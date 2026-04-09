@@ -2,6 +2,10 @@ import os
 import smtplib
 import ssl
 import socket
+import json
+from html import escape
+from urllib import request as urllib_request
+from urllib import error as urllib_error
 from email.message import EmailMessage
 from datetime import datetime
 from dotenv import load_dotenv
@@ -34,6 +38,66 @@ def _write_fallback_log(to_address: str, subject: str, body: str, error: str) ->
         print(f"[EMAIL] Failed to write fallback log: {e2}")
 
 
+def _post_json(url: str, payload: dict, headers: dict, timeout: int = 10) -> tuple[bool, str]:
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib_request.Request(url=url, data=data, headers=headers, method="POST")
+        with urllib_request.urlopen(req, timeout=timeout) as resp:
+            status = getattr(resp, "status", 200)
+            content = resp.read().decode("utf-8", errors="ignore")
+            if 200 <= int(status) < 300:
+                return True, content[:500]
+            return False, f"http_status={status} body={content[:500]}"
+    except urllib_error.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8", errors="ignore")
+        except Exception:
+            body = ""
+        return False, f"http_error={e.code} body={body[:500]}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _send_via_resend(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
+    api_key = (os.getenv("RESEND_API_KEY") or "").strip()
+    if not api_key:
+        return False, "resend_not_configured"
+
+    payload = {
+        "from": from_email,
+        "to": [to_address],
+        "subject": subject,
+        "text": body,
+        "html": html_body or f"<pre>{escape(body)}</pre>",
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    ok, detail = _post_json("https://api.resend.com/emails", payload, headers)
+    return ok, f"resend:{detail}"
+
+
+def _send_via_brevo(to_address: str, subject: str, body: str, html_body: str | None, from_email: str) -> tuple[bool, str]:
+    api_key = (os.getenv("BREVO_API_KEY") or "").strip()
+    if not api_key:
+        return False, "brevo_not_configured"
+
+    payload = {
+        "sender": {"email": from_email, "name": "MedTech"},
+        "to": [{"email": to_address}],
+        "subject": subject,
+        "textContent": body,
+        "htmlContent": html_body or f"<pre>{escape(body)}</pre>",
+    }
+    headers = {
+        "api-key": api_key,
+        "Content-Type": "application/json",
+    }
+    ok, detail = _post_json("https://api.brevo.com/v3/smtp/email", payload, headers)
+    return ok, f"brevo:{detail}"
+
+
 def get_smtp_health() -> dict:
     """
     Returns a non-destructive SMTP health snapshot for production diagnostics.
@@ -52,6 +116,8 @@ def get_smtp_health() -> dict:
         "user_configured": bool(user),
         "password_configured": bool(password),
         "sender": sender,
+        "resend_configured": bool((os.getenv("RESEND_API_KEY") or "").strip()),
+        "brevo_configured": bool((os.getenv("BREVO_API_KEY") or "").strip()),
         "last_error": get_last_email_error(),
         "can_connect": False,
         "tls_ok": False,
@@ -201,8 +267,24 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
             return True
         except Exception as ssl_exc:
             combined_error = f"primary={e}; tls={tls_error}; smtp_ssl={ssl_exc}"
-            print(f"[EMAIL] SMTP delivery failed: {combined_error}; falling back to local log")
-            _set_last_email_error(combined_error)
-            _write_fallback_log(to_address, subject, body, combined_error)
+            print(f"[EMAIL] SMTP delivery failed: {combined_error}; trying HTTPS providers")
+
+            # HTTPS provider fallback (works when SMTP ports are blocked).
+            resend_ok, resend_detail = _send_via_resend(to_address, subject, body, html_body, from_email)
+            if resend_ok:
+                print("[EMAIL] Sent via Resend HTTPS API")
+                _set_last_email_error("")
+                return True
+
+            brevo_ok, brevo_detail = _send_via_brevo(to_address, subject, body, html_body, from_email)
+            if brevo_ok:
+                print("[EMAIL] Sent via Brevo HTTPS API")
+                _set_last_email_error("")
+                return True
+
+            final_error = f"{combined_error}; {resend_detail}; {brevo_detail}"
+            print(f"[EMAIL] All transports failed: {final_error}; falling back to local log")
+            _set_last_email_error(final_error)
+            _write_fallback_log(to_address, subject, body, final_error)
             print(f"[EMAIL-DRYRUN] To: {to_address}\nSubject: {subject}\n\n{body}")
             return False
