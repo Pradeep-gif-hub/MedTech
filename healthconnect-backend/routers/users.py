@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-import os
 import secrets
 
 import bcrypt
@@ -40,72 +39,6 @@ def _json_response(success: bool, message: str, status_code: int = 200, **extra)
         return JSONResponse(status_code=status_code, content=payload)
 
 
-def _build_reset_email_template(user_name: str, reset_link: str) -> tuple[str, str]:
-        text_body = f"""MedTech - Password Reset Request
-
-Hello {user_name},
-
-We received a request to reset your MedTech password.
-Click the button below to create a new password:
-{reset_link}
-
-Security Notice: This link expires in 1 hour. Do not share it with anyone.
-
-If you did not request this, please ignore this email.
-
-MedTech Team
-"""
-
-        html_body = f"""
-<!doctype html>
-<html>
-    <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:24px 0;">
-            <tr>
-                <td align="center">
-                    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-                        <tr>
-                            <td style="background:#10b981;color:#ffffff;text-align:center;font-size:42px;font-weight:700;line-height:1.1;padding:24px 20px;">MedTech</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:28px 32px 10px 32px;">
-                                <h1 style="margin:0 0 16px 0;font-size:40px;line-height:1.2;color:#111827;font-weight:800;">Password Reset Request</h1>
-                                <p style="margin:0 0 14px 0;font-size:30px;line-height:1.35;color:#1f2937;">Hello {user_name},</p>
-                                <p style="margin:0;font-size:28px;line-height:1.35;color:#1f2937;">We received a request to reset your MedTech password.<br/>Click the button below to create a new password.</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td align="center" style="padding:18px 32px 18px 32px;">
-                                <a href="{reset_link}" style="display:inline-block;background:#10b981;color:white;border-radius:8px;padding:14px 24px;font-weight:600;font-size:30px;line-height:1.2;text-decoration:none;">Reset Password</a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:0 32px 16px 32px;">
-                                <p style="margin:0 0 10px 0;font-size:30px;line-height:1.3;color:#111827;font-weight:700;">Or copy this link:</p>
-                                <p style="margin:0 0 16px 0;font-size:24px;line-height:1.35;word-break:break-all;"><a href="{reset_link}" style="color:#2563eb;">{reset_link}</a></p>
-                                <div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;padding:14px 16px;">
-                                    <p style="margin:0;font-size:22px;line-height:1.35;color:#991b1b;"><strong>⚠ Security Notice:</strong> This link expires in 1 hour. Do not share it with anyone.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:0 32px 20px 32px;">
-                                <p style="margin:0;font-size:22px;line-height:1.35;color:#6b7280;">If you did not request this, please ignore this email.</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="border-top:1px solid #e5e7eb;padding:16px 20px;text-align:center;font-size:20px;line-height:1.3;color:#6b7280;">MedTech Team</td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-</html>
-"""
-        return text_body, html_body
-
-
 def _get_or_create_auth_meta(db: Session, user: models.User) -> models.UserAuthMeta:
         meta = db.query(models.UserAuthMeta).filter(models.UserAuthMeta.user_id == user.id).first()
         if meta:
@@ -124,7 +57,7 @@ def _get_or_create_auth_meta(db: Session, user: models.User) -> models.UserAuthM
 @router.get("/email-health")
 def email_health():
     """
-    SMTP diagnostics endpoint with sanitized output.
+    Email diagnostics endpoint with sanitized output.
     Useful for production debugging when local works but deployment fails.
     """
     try:
@@ -837,7 +770,7 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
     Validates user, stores secure reset token with expiry, and sends reset email.
     """
     try:
-        from utils.email_utils import send_email, get_last_email_error
+        from utils.email_utils import send_reset_email, get_last_email_error
 
         email = (data.get("email") or "").strip()
         if not email:
@@ -848,40 +781,25 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
         if not user:
             return _json_response(False, "User not found", status_code=404, error="user_not_found")
 
-        reset_token, expires_at = _create_reset_token(db, user, email)
-        frontend_url = (os.getenv("FRONTEND_URL") or "https://medtech-4rjc.onrender.com").rstrip("/")
-        reset_link = f"{frontend_url}/reset-password?token={reset_token}&email={email}"
-
-        text_body, html_body = _build_reset_email_template(user.name or "User", reset_link)
-        sent = send_email(
-            to_address=email,
-            subject="MedTech - Reset Your Password",
-            body=text_body,
-            html_body=html_body,
-        )
+        reset_token, _expires_at = _create_reset_token(db, user, email)
+        sent = send_reset_email(email=email, token=reset_token)
 
         if not sent:
-            err = get_last_email_error() or "SMTP connection failed"
+            err = get_last_email_error() or "Email delivery failed"
             print(f"[FORGOT_PASSWORD] Email send failed for {email}: {err}")
             return _json_response(
                 False,
                 "Email delivery failed",
-                status_code=503,
-                error=err,
-                detail="SMTP connection failed",
+                status_code=500,
+                error="Email delivery failed",
+                detail=err,
             )
 
         print(f"[FORGOT_PASSWORD] Email sent to: {email}")
-        return _json_response(
-            True,
-            "Password reset link has been sent to your email.",
-            status_code=200,
-            email=email,
-            expires_at=expires_at.isoformat(),
-        )
+        return _json_response(True, "Reset email sent", status_code=200)
     except Exception as e:
         print(f"[FORGOT_PASSWORD] error: {e}")
-        return _json_response(False, "Error processing forgot password request", status_code=500, error=str(e))
+        return _json_response(False, "Email delivery failed", status_code=500, error="Email delivery failed", detail=str(e))
 
 
 @router.post("/reset-password")
