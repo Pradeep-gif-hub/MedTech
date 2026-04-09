@@ -57,20 +57,17 @@ def _get_or_create_auth_meta(db: Session, user: models.User) -> models.UserAuthM
 @router.get("/email-health")
 def email_health():
     """
-    Email diagnostics endpoint with sanitized output.
-    Useful for production debugging when local works but deployment fails.
+    Email provider diagnostics endpoint.
     """
     try:
-        from utils.email_utils import get_smtp_health
+        from utils.email_utils import get_email_health
 
+        return get_email_health()
+    except Exception:
         return {
-            "success": True,
-            "smtp": get_smtp_health(),
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "detail": f"email_health_failed: {e}",
+            "provider": "resend",
+            "configured": False,
+            "error": "Email health check failed",
         }
 
 
@@ -792,14 +789,13 @@ def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
                 "Email delivery failed",
                 status_code=500,
                 error="Email delivery failed",
-                detail=err,
             )
 
         print(f"[FORGOT_PASSWORD] Email sent to: {email}")
         return _json_response(True, "Reset email sent", status_code=200)
     except Exception as e:
         print(f"[FORGOT_PASSWORD] error: {e}")
-        return _json_response(False, "Email delivery failed", status_code=500, error="Email delivery failed", detail=str(e))
+        return _json_response(False, "Email delivery failed", status_code=500, error="Email delivery failed")
 
 
 @router.post("/reset-password")

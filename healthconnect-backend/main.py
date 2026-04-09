@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from config import settings
 
 # Backend deployment fix - reverted to stable version
 # required routers
@@ -95,6 +96,11 @@ if webrtc and hasattr(webrtc, "router"):
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+
+@app.on_event("startup")
+def log_resend_config_startup():
+    print("RESEND_API_KEY loaded:", bool(settings.RESEND_API_KEY))
 
 # NEW: create DB tables/columns at startup for local dev (runs once on app start)
 # This uses the same Base/engine as your models; it's convenient for development.
