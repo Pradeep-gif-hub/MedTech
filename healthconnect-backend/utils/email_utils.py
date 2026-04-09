@@ -63,8 +63,10 @@ def _send_via_resend(to_address: str, subject: str, body: str, html_body: str | 
     if not api_key:
         return False, "resend_not_configured"
 
+    resend_from = (os.getenv("RESEND_FROM_EMAIL") or "onboarding@resend.dev").strip()
+
     payload = {
-        "from": from_email,
+        "from": resend_from,
         "to": [to_address],
         "subject": subject,
         "text": body,
@@ -83,8 +85,11 @@ def _send_via_brevo(to_address: str, subject: str, body: str, html_body: str | N
     if not api_key:
         return False, "brevo_not_configured"
 
+    brevo_from = (os.getenv("BREVO_FROM_EMAIL") or from_email).strip()
+    brevo_sender_name = (os.getenv("BREVO_SENDER_NAME") or "MedTech").strip()
+
     payload = {
-        "sender": {"email": from_email, "name": "MedTech"},
+        "sender": {"email": brevo_from, "name": brevo_sender_name},
         "to": [{"email": to_address}],
         "subject": subject,
         "textContent": body,
@@ -117,7 +122,9 @@ def get_smtp_health() -> dict:
         "password_configured": bool(password),
         "sender": sender,
         "resend_configured": bool((os.getenv("RESEND_API_KEY") or "").strip()),
+        "resend_from": (os.getenv("RESEND_FROM_EMAIL") or "onboarding@resend.dev").strip(),
         "brevo_configured": bool((os.getenv("BREVO_API_KEY") or "").strip()),
+        "brevo_from": (os.getenv("BREVO_FROM_EMAIL") or sender).strip(),
         "last_error": get_last_email_error(),
         "can_connect": False,
         "tls_ok": False,
