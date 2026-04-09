@@ -35,6 +35,7 @@ function App() {
   const [currentView, setCurrentView] = useState<CurrentView>('landing');
   const [publicPage, setPublicPage] = useState<string>('about');
   const [pendingNewUser, setPendingNewUser] = useState<any>(null);
+  const [loginNotice, setLoginNotice] = useState<string>('');
 
   const applyRoleRedirect = (role: UserRole) => {
     if (role === 'unknown') return;
@@ -59,6 +60,7 @@ function App() {
         const storedRole = localStorage.getItem('role') as UserRole | null;
         const pendingRaw = sessionStorage.getItem('pending_new_user');
         const currentPath = window.location.pathname;
+        const searchParams = new URLSearchParams(window.location.search);
 
         if (currentPath === '/reset-password') {
           setCurrentView('reset-password');
@@ -75,7 +77,17 @@ function App() {
         if (token && storedRole && storedRole !== 'unknown') {
           setUserRole(storedRole);
           applyRoleRedirect(storedRole);
+          setLoginNotice('');
+          return;
         }
+
+        if (currentPath === '/login') {
+          setLoginNotice(searchParams.get('message') || '');
+          setCurrentView('login-patient');
+          return;
+        }
+
+        setLoginNotice('');
       } catch (err) {
         console.warn('[App] Failed to restore session:', err);
         // Clear corrupted data
@@ -161,36 +173,64 @@ function App() {
         return (
           <Login
             role="patient"
+            noticeMessage={loginNotice}
             onLogin={handleLogin}
             onNewUser={handleNewUserRedirect}
-            onBack={() => setCurrentView('landing')}
+            onBack={() => {
+              setLoginNotice('');
+              if (window.location.pathname !== '/') {
+                window.history.replaceState({}, '', '/');
+              }
+              setCurrentView('landing');
+            }}
           />
         );
       case 'login-doctor':
         return (
           <Login
             role="doctor"
+            noticeMessage={loginNotice}
             onLogin={handleLogin}
             onNewUser={handleNewUserRedirect}
-            onBack={() => setCurrentView('landing')}
+            onBack={() => {
+              setLoginNotice('');
+              if (window.location.pathname !== '/') {
+                window.history.replaceState({}, '', '/');
+              }
+              setCurrentView('landing');
+            }}
           />
         );
       case 'login-pharmacy':
         return (
           <Login
             role="pharmacy"
+            noticeMessage={loginNotice}
             onLogin={handleLogin}
             onNewUser={handleNewUserRedirect}
-            onBack={() => setCurrentView('landing')}
+            onBack={() => {
+              setLoginNotice('');
+              if (window.location.pathname !== '/') {
+                window.history.replaceState({}, '', '/');
+              }
+              setCurrentView('landing');
+            }}
           />
         );
       case 'login-admin':
         return (
           <Login
             role="admin"
+            noticeMessage={loginNotice}
             onLogin={handleLogin}
             onNewUser={handleNewUserRedirect}
-            onBack={() => setCurrentView('landing')}
+            onBack={() => {
+              setLoginNotice('');
+              if (window.location.pathname !== '/') {
+                window.history.replaceState({}, '', '/');
+              }
+              setCurrentView('landing');
+            }}
           />
         );
 

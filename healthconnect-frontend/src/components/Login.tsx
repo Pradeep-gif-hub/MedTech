@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, Users, Activity, Pill, Shield, CheckCircle, Mail } from 'lucide-react';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { UserRole } from '../App';
@@ -8,6 +8,7 @@ import { buildApiUrl } from '../config/api';
 interface LoginProps {
   onBack: () => void;
   role?: UserRole;
+  noticeMessage?: string;
   onLogin: (role: UserRole) => void;
   onNewUser?: (userData: any) => void;
 }
@@ -21,7 +22,7 @@ const roleRoutes: Record<Exclude<UserRole, 'unknown'>, string> = {
   admin: '/admin/dashboard',
 };
 
-const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => {
+const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUser }: LoginProps) => {
   // Auth hook for Google login
   const { setToken, setUser } = useAuth();
   // UI state
@@ -49,6 +50,12 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
   const [otpError, setOtpError] = useState(null as string | null);
   const [signUpMessage, setSignUpMessage] = useState(null as string | null);
 
+  useEffect(() => {
+    if (role && role !== 'unknown') {
+      setSelectedRole(role);
+    }
+  }, [role]);
+
   const roleData: Record<UserRole, { title: string; description: string; icon: JSX.Element; bgColor: string }> = {
     patient: { title: 'Patient', description: 'Access consultations and health records', icon: <Users className="h-6 w-6 text-white" />, bgColor: 'bg-blue-600' },
     doctor: { title: 'Doctor', description: 'Manage consultations and patient care', icon: <Activity className="h-6 w-6 text-white" />, bgColor: 'bg-green-600' },
@@ -56,6 +63,37 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
     admin: { title: 'Admin', description: 'Control system-wide settings', icon: <Shield className="h-6 w-6 text-white" />, bgColor: 'bg-red-600' },
     unknown: { title: 'Unknown', description: '', icon: <Shield className="h-6 w-6 text-white" />, bgColor: 'bg-gray-600' },
   };
+
+  const roleTabs: Array<{ key: Exclude<UserRole, 'unknown'>; label: string }> = [
+    { key: 'patient', label: 'Patient' },
+    { key: 'doctor', label: 'Doctor' },
+    { key: 'pharmacy', label: 'Pharmacy' },
+    { key: 'admin', label: 'Admin' },
+  ];
+
+  const renderRoleTabs = () => (
+    <div className="mb-6">
+      <div className="grid grid-cols-4 gap-2">
+        {roleTabs.map((tab) => {
+          const isActive = selectedRole === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setSelectedRole(tab.key)}
+              className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                isActive
+                  ? `${roleData[tab.key].bgColor} text-white shadow`
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   const extractError = async (res: Response) => {
     try {
@@ -416,6 +454,14 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
             <span>Back to Home</span>
           </button>
 
+          {renderRoleTabs()}
+
+          {noticeMessage && (
+            <div className="mb-6 p-3 rounded-lg border border-emerald-200 bg-emerald-100 text-sm text-emerald-900">
+              {noticeMessage}
+            </div>
+          )}
+
             {forgotPasswordStep === 'email' && (
               <form onSubmit={handleForgotPasswordRequest} className="space-y-6">
                 <div>
@@ -520,6 +566,14 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
               <ArrowLeft className="h-5 w-5" />
               <span>Back to Home</span>
             </button>
+
+            {renderRoleTabs()}
+
+            {noticeMessage && (
+              <div className="mb-6 p-3 rounded-lg border border-emerald-200 bg-emerald-100 text-sm text-emerald-900">
+                {noticeMessage}
+              </div>
+            )}
 
             {showSignUp ? (
               <>
@@ -628,22 +682,6 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-base font-medium text-gray-700 mb-2">Role</label>
-                      <select 
-                        value={selectedRole} 
-                        onChange={e => setSelectedRole(e.target.value as UserRole)} 
-                        className="w-full px-2 py-2 border rounded-lg text-sm" 
-                        required
-                      >
-                        <option value="">Select Role</option>
-                        <option value="patient">Patient</option>
-                        <option value="doctor">Doctor</option>
-                        <option value="pharmacy">Pharmacy</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </div>
-
                     <div className="flex flex-col gap-2">
                       <button 
                         type="submit" 
@@ -736,6 +774,11 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
             ) : (
               <form onSubmit={handleLogin} className="space-y-6">
                 <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{roleData[selectedRole].title} Login</h2>
+                  <p className="text-sm text-gray-600 mt-1">{roleData[selectedRole].description}</p>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                   <input 
                     type="email" 
@@ -764,7 +807,7 @@ const Login = ({ onBack, role = 'patient', onLogin, onNewUser }: LoginProps) => 
                   </div>
                 </div>
 
-                <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Sign In</button>
+                <button type="submit" className={`w-full py-3 px-4 rounded-lg text-white font-semibold ${roleData[selectedRole].bgColor}`}>Login</button>
 
                 <button 
                   type="button" 

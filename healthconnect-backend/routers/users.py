@@ -821,8 +821,8 @@ def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
                 error="missing_fields",
             )
 
-        if len(new_password) < 6:
-            return _json_response(False, "Password must be at least 6 characters", status_code=400, error="weak_password")
+        if len(new_password) < 8:
+            return _json_response(False, "Password must be at least 8 characters", status_code=400, error="weak_password")
 
         user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
         if not user:
@@ -836,7 +836,7 @@ def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
         ).first()
 
         if not token_row:
-            return _json_response(False, "Invalid reset token", status_code=400, error="invalid_token")
+            return _json_response(False, "Reset link invalid or expired", status_code=400, error="invalid_token")
 
         now_utc = datetime.now(timezone.utc)
         token_expiry = token_row.expires_at
@@ -847,7 +847,7 @@ def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
             token_row.used = True
             token_row.used_at = now_utc
             db.commit()
-            return _json_response(False, "Reset token has expired", status_code=400, error="token_expired")
+            return _json_response(False, "This reset link has expired. Please request a new one.", status_code=400, error="token_expired")
 
         # bcrypt.hashpw as requested.
         password_hash = bcrypt.hashpw(new_password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -856,7 +856,7 @@ def reset_password(data: dict = Body(...), db: Session = Depends(get_db)):
         token_row.used_at = now_utc
         db.commit()
 
-        return _json_response(True, "Password updated", status_code=200)
+        return _json_response(True, "Password updated successfully", status_code=200)
     except Exception as e:
         print(f"[RESET_PASSWORD] error: {e}")
         return _json_response(False, "Error processing reset password request", status_code=500, error=str(e))
