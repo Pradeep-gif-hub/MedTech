@@ -46,6 +46,22 @@ function getSmtpConfig() {
   };
 }
 
+function validateRequiredSmtpAuth(config) {
+  const smtpUser = String(config && config.smtpUser ? config.smtpUser : '').trim();
+  const smtpPass = String(config && config.smtpPass ? config.smtpPass : '').trim();
+
+  console.log('[MAILER] SMTP auth validation:', {
+    smtpUser: smtpUser || '[missing]',
+    smtpPassExists: Boolean(smtpPass),
+  });
+
+  if (!smtpUser || !smtpPass) {
+    const error = new Error('Missing required SMTP auth environment variables: SMTP_USER and/or SMTP_PASS');
+    error.code = 'SMTP_AUTH_MISSING';
+    throw error;
+  }
+}
+
 function validateSmtpConfig(config) {
   const missing = [];
 
@@ -184,7 +200,8 @@ function sendViaBrevoApi({ toEmail, subject, htmlContent, textContent, config })
         let parsed = null;
         try {
           parsed = responseBody ? JSON.parse(responseBody) : null;
-        } catch (_e) {
+        } catch (parseError) {
+          console.warn('[MAILER] Brevo API non-JSON response body parse failed:', parseError && parseError.message ? parseError.message : parseError);
           parsed = null;
         }
 
@@ -261,11 +278,26 @@ async function sendEmail({ toEmail, subject, htmlContent, textContent = '', retr
   }
 
   const config = getSmtpConfig();
+  try {
+    validateRequiredSmtpAuth(config);
+  } catch (authError) {
+    const authMessage = authError && authError.message ? authError.message : 'SMTP auth validation failed';
+    setLastEmailError(authMessage);
+    console.error('[MAILER] SMTP auth validation failed:', authMessage);
+    if (authError && authError.stack) {
+      console.error('[MAILER] SMTP auth validation stack:', authError.stack);
+    }
+    throw authError;
+  }
+
   const missing = validateSmtpConfig(config);
   if (missing.length > 0) {
     const configError = createMissingConfigError(config, missing);
     setLastEmailError(configError.message);
     console.error('[MAILER] SMTP config error:', configError.meta);
+    if (configError && configError.stack) {
+      console.error('[MAILER] SMTP config error stack:', configError.stack);
+    }
 
     if (hasBrevoApiKey(config)) {
       const apiFallback = await sendViaBrevoApi({

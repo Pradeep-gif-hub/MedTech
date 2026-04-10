@@ -411,14 +411,28 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
     setIsSendingReset(true);
     setForgotPasswordMessage('');
     try {
+      const endpoints = ['/api/auth/forgot-password', '/auth/forgot-password', '/api/users/forgot-password'];
+      console.log('[ForgotPassword] Request started:', {
+        email: forgotEmail || '[missing-email]',
+        endpoints: endpoints.map((endpoint) => buildApiUrl(endpoint)),
+        browserOrigin: window.location.origin,
+      });
+
       const res = await tryPost(
-        ['/api/auth/forgot-password', '/auth/forgot-password', '/api/users/forgot-password'],
+        endpoints,
         { email: forgotEmail }
       );
 
       const data: any = await parseJsonSafe(res);
+      console.log('[ForgotPassword] Response received:', {
+        status: res.status,
+        ok: res.ok,
+        success: data && Object.prototype.hasOwnProperty.call(data, 'success') ? data.success : '[missing-success-field]',
+        detail: data && data.detail ? data.detail : null,
+        message: data && data.message ? data.message : null,
+      });
 
-      if ((res.ok || res.status === 200) && data?.success !== false) {
+      if (res.ok && data?.success === true) {
         setForgotPasswordStep('success');
         setForgotPasswordMessage(data.detail || 'Check your inbox for the reset link');
       } else {

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import secrets
+import traceback
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
@@ -809,43 +810,61 @@ def _create_reset_token(db: Session, user: models.User, email: str) -> tuple[str
 
 # Forgot Password Endpoint
 @router.post("/forgot-password")
-def forgot_password(data: dict = Body(...), db: Session = Depends(get_db)):
+def forgot_password(data: dict = Body(...), request: Request = None, db: Session = Depends(get_db)):
     """
     Forgot password endpoint.
-    Always returns a generic success response to prevent account enumeration.
+    Returns success only when reset email is actually sent.
     """
-    generic_message = "If an account exists, a reset email has been sent"
+    request_meta = {
+        "origin": request.headers.get("origin") if request else "[missing-request]",
+        "referer": request.headers.get("referer") if request else "[missing-request]",
+        "host": request.headers.get("host") if request else "[missing-request]",
+        "x_forwarded_host": request.headers.get("x-forwarded-host") if request else "[missing-request]",
+        "x_forwarded_proto": request.headers.get("x-forwarded-proto") if request else "[missing-request]",
+        "path": request.url.path if request else "[missing-request]",
+        "method": request.method if request else "[missing-request]",
+    }
 
     try:
         from utils.email_utils import send_reset_email, get_last_email_error
 
+        print(f"[FORGOT_PASSWORD] Route hit meta: {request_meta}")
         email = (data.get("email") or "").strip().lower()
-        print(f"Forgot password requested for: {email or '[empty]'}")
+        print(f"[FORGOT_PASSWORD] Processing email: {email or '[empty]'}")
 
         if not email:
-            return _json_response(True, generic_message, status_code=200)
+            return _json_response(False, "Email is required", status_code=400)
 
         user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
         if not user:
-            return _json_response(True, generic_message, status_code=200)
+            print(f"[FORGOT_PASSWORD] User not found for email: {email}")
+            return _json_response(False, "User not found", status_code=404)
 
         try:
             reset_token, _expires_at = _create_reset_token(db, user, email)
+            print(f"[FORGOT_PASSWORD] Calling send_reset_email for: {email}")
             sent = send_reset_email(
                 email=email,
                 token=reset_token,
             )
+            print(f"[FORGOT_PASSWORD] send_reset_email returned: {sent}")
 
             if not sent:
                 err = get_last_email_error() or "Email delivery failed"
-                print(f"Reset email error: {err}")
+                print(f"[FORGOT_PASSWORD] Reset email error: {err}")
+                return _json_response(False, "Failed to send reset email", status_code=500, error=err)
         except Exception as e:
-            print(f"Reset email error: {str(e)}")
+            print(f"[FORGOT_PASSWORD] Reset email exception: {str(e)}")
+            print("[FORGOT_PASSWORD] Reset email exception stack:")
+            print(traceback.format_exc())
+            return _json_response(False, "Failed to send reset email", status_code=500, error=str(e))
 
-        return _json_response(True, generic_message, status_code=200)
+        return _json_response(True, "Reset email sent successfully", status_code=200)
     except Exception as e:
-        print(f"Reset email error: {str(e)}")
-        return _json_response(True, generic_message, status_code=200)
+        print(f"[FORGOT_PASSWORD] Unhandled route error: {str(e)}")
+        print("[FORGOT_PASSWORD] Unhandled route error stack:")
+        print(traceback.format_exc())
+        return _json_response(False, "Error processing reset password request", status_code=500, error=str(e))
 
 
 @router.post("/reset-password")
