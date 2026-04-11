@@ -1,28 +1,67 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+# Fixed Nodemailer Configuration for Brevo SMTP
 
-const https = require('https');
-const nodemailer = require('nodemailer');
-const {
-  generateOtpEmail,
-  generateResetEmail,
-} = require('./emailTemplates');
+## Summary of Changes
 
-const DEFAULT_SMTP_SERVER = 'smtp-relay.brevo.com';
-const DEFAULT_SMTP_PORT = 587;
-const DEFAULT_FROM_NAME = 'MedTech';
-const DEFAULT_FROM_EMAIL = 'pawasthi063@gmail.com';
+Your Node.js backend now uses **only SMTP_USER and SMTP_PASS** environment variables for Brevo SMTP authentication. The code no longer references EMAIL_USER or EMAIL_PASS.
 
-let lastEmailError = '';
+### Key Changes Made:
 
-function setLastEmailError(message) {
-  lastEmailError = String(message || '').slice(0, 1000);
-}
+#### 1. **getSmtpConfig()** Function
+- ✅ Uses ONLY `process.env.SMTP_USER` (not EMAIL_USER)
+- ✅ Uses ONLY `process.env.SMTP_PASS` (not EMAIL_PASS)
+- ✅ Warns if EMAIL_USER/EMAIL_PASS env vars are present (deprecated)
+- ✅ Logs all config values for debugging
 
-function getLastEmailError() {
-  return lastEmailError;
-}
+#### 2. **validateRequiredSmtpAuth()** Function
+- ✅ Enhanced logging to show which credentials are being validated
+- ✅ Confirms SMTP_USER and SMTP_PASS are present
+- ✅ Clear error message if credentials missing
 
+#### 3. **createTransporter()** Function
+- ✅ Logs exact transporter configuration
+- ✅ Confirms Brevo SMTP settings:
+  - `host: smtp-relay.brevo.com`
+  - `port: 587`
+  - `secure: false` (CRITICAL for Brevo)
+  - `requireTLS: true`
+  - `authMethod: LOGIN`
+- ✅ Shows which credentials are being used
+
+#### 4. **sendEmail()** Function
+- ✅ Enhanced logging at every step
+- ✅ Shows exact SMTP config values being used
+- ✅ Clear success/failure indicators (✅ ❌)
+- ✅ Better error messages and stack traces
+- ✅ Shows which SMTP_USER succeeded or failed
+
+---
+
+## Environment Variables Setup (Render)
+
+Your current Render configuration is **correct**:
+
+```env
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=a791ff001@smtp-brevo.com
+SMTP_PASS=xsmtpsib-[long-key]
+FROM_EMAIL=noreply@medtech.com
+FROM_NAME=MedTech
+FRONTEND_URL=https://medtech-4rjc.onrender.com
+```
+
+**Important:**
+- ✅ Do NOT change SMTP_USER and SMTP_PASS (they're correct)
+- ✅ Do NOT add EMAIL_USER or EMAIL_PASS
+- ✅ If EMAIL_USER/EMAIL_PASS exist, remove them (they're ignored)
+
+---
+
+## Complete Fixed Code
+
+### Part 1: getSmtpConfig() - Configuration Loading
+
+```javascript
 function getSmtpConfig() {
   console.log('[MAILER] Step 1: Loading SMTP configuration from environment variables');
   
@@ -72,7 +111,11 @@ function getSmtpConfig() {
     brevoApiKey,
   };
 }
+```
 
+### Part 2: validateRequiredSmtpAuth() - Credential Validation
+
+```javascript
 function validateRequiredSmtpAuth(config) {
   console.log('[MAILER] Step 2: Validating SMTP authentication credentials');
   
@@ -98,79 +141,11 @@ function validateRequiredSmtpAuth(config) {
   
   console.log('[MAILER] Step 2c: SMTP authentication validation PASSED');
 }
+```
 
-function validateSmtpConfig(config) {
-  const missing = [];
+### Part 3: createTransporter() - Transporter Creation
 
-  if (!config.smtpServer) {
-    missing.push('SMTP_SERVER');
-  }
-  if (!config.smtpPort || Number.isNaN(config.smtpPort)) {
-    missing.push('SMTP_PORT');
-  }
-  if (!config.smtpUser) {
-    missing.push('SMTP_USER');
-  }
-  if (!config.smtpPass) {
-    missing.push('SMTP_PASS');
-  }
-  if (!config.fromEmail) {
-    missing.push('FROM_EMAIL or SMTP_USER');
-  }
-
-  return missing;
-}
-
-function createMissingConfigError(config, missing) {
-  const error = new Error(`Missing SMTP env vars: ${missing.join(', ')}`);
-  error.code = 'SMTP_CONFIG_MISSING';
-  error.meta = {
-    smtpServer: config.smtpServer,
-    smtpPort: config.smtpPort,
-    smtpUser: config.smtpUser || '[missing]',
-    fromEmail: config.fromEmail || '[missing]',
-    missing,
-  };
-  return error;
-}
-
-function hasBrevoApiKey(config) {
-  return Boolean(config && config.brevoApiKey);
-}
-
-function getFromHeader(config) {
-  return `${config.fromName} <${config.fromEmail}>`;
-}
-
-function isAuthError(error) {
-  return error && (error.code === 'EAUTH' || error.responseCode === 535);
-}
-
-function isRetryableError(error) {
-  if (!error) {
-    return false;
-  }
-
-  const retryableCodes = new Set(['ECONNRESET', 'ETIMEDOUT', 'ESOCKET', 'ECONNECTION']);
-  return retryableCodes.has(error.code) || typeof error.responseCode === 'number' && error.responseCode >= 400;
-}
-
-function buildFailureMessage(error) {
-  if (!error) {
-    return 'Email delivery failed';
-  }
-
-  if (isAuthError(error)) {
-    return 'SMTP authentication failed. Check SMTP_USER and SMTP_PASS.';
-  }
-
-  if (error.code === 'EENVELOPE') {
-    return 'SMTP rejected envelope/recipient details.';
-  }
-
-  return String(error.message || error.toString() || 'Email delivery failed');
-}
-
+```javascript
 function createTransporter(config) {
   console.log('[MAILER] Step 3: Creating Nodemailer transporter for Brevo SMTP');
   
@@ -206,102 +181,11 @@ function createTransporter(config) {
   
   return transporter;
 }
+```
 
-function sendViaBrevoApi({ toEmail, subject, htmlContent, textContent, config }) {
-  return new Promise((resolve) => {
-    if (!hasBrevoApiKey(config)) {
-      return resolve({
-        success: false,
-        provider: 'brevo_api',
-        error: 'BREVO_API_KEY not configured',
-      });
-    }
+### Part 4: sendEmail() - Email Sending with Enhanced Logging
 
-    const payload = JSON.stringify({
-      sender: {
-        name: config.fromName,
-        email: config.fromEmail,
-      },
-      to: [{ email: toEmail }],
-      subject,
-      htmlContent,
-      textContent,
-    });
-
-    const requestOptions = {
-      hostname: 'api.brevo.com',
-      port: 443,
-      path: '/v3/smtp/email',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-        'api-key': config.brevoApiKey,
-      },
-      timeout: 30000,
-    };
-
-    console.log('[MAILER] Brevo API fallback attempt');
-
-    const req = https.request(requestOptions, (res) => {
-      let responseBody = '';
-      res.on('data', (chunk) => {
-        responseBody += chunk;
-      });
-
-      res.on('end', () => {
-        let parsed = null;
-        try {
-          parsed = responseBody ? JSON.parse(responseBody) : null;
-        } catch (parseError) {
-          console.warn('[MAILER] Brevo API non-JSON response body parse failed:', parseError && parseError.message ? parseError.message : parseError);
-          parsed = null;
-        }
-
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          const messageId = parsed && (parsed.messageId || parsed.message_id);
-          console.log('[MAILER] Brevo API send success:', {
-            statusCode: res.statusCode,
-            messageId: messageId || '[not provided]',
-          });
-          return resolve({
-            success: true,
-            provider: 'brevo_api',
-            messageId: messageId || null,
-            response: parsed || responseBody,
-          });
-        }
-
-        const errorMessage = `Brevo API failed (${res.statusCode}): ${parsed && parsed.message ? parsed.message : responseBody}`;
-        console.error('[MAILER] Brevo API error:', errorMessage);
-        return resolve({
-          success: false,
-          provider: 'brevo_api',
-          error: errorMessage,
-        });
-      });
-    });
-
-    req.on('timeout', () => {
-      req.destroy(new Error('Brevo API request timed out'));
-    });
-
-    req.on('error', (error) => {
-      const errorMessage = `Brevo API request error: ${error.message || String(error)}`;
-      console.error('[MAILER] Brevo API request error:', errorMessage);
-      resolve({
-        success: false,
-        provider: 'brevo_api',
-        error: errorMessage,
-      });
-    });
-
-    req.write(payload);
-    req.end();
-    return undefined;
-  });
-}
-
+```javascript
 async function sendEmail({ toEmail, subject, htmlContent, textContent = '', retries = 1 }) {
   const recipient = String(toEmail || '').trim();
   const safeRetries = Number.isFinite(Number(retries)) ? Math.max(0, Number(retries)) : 1;
@@ -505,70 +389,113 @@ async function sendEmail({ toEmail, subject, htmlContent, textContent = '', retr
   console.log('[MAILER] ===== EMAIL FAILED (SMTP only, no API fallback) =====\n');
   return { success: false, provider: 'brevo_smtp', error: finalError };
 }
+```
 
-async function sendOtpEmail(toEmail, otp) {
-  const template = generateOtpEmail(otp);
+---
 
-  return sendEmail({
-    toEmail,
-    subject: template.subject,
-    htmlContent: template.html,
-    textContent: template.text,
-    retries: 1,
-  });
+## Testing the Fixed Configuration
+
+### Test 1: Check SMTP Configuration
+
+```bash
+curl http://localhost:8000/api/auth/email-health
+```
+
+**Expected Response:**
+```json
+{
+  "provider": "brevo_smtp",
+  "configured": true,
+  "from_email": "MedTech <noreply@medtech.com>",
+  "smtp_server": "smtp-relay.brevo.com",
+  "smtp_port": 587,
+  "smtp_user": "a791ff001@smtp-brevo.com",
+  "brevo_api_configured": false,
+  "error": null
 }
+```
 
-async function sendPasswordResetEmail(toEmail, resetLink) {
-  const template = generateResetEmail(resetLink);
+### Test 2: Send Test Email
 
-  return sendEmail({
-    toEmail,
-    subject: template.subject,
-    htmlContent: template.html,
-    textContent: template.text,
-    retries: 1,
-  });
+```bash
+curl -X POST http://localhost:8000/api/auth/test-email \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your-test-email@gmail.com"}'
+```
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "Email sent",
+  "to": "your-test-email@gmail.com",
+  "provider": "brevo_smtp",
+  "messageId": "<message-id@example.com>"
 }
+```
 
-async function sendTestEmail(toEmail) {
-  const subject = 'MedTech SMTP Test Email';
-  const textContent = 'This is a MedTech test email sent via Brevo SMTP from your Render backend.';
-  const htmlContent = `
-  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
-    <div style="background:#0f766e;padding:18px 22px;color:white;font-size:22px;font-weight:700">MedTech</div>
-    <div style="padding:24px;background:#ffffff;color:#111827">
-      <h2 style="margin:0 0 12px 0">SMTP Integration Test</h2>
-      <p style="margin:0 0 10px 0;font-size:15px">If you received this email, Brevo SMTP integration is working.</p>
-      <p style="margin:0;font-size:14px;color:#4b5563">Check Brevo Transactional Logs for this delivery event.</p>
-    </div>
-  </div>`;
+### Test 3: Check Console Logs
 
-  return sendEmail({ toEmail, subject, htmlContent, textContent, retries: 1 });
-}
+When sending an email, you should see:
 
-function getEmailHealth() {
-  const config = getSmtpConfig();
-  const missing = validateSmtpConfig(config);
+```
+[MAILER] ===== SEND EMAIL REQUEST =====
+[MAILER] Recipient: your-email@example.com
+[MAILER] Step 1: Loading SMTP configuration
+[MAILER] Step 1a: SMTP_SERVER = smtp-relay.brevo.com
+[MAILER] Step 1b: SMTP_PORT = 587
+[MAILER] Step 1c: SMTP_USER = a791ff001@smtp-brevo.com
+[MAILER] Step 1d: SMTP_PASS length = 45 chars (set: true)
+[MAILER] Step 2: Validating SMTP authentication credentials
+[MAILER] Step 2c: SMTP authentication validation PASSED
+[MAILER] Step 3: Creating Nodemailer transporter for Brevo SMTP
+[MAILER] Step 3a: Transporter configuration:
+[MAILER]   - host: smtp-relay.brevo.com
+[MAILER]   - port: 587
+[MAILER]   - secure: false (required for Brevo)
+[MAILER] Attempt 1/1: Creating SMTP transporter
+[MAILER] Attempt 1/1: Sending email via SMTP
+[MAILER] ✅ SMTP send SUCCESS:
+[MAILER] ===== EMAIL SENT SUCCESSFULLY via SMTP (User: a791ff001@smtp-brevo.com) =====
+```
 
-  return {
-    provider: 'brevo_smtp',
-    configured: missing.length === 0,
-    from_email: getFromHeader(config),
-    smtp_server: config.smtpServer,
-    smtp_port: config.smtpPort,
-    brevo_api_configured: hasBrevoApiKey(config),
-    smtp_pass_sanitized: config.smtpPassRaw !== config.smtpPass,
-    error: missing.length ? `Missing SMTP env vars: ${missing.join(', ')}` : null,
-  };
-}
+---
 
-module.exports = {
-  sendEmail,
-  generateOtpEmail,
-  generateResetEmail,
-  sendOtpEmail,
-  sendPasswordResetEmail,
-  sendTestEmail,
-  getEmailHealth,
-  getLastEmailError,
-};
+## What Changed
+
+| Item | Before | After |
+|------|--------|-------|
+| **SMTP_USER source** | Checked multiple places | Only `process.env.SMTP_USER` |
+| **SMTP_PASS source** | Checked multiple places | Only `process.env.SMTP_PASS` |
+| **EMAIL_USER** | Used if present | Ignored (shows warning) |
+| **EMAIL_PASS** | Used if present | Ignored (shows warning) |
+| **Logging** | Basic | Enhanced with step indicators and ✅ ❌ |
+| **Error handling** | Generic messages | Specific error codes and context |
+| **Authentication** | May use wrong credentials | Always uses SMTP_USER/SMTP_PASS |
+
+---
+
+## Summary
+
+✅ **Now using ONLY**:
+- `process.env.SMTP_USER` (value: `a791ff001@smtp-brevo.com`)
+- `process.env.SMTP_PASS` (value: Brevo SMTP API key)
+
+✅ **Removed/Ignored**:
+- EMAIL_USER (if present, ignored with warning)
+- EMAIL_PASS (if present, ignored with warning)
+
+✅ **Correct Brevo Configuration**:
+- Host: `smtp-relay.brevo.com`
+- Port: `587`
+- Secure: `false`
+- TLS: `required`
+
+✅ **Enhanced Logging**:
+- Shows exact SMTP config values
+- Step-by-step authentication validation
+- Clear success/failure indicators
+- Full stack traces on error
+- Shows which SMTP_USER succeeded
+
+Email delivery should now work without authentication errors! 🚀
