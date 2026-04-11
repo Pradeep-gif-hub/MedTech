@@ -80,7 +80,7 @@ def _smtp_port() -> int:
 def _smtp_config() -> dict:
     raw_from_email = (settings.FROM_EMAIL or settings.SMTP_USER or "").strip()
     normalized_from = _normalize_from_email(raw_from_email)
-    return {
+    config = {
         "server": (settings.SMTP_SERVER or "").strip(),
         "port": _smtp_port(),
         "user": (settings.SMTP_USER or "").strip(),
@@ -88,6 +88,7 @@ def _smtp_config() -> dict:
         "from_header": normalized_from,
         "from_address": _extract_first_email(normalized_from),
     }
+    return config
 
 
 def _missing_smtp_fields(config: dict) -> list[str]:
@@ -154,29 +155,45 @@ def _send_via_smtp(
     text_content: str | None = None,
     retries: int = 1,
 ) -> bool:
+    print("[EMAIL] Step 1: _send_via_smtp called")
+    print(f"[EMAIL] Step 1a: to_email parameter = {to_email}")
+    print(f"[EMAIL] Step 1b: subject = {subject}")
+    
     recipient = _extract_first_email(to_email)
+    print(f"[EMAIL] Step 1c: extracted recipient = {recipient}")
+    
     if not recipient:
         message = "Invalid recipient email"
         _set_last_email_error(message)
-        print("Email error:", message)
+        print(f"[EMAIL] ERROR: {message}")
         return False
 
+    print("[EMAIL] Step 2: Getting SMTP config")
     config = _smtp_config()
+    print(f"[EMAIL] Step 2a: SMTP server = {config['server']}")
+    print(f"[EMAIL] Step 2b: SMTP port = {config['port']}")
+    print(f"[EMAIL] Step 2c: SMTP user = {config['user']}")
+    print(f"[EMAIL] Step 2d: from_header = {config['from_header']}")
+    print(f"[EMAIL] Step 2e: from_address = {config['from_address']}")
+    
     missing = _missing_smtp_fields(config)
     if missing:
         message = f"Missing SMTP config: {', '.join(missing)}"
         _set_last_email_error(message)
-        print("Email error:", message)
+        print(f"[EMAIL] ERROR: {message}")
         return False
 
+    print("[EMAIL] Step 3: SMTP config validated - all fields present")
+    
     total_attempts = max(1, int(retries) + 1)
     last_exc: Exception | None = None
 
     print(
-        f"[EMAIL] Triggered SMTP send to={recipient}, subject='{subject}', "
-        f"server={config['server']}:{config['port']}"
+        f"[EMAIL] Step 4: Triggered SMTP send to={recipient}, subject='{subject}', "
+        f"server={config['server']}:{config['port']}, attempts={total_attempts}"
     )
 
+    print("[EMAIL] Step 5: Building email message")
     msg = _build_email_message(
         to_email=recipient,
         subject=subject,
@@ -184,30 +201,50 @@ def _send_via_smtp(
         text_content=text_content,
         from_header=config["from_header"],
     )
+    print("[EMAIL] Step 5a: Email message built successfully")
 
     for attempt in range(1, total_attempts + 1):
         try:
+            print(f"[EMAIL] Step 6.{attempt}: Attempt {attempt} - Connecting to SMTP server")
             with smtplib.SMTP(config["server"], config["port"], timeout=30) as smtp:
+                print(f"[EMAIL] Step 6.{attempt}a: SMTP connection established")
+                
+                print(f"[EMAIL] Step 6.{attempt}b: Sending EHLO")
                 smtp.ehlo()
+                
+                print(f"[EMAIL] Step 6.{attempt}c: Starting TLS")
                 smtp.starttls()
+                
+                print(f"[EMAIL] Step 6.{attempt}d: Sending EHLO after TLS")
                 smtp.ehlo()
+                
+                print(f"[EMAIL] Step 6.{attempt}e: Authenticating with SMTP user: {config['user']}")
                 smtp.login(config["user"], config["password"])
+                print(f"[EMAIL] Step 6.{attempt}f: Authentication successful")
+                
+                print(f"[EMAIL] Step 6.{attempt}g: Sending message")
                 smtp_response = smtp.send_message(msg)
+                print(f"[EMAIL] Step 6.{attempt}h: Message sent, SMTP response = {smtp_response}")
 
             if smtp_response:
+                print(f"[EMAIL] Step 6.{attempt}i: SMTP returned response code (recipient refused): {smtp_response}")
                 raise smtplib.SMTPRecipientsRefused(smtp_response)
 
-            print(f"[EMAIL] SMTP send success to={recipient}")
+            print(f"[EMAIL] Step 7: SMTP send success to={recipient}")
             _set_last_email_error("")
             return True
         except smtplib.SMTPAuthenticationError as e:
             last_exc = e
+            message = f"SMTP authentication failed: {str(e)}"
+            print(f"[EMAIL] ERROR (Attempt {attempt}): {message}")
             # Bad credentials will not succeed on retry.
             break
         except Exception as e:
             last_exc = e
+            error_msg = f"SMTP error (Attempt {attempt}): {type(e).__name__}: {str(e)}"
+            print(f"[EMAIL] {error_msg}")
             if attempt < total_attempts and _is_retryable_smtp_error(e):
-                print(f"[EMAIL] Attempt {attempt} failed, retrying once more...")
+                print(f"[EMAIL] Step 6.{attempt}i: Retryable error, will attempt {attempt + 1}/{total_attempts}")
                 continue
             break
 
@@ -215,15 +252,30 @@ def _send_via_smtp(
         last_exc = RuntimeError("Email delivery failed")
 
     failure_message = _build_failure_message(last_exc)
+    print(f"[EMAIL] ERROR: Final failure message: {failure_message}")
     _set_last_email_error(failure_message)
-    print("Email error:", failure_message)
+    print(f"[EMAIL] ERROR: Exception type: {type(last_exc).__name__}")
+    print(f"[EMAIL] ERROR: Exception message: {str(last_exc)}")
     _write_fallback_log(recipient, subject, text_content or html_content, failure_message)
     return False
 
 
 def get_email_health() -> dict:
+    print("[EMAIL_HEALTH] Checking SMTP configuration...")
     config = _smtp_config()
     missing = _missing_smtp_fields(config)
+
+    print(f"[EMAIL_HEALTH] SMTP Server: {config['server']}")
+    print(f"[EMAIL_HEALTH] SMTP Port: {config['port']}")
+    print(f"[EMAIL_HEALTH] SMTP User configured: {bool(config['user'])}")
+    print(f"[EMAIL_HEALTH] SMTP Pass configured: {bool(config['password'])}")
+    print(f"[EMAIL_HEALTH] From Header: {config['from_header']}")
+    print(f"[EMAIL_HEALTH] From Address: {config['from_address']}")
+    
+    if missing:
+        print(f"[EMAIL_HEALTH] Missing fields: {missing}")
+    else:
+        print(f"[EMAIL_HEALTH] All SMTP fields configured")
 
     payload = {
         "provider": "brevo_smtp",
@@ -231,6 +283,8 @@ def get_email_health() -> dict:
         "from_email": config["from_header"],
         "smtp_server": config["server"],
         "smtp_port": config["port"],
+        "smtp_user": config["user"],
+        "last_error": get_last_email_error(),
     }
 
     if missing:
@@ -245,10 +299,20 @@ def get_smtp_health() -> dict:
 
 
 def send_reset_email(email: str, token: str) -> bool:
+    print(f"[RESET_EMAIL] Step 1: send_reset_email called with email={email}, token={token[:20]}...")
     try:
+        print("[RESET_EMAIL] Step 2: Preparing reset link")
         safe_token = quote_plus(token)
         safe_email = quote_plus(email)
-        reset_link = f"{_get_frontend_url()}/reset-password?token={safe_token}&email={safe_email}"
+        print(f"[RESET_EMAIL] Step 2a: safe_token = {safe_token[:20]}...")
+        print(f"[RESET_EMAIL] Step 2b: safe_email = {safe_email}")
+        
+        frontend_url = _get_frontend_url()
+        print(f"[RESET_EMAIL] Step 2c: frontend_url = {frontend_url}")
+        
+        reset_link = f"{frontend_url}/reset-password?token={safe_token}&email={safe_email}"
+        print(f"[RESET_EMAIL] Step 2d: reset_link = {reset_link}")
+        
         safe_name = "there"
 
         html_template = f"""
@@ -300,8 +364,9 @@ def send_reset_email(email: str, token: str) -> bool:
             "This link expires in 1 hour. Do not share it with anyone."
         )
 
-        print("Sending reset email to:", email)
+        print(f"[RESET_EMAIL] Step 3: Email content prepared (html_len={len(html_template)}, text_len={len(text)})")
 
+        print(f"[RESET_EMAIL] Step 4: Calling _send_via_smtp to={email}")
         sent = _send_via_smtp(
             to_email=email,
             subject="Reset your MedTech password",
@@ -309,10 +374,20 @@ def send_reset_email(email: str, token: str) -> bool:
             text_content=text,
             retries=1,
         )
+        print(f"[RESET_EMAIL] Step 5: _send_via_smtp returned {sent}")
+        
+        if not sent:
+            error = get_last_email_error()
+            print(f"[RESET_EMAIL] ERROR: Email send failed. Error details: {error}")
+        
         return sent
     except Exception as e:
+        print(f"[RESET_EMAIL] EXCEPTION in send_reset_email: {type(e).__name__}: {str(e)}")
+        print(f"[RESET_EMAIL] Full traceback:")
+        import traceback
+        print(traceback.format_exc())
         _set_last_email_error("Email delivery failed")
-        print(f"Reset email error: {str(e)}")
+        print(f"[RESET_EMAIL] Reset email exception: {str(e)}")
         return False
 
 

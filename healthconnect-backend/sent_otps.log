@@ -199,3 +199,31 @@ To: pawasthi063@gmail.com
 Subject: MedTech SMTP Test Email
 
 [sensitive content redacted]
+---
+Time: 2026-04-11T07:28:20.959297 UTC
+EMAIL FAILED: SMTP authentication failed. Check SMTP_USER/SMTP_PASS.
+To: pawasthi063@gmail.com
+Subject: Reset your MedTech password
+
+[sensitive content redacted]
+---
+Time: 2026-04-11T07:45:19.219409 UTC
+EMAIL FAILED: SMTP authentication failed. Check SMTP_USER/SMTP_PASS.
+To: pawasthi063@gmail.com
+Subject: Reset your MedTech password
+
+[sensitive content redacted]
+---
+Time: 2026-04-11T07:47:27.404505 UTC
+EMAIL FAILED: SMTP authentication failed. Check SMTP_USER/SMTP_PASS.
+To: pawasthi063@gmail.com
+Subject: Reset your MedTech password
+
+[sensitive content redacted]
+---
+Time: 2026-04-11T07:54:49.387169 UTC
+EMAIL FAILED: SMTP authentication failed. Check SMTP_USER/SMTP_PASS.
+To: pawasthi063@gmail.com
+Subject: Reset your MedTech password
+
+[sensitive content redacted]

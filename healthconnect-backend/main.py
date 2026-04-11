@@ -7,6 +7,7 @@ from config import settings
 from routers import users
 from routers import otp as otp_router
 from routers import auth as auth_router
+from routers import auth_debug as auth_debug_router
 
 # optional routers - import if available to avoid import errors during startup
 doctors = None
@@ -65,6 +66,10 @@ app.include_router(users.router, prefix="/users", tags=["Users"])
 # dedicated auth routes
 app.include_router(auth_router.router, prefix="/auth", tags=["Auth"])
 app.include_router(auth_router.router, prefix="/api/auth", tags=["Auth"])
+
+# debug auth routes
+app.include_router(auth_debug_router.router, prefix="/auth-debug", tags=["Auth-Debug"])
+app.include_router(auth_debug_router.router, prefix="/api/auth-debug", tags=["Auth-Debug"])
 
 # mount doctors router
 if doctors and hasattr(doctors, "router"):

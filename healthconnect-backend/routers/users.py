@@ -815,6 +815,8 @@ def forgot_password(data: dict = Body(...), request: Request = None, db: Session
     Forgot password endpoint.
     Returns success only when reset email is actually sent.
     """
+    print("[FORGOT_PASSWORD] ===== START FORGOT_PASSWORD REQUEST =====")
+    
     request_meta = {
         "origin": request.headers.get("origin") if request else "[missing-request]",
         "referer": request.headers.get("referer") if request else "[missing-request]",
@@ -827,43 +829,76 @@ def forgot_password(data: dict = Body(...), request: Request = None, db: Session
 
     try:
         from utils.email_utils import send_reset_email, get_last_email_error
+        from config import settings
+        
+        # Log environment variables (safely)
+        print(f"[FORGOT_PASSWORD] Env check - FRONTEND_URL is set: {bool(settings.FRONTEND_URL)}")
+        print(f"[FORGOT_PASSWORD] Env check - SMTP_SERVER: {settings.SMTP_SERVER}")
+        print(f"[FORGOT_PASSWORD] Env check - SMTP_PORT: {settings.SMTP_PORT}")
+        print(f"[FORGOT_PASSWORD] Env check - SMTP_USER is set: {bool(settings.SMTP_USER)}")
+        print(f"[FORGOT_PASSWORD] Env check - SMTP_PASS is set: {bool(settings.SMTP_PASS)}")
+        print(f"[FORGOT_PASSWORD] Env check - FROM_EMAIL: {settings.FROM_EMAIL}")
 
-        print(f"[FORGOT_PASSWORD] Route hit meta: {request_meta}")
+        print(f"[FORGOT_PASSWORD] Step 1: Request received")
+        print(f"[FORGOT_PASSWORD] Step 1a: Request meta: {request_meta}")
+        
         email = (data.get("email") or "").strip().lower()
-        print(f"[FORGOT_PASSWORD] Processing email: {email or '[empty]'}")
+        print(f"[FORGOT_PASSWORD] Step 2: Email extracted from request: {email or '[empty]'}")
 
         if not email:
+            print(f"[FORGOT_PASSWORD] Step 2a: Email validation FAILED - email is empty")
             return _json_response(False, "Email is required", status_code=400)
 
+        print(f"[FORGOT_PASSWORD] Step 2b: Email validation passed")
+        
+        print(f"[FORGOT_PASSWORD] Step 3: Querying database for user with email: {email}")
         user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+        
         if not user:
-            print(f"[FORGOT_PASSWORD] User not found for email: {email}")
+            print(f"[FORGOT_PASSWORD] Step 3a: User lookup FAILED - no user found for email: {email}")
             return _json_response(False, "User not found", status_code=404)
 
+        print(f"[FORGOT_PASSWORD] Step 3b: User found - user_id={user.id}, email={user.email}")
+
         try:
-            reset_token, _expires_at = _create_reset_token(db, user, email)
-            print(f"[FORGOT_PASSWORD] Calling send_reset_email for: {email}")
+            print(f"[FORGOT_PASSWORD] Step 4: Creating reset token")
+            reset_token, expires_at = _create_reset_token(db, user, email)
+            print(f"[FORGOT_PASSWORD] Step 4a: Token created successfully")
+            print(f"[FORGOT_PASSWORD] Step 4b: Token: {reset_token[:20]}...")
+            print(f"[FORGOT_PASSWORD] Step 4c: Expires at: {expires_at}")
+            
+            print(f"[FORGOT_PASSWORD] Step 5: Calling send_reset_email with email={email}, token={reset_token[:20]}...")
             sent = send_reset_email(
                 email=email,
                 token=reset_token,
             )
-            print(f"[FORGOT_PASSWORD] send_reset_email returned: {sent}")
+            print(f"[FORGOT_PASSWORD] Step 5a: send_reset_email returned: {sent}")
 
             if not sent:
                 err = get_last_email_error() or "Email delivery failed"
-                print(f"[FORGOT_PASSWORD] Reset email error: {err}")
+                print(f"[FORGOT_PASSWORD] Step 5b: Email send FAILED")
+                print(f"[FORGOT_PASSWORD] Step 5c: Error details: {err}")
                 return _json_response(False, "Failed to send reset email", status_code=500, error=err)
+            
+            print(f"[FORGOT_PASSWORD] Step 6: Email sent successfully")
         except Exception as e:
-            print(f"[FORGOT_PASSWORD] Reset email exception: {str(e)}")
-            print("[FORGOT_PASSWORD] Reset email exception stack:")
+            print(f"[FORGOT_PASSWORD] Step 5: EXCEPTION during email send")
+            print(f"[FORGOT_PASSWORD] Step 5a: Exception type: {type(e).__name__}")
+            print(f"[FORGOT_PASSWORD] Step 5b: Exception message: {str(e)}")
+            print("[FORGOT_PASSWORD] Step 5c: Full exception stack:")
             print(traceback.format_exc())
             return _json_response(False, "Failed to send reset email", status_code=500, error=str(e))
 
+        print(f"[FORGOT_PASSWORD] Step 7: Returning success response")
+        print("[FORGOT_PASSWORD] ===== END FORGOT_PASSWORD REQUEST (SUCCESS) =====")
         return _json_response(True, "Reset email sent successfully", status_code=200)
     except Exception as e:
-        print(f"[FORGOT_PASSWORD] Unhandled route error: {str(e)}")
-        print("[FORGOT_PASSWORD] Unhandled route error stack:")
+        print(f"[FORGOT_PASSWORD] UNHANDLED EXCEPTION in forgot_password route")
+        print(f"[FORGOT_PASSWORD] Exception type: {type(e).__name__}")
+        print(f"[FORGOT_PASSWORD] Exception message: {str(e)}")
+        print("[FORGOT_PASSWORD] Full exception stack:")
         print(traceback.format_exc())
+        print("[FORGOT_PASSWORD] ===== END FORGOT_PASSWORD REQUEST (UNHANDLED ERROR) =====")
         return _json_response(False, "Error processing reset password request", status_code=500, error=str(e))
 
 
