@@ -143,7 +143,27 @@ function getFromHeader(config) {
 }
 
 function isAuthError(error) {
-  return error && (error.code === 'EAUTH' || error.responseCode === 535);
+  if (!error) return false;
+  
+  // Nodemailer EAUTH error
+  if (error.code === 'EAUTH') return true;
+  
+  // SMTP response code 535 = authentication failure
+  if (error.responseCode === 535) return true;
+  
+  // SMTP response code 530 = authentication required
+  if (error.responseCode === 530) return true;
+  
+  // SMTP response code 550 = authentication/permissions
+  if (error.responseCode === 550) return true;
+  
+  // Check error message for auth-related keywords
+  const errorStr = String(error.message || error.response || '').toLowerCase();
+  if (errorStr.includes('auth') || errorStr.includes('authenticate') || errorStr.includes('credential') || errorStr.includes('unauthorized')) {
+    return true;
+  }
+  
+  return false;
 }
 
 function isRetryableError(error) {
@@ -160,15 +180,37 @@ function buildFailureMessage(error) {
     return 'Email delivery failed';
   }
 
+  const errorCode = error && error.code ? error.code : null;
+  const responseCode = error && error.responseCode ? error.responseCode : null;
+  const errorMsg = String(error.message || error.toString() || 'Unknown error');
+
+  // Authentication errors
   if (isAuthError(error)) {
-    return 'SMTP authentication failed. Check SMTP_USER and SMTP_PASS.';
+    return `SMTP authentication failed (code: ${errorCode || responseCode || 'EAUTH'}). SMTP_USER or SMTP_PASS may be incorrect.`;
   }
 
-  if (error.code === 'EENVELOPE') {
-    return 'SMTP rejected envelope/recipient details.';
+  // Connection errors
+  if (errorCode === 'ESOCKET' || errorCode === 'ECONNREFUSED' || errorCode === 'ENOTFOUND') {
+    return `Cannot reach SMTP server ${errorMsg}. Check smtp-relay.brevo.com is accessible.`;
   }
 
-  return String(error.message || error.toString() || 'Email delivery failed');
+  // Timeout errors
+  if (errorCode === 'ETIMEDOUT' || errorCode === 'ECONNRESET') {
+    return `SMTP connection timeout: ${errorMsg}. Server may be slow or unreachable.`;
+  }
+
+  // Envelope/recipient errors
+  if (errorCode === 'EENVELOPE') {
+    return `SMTP rejected email envelope or recipient address: ${errorMsg}`;
+  }
+
+  // TLS errors
+  if (errorCode === 'ESECURE' || errorMsg.includes('TLS')) {
+    return `TLS/Security error: ${errorMsg}. Check TLS configuration.`;
+  }
+
+  // Generic message with error code
+  return `${errorMsg} (${errorCode || responseCode || 'UNKNOWN'})`;
 }
 
 function createTransporter(config) {
@@ -183,6 +225,13 @@ function createTransporter(config) {
   console.log(`[MAILER]   - auth.user: ${config.smtpUser}`);
   console.log(`[MAILER]   - auth.pass: [${config.smtpPass.length} chars]`);
   console.log(`[MAILER]   - TLS minVersion: TLSv1.2`);
+  
+  // DEBUG: Show first 20 and last 20 chars of password
+  if (config.smtpPass.length > 40) {
+    const passStart = config.smtpPass.substring(0, 20);
+    const passEnd = config.smtpPass.substring(config.smtpPass.length - 20);
+    console.log(`[MAILER] DEBUG: Auth key preview: ${passStart}...${passEnd}`);
+  }
   
   const transporter = nodemailer.createTransport({
     host: config.smtpServer,
@@ -200,6 +249,8 @@ function createTransporter(config) {
     connectionTimeout: 30000,
     greetingTimeout: 30000,
     socketTimeout: 30000,
+    debug: true,  // Enable Nodemailer debug mode
+    logger: true,  // Log all SMTP interactions
   });
   
   console.log('[MAILER] Step 3b: Nodemailer transporter created successfully');
@@ -546,6 +597,95 @@ async function sendTestEmail(toEmail) {
   return sendEmail({ toEmail, subject, htmlContent, textContent, retries: 1 });
 }
 
+// =============== SMTP CONNECTION VERIFICATION ===============
+async function verifySmtpConnection() {
+  console.log('\n[MAILER-VERIFY] ===== SMTP CONNECTION VERIFICATION =====');
+  const config = getSmtpConfig();
+
+  // Step 1: Validate config
+  console.log('[MAILER-VERIFY] Step 1: Validating SMTP configuration');
+  const missing = validateSmtpConfig(config);
+  if (missing.length > 0) {
+    const error = `Configuration invalid - Missing: ${missing.join(', ')}`;
+    console.error('[MAILER-VERIFY] ❌ CONFIG INVALID:', error);
+    return { success: false, error, verified: false, step: 'config_validation' };
+  }
+  console.log('[MAILER-VERIFY] ✅ Step 1 PASSED: Configuration is valid');
+
+  // Step 2: Create transporter
+  console.log('[MAILER-VERIFY] Step 2: Creating Nodemailer transporter');
+  let transporter;
+  try {
+    transporter = createTransporter(config);
+    console.log('[MAILER-VERIFY] ✅ Step 2 PASSED: Transporter created');
+  } catch (error) {
+    const err = `Failed to create transporter: ${error && error.message ? error.message : String(error)}`;
+    console.error('[MAILER-VERIFY] ❌ Transporter creation failed:', err);
+    return { success: false, error: err, verified: false, step: 'transporter_creation' };
+  }
+
+  // Step 3: Verify SMTP connection
+  console.log('[MAILER-VERIFY] Step 3: Verifying SMTP connection with transporter.verify()');
+  try {
+    const verified = await transporter.verify();
+    if (verified) {
+      console.log('[MAILER-VERIFY] ✅ Step 3 PASSED: SMTP connection verified - ready to send emails');
+      console.log('[MAILER-VERIFY] ===== VERIFICATION SUCCESSFUL =====\n');
+      transporter.close();
+      return {
+        success: true,
+        verified: true,
+        step: 'smtp_verification',
+        smtp_user: config.smtpUser,
+        smtp_server: config.smtpServer,
+        smtp_port: config.smtpPort,
+        message: 'SMTP connection is working correctly',
+      };
+    } else {
+      const error = 'transporter.verify() returned false (unknown reason)';
+      console.error('[MAILER-VERIFY] ❌ Step 3 FAILED:', error);
+      transporter.close();
+      return { success: false, verified: false, error, step: 'smtp_verification' };
+    }
+  } catch (error) {
+    const errorMsg = error && error.message ? error.message : String(error);
+    const errorCode = error && error.code ? error.code : 'UNKNOWN';
+    
+    console.error('[MAILER-VERIFY] ❌ Step 3 FAILED: SMTP connection error');
+    console.error('[MAILER-VERIFY] Error details:', {
+      message: errorMsg,
+      code: errorCode,
+      responseCode: error && error.responseCode ? error.responseCode : null,
+    });
+
+    if (error && error.stack) {
+      console.error('[MAILER-VERIFY] Full stack trace:');
+      console.error(error.stack);
+    }
+
+    transporter.close();
+
+    // Specific error handling
+    let helpMessage = '';
+    if (errorCode === 'EAUTH' || error.responseCode === 535) {
+      helpMessage = 'SMTP_USER or SMTP_PASS is incorrect. Check your Brevo SMTP credentials in .env';
+    } else if (errorCode === 'ESOCKET' || errorCode === 'ECONNREFUSED') {
+      helpMessage = 'Cannot connect to SMTP host. Check if smtp-relay.brevo.com is accessible.';
+    } else if (errorCode === 'ETIMEDOUT') {
+      helpMessage = 'SMTP server connection timed out. Try again or check network connectivity.';
+    }
+
+    return {
+      success: false,
+      verified: false,
+      error: errorMsg,
+      code: errorCode,
+      help: helpMessage,
+      step: 'smtp_verification',
+    };
+  }
+}
+
 function getEmailHealth() {
   const config = getSmtpConfig();
   const missing = validateSmtpConfig(config);
@@ -571,4 +711,5 @@ module.exports = {
   sendTestEmail,
   getEmailHealth,
   getLastEmailError,
+  verifySmtpConnection,
 };
