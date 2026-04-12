@@ -631,6 +631,33 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     }
   };
 
+  const handleDeleteNotification = async (notificationId: number) => {
+    if (!userId) return;
+    const confirmed = window.confirm('Are you sure you want to delete this notification?');
+    if (!confirmed) return;
+
+    const previous = notifications;
+    setNotifications((prev: any[]) => prev.filter((n: any) => n.id !== notificationId));
+
+    try {
+      const response = await fetch(
+        buildApiUrl(`/api/notifications/${notificationId}?userId=${encodeURIComponent(userId)}`),
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Delete failed (${response.status})`);
+      }
+    } catch (error) {
+      console.error('Failed to delete notification', error);
+      setNotifications(previous);
+      alert('Failed to delete notification');
+    }
+  };
+
   const handleDeletePrescription = async (prescriptionId: number) => {
     if (!window.confirm('Are you sure you want to delete this prescription?')) return;
     try {
@@ -1601,10 +1628,9 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           <div className="text-gray-600">No new notifications for your account.</div>
         ) : (
           <div className="space-y-4">
-            {notifications.map((notification, index) => (
-              <button
-                key={index}
-                onClick={() => handleViewNotification(notification)}
+            {notifications.map((notification: any) => (
+              <div
+                key={notification.id || `${notification.related_prescription_id}-${notification.created_at}`}
                 className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
               >
                 <div className="flex items-start justify-between gap-4">
@@ -1612,9 +1638,24 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                     <p className="font-semibold text-gray-900">{notification.message}</p>
                     <p className="text-sm text-gray-500 mt-2">{new Date(notification.created_at || Date.now()).toLocaleString()}</p>
                   </div>
-                  <div className="text-xs text-emerald-700 font-semibold">View</div>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleViewNotification(notification)}
+                      className="text-xs text-emerald-700 font-semibold hover:text-emerald-800"
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNotification(notification.id)}
+                      className="text-xs text-red-600 font-semibold hover:text-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
