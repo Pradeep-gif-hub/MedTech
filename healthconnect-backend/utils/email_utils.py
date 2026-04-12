@@ -1,16 +1,20 @@
 import os
 import re
 import smtplib
+import socket
 from datetime import datetime
 from email.message import EmailMessage
 from html import escape
 from urllib.parse import quote_plus
+
+import requests
 
 from config import settings
 
 _LAST_EMAIL_ERROR = ""
 _DEFAULT_FRONTEND_URL = "https://medtech-4rjc.onrender.com"
 _OTP_EXPIRY_MINUTES = 5
+_BREVO_SEND_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def _set_last_email_error(message: str) -> None:
@@ -77,6 +81,32 @@ def _smtp_port() -> int:
         return 587
 
 
+def _smtp_timeout_seconds() -> int:
+    raw_timeout = (getattr(settings, "SMTP_TIMEOUT_SECONDS", "") or "").strip()
+    if not raw_timeout:
+        return 20
+
+    try:
+        timeout = int(raw_timeout)
+        return max(5, timeout)
+    except ValueError:
+        print(f"Email error: Invalid SMTP_TIMEOUT_SECONDS '{raw_timeout}', defaulting to 20")
+        return 20
+
+
+def _smtp_endpoint_candidates(preferred_port: int) -> list[tuple[str, int]]:
+    ordered_ports: list[int] = [preferred_port]
+    for fallback_port in (587, 2525, 465):
+        if fallback_port not in ordered_ports:
+            ordered_ports.append(fallback_port)
+
+    endpoints: list[tuple[str, int]] = []
+    for port in ordered_ports:
+        mode = "ssl" if port == 465 else "starttls"
+        endpoints.append((mode, port))
+    return endpoints
+
+
 def _smtp_config() -> dict:
     raw_from_email = (settings.FROM_EMAIL or settings.SMTP_USER or "").strip()
     normalized_from = _normalize_from_email(raw_from_email)
@@ -112,6 +142,7 @@ def _is_retryable_smtp_error(exc: Exception) -> bool:
             smtplib.SMTPServerDisconnected,
             smtplib.SMTPDataError,
             TimeoutError,
+            socket.timeout,
             ConnectionError,
             OSError,
         ),
@@ -146,6 +177,57 @@ def _build_email_message(
     )
     msg.add_alternative(html_content, subtype="html")
     return msg
+
+
+def _send_via_brevo_api(
+    *,
+    recipient: str,
+    subject: str,
+    html_content: str,
+    text_content: str | None,
+    from_address: str,
+) -> bool:
+    api_key = (getattr(settings, "BREVO_API_KEY", "") or "").strip()
+    if not api_key:
+        print("[EMAIL] Step 9a: Brevo API fallback skipped (BREVO_API_KEY missing)")
+        return False
+
+    sender_name = (settings.FROM_NAME or "MedTech").strip() or "MedTech"
+    payload = {
+        "sender": {
+            "name": sender_name,
+            "email": from_address,
+        },
+        "to": [{"email": recipient}],
+        "subject": subject,
+        "htmlContent": html_content,
+        "textContent": text_content or "This email contains HTML content.",
+    }
+
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": api_key,
+    }
+
+    try:
+        print(f"[EMAIL] Step 9b: Trying Brevo HTTPS API fallback for {recipient}")
+        response = requests.post(_BREVO_SEND_API_URL, json=payload, headers=headers, timeout=25)
+
+        if 200 <= response.status_code < 300:
+            print(f"[EMAIL] Step 9c: Brevo API send success (status={response.status_code})")
+            _set_last_email_error("")
+            return True
+
+        error_message = f"Brevo API failed ({response.status_code}): {response.text[:300]}"
+        print(f"[EMAIL] ERROR: {error_message}")
+        _set_last_email_error(error_message)
+        return False
+    except Exception as api_exc:
+        error_message = f"Brevo API exception: {type(api_exc).__name__}: {api_exc}"
+        print(f"[EMAIL] ERROR: {error_message}")
+        _set_last_email_error(error_message)
+        return False
 
 
 def _send_via_smtp(
@@ -187,11 +269,14 @@ def _send_via_smtp(
     
     total_attempts = max(1, int(retries) + 1)
     last_exc: Exception | None = None
+    timeout_seconds = _smtp_timeout_seconds()
+    endpoints = _smtp_endpoint_candidates(config["port"])
 
     print(
         f"[EMAIL] Step 4: Triggered SMTP send to={recipient}, subject='{subject}', "
-        f"server={config['server']}:{config['port']}, attempts={total_attempts}"
+        f"server={config['server']}:{config['port']}, attempts={total_attempts}, timeout={timeout_seconds}s"
     )
+    print(f"[EMAIL] Step 4a: Endpoint candidates = {endpoints}")
 
     print("[EMAIL] Step 5: Building email message")
     msg = _build_email_message(
@@ -203,53 +288,68 @@ def _send_via_smtp(
     )
     print("[EMAIL] Step 5a: Email message built successfully")
 
+    auth_failed = False
     for attempt in range(1, total_attempts + 1):
-        try:
-            print(f"[EMAIL] Step 6.{attempt}: Attempt {attempt} - Connecting to SMTP server")
-            with smtplib.SMTP(config["server"], config["port"], timeout=30) as smtp:
-                print(f"[EMAIL] Step 6.{attempt}a: SMTP connection established")
-                
-                print(f"[EMAIL] Step 6.{attempt}b: Sending EHLO")
-                smtp.ehlo()
-                
-                print(f"[EMAIL] Step 6.{attempt}c: Starting TLS")
-                smtp.starttls()
-                
-                print(f"[EMAIL] Step 6.{attempt}d: Sending EHLO after TLS")
-                smtp.ehlo()
-                
-                print(f"[EMAIL] Step 6.{attempt}e: Authenticating with SMTP user: {config['user']}")
-                smtp.login(config["user"], config["password"])
-                print(f"[EMAIL] Step 6.{attempt}f: Authentication successful")
-                
-                print(f"[EMAIL] Step 6.{attempt}g: Sending message")
-                smtp_response = smtp.send_message(msg)
-                print(f"[EMAIL] Step 6.{attempt}h: Message sent, SMTP response = {smtp_response}")
+        for endpoint_index, (mode, port) in enumerate(endpoints, start=1):
+            try:
+                print(
+                    f"[EMAIL] Step 6.{attempt}.{endpoint_index}: Attempt {attempt}/{total_attempts} "
+                    f"using mode={mode} port={port}"
+                )
+                if mode == "ssl":
+                    with smtplib.SMTP_SSL(config["server"], port, timeout=timeout_seconds) as smtp:
+                        print(f"[EMAIL] Step 6.{attempt}.{endpoint_index}a: SMTP SSL connection established")
+                        smtp.ehlo()
+                        smtp.login(config["user"], config["password"])
+                        print(f"[EMAIL] Step 6.{attempt}.{endpoint_index}b: Authentication successful")
+                        smtp_response = smtp.send_message(msg)
+                else:
+                    with smtplib.SMTP(config["server"], port, timeout=timeout_seconds) as smtp:
+                        print(f"[EMAIL] Step 6.{attempt}.{endpoint_index}a: SMTP connection established")
+                        smtp.ehlo()
+                        smtp.starttls()
+                        smtp.ehlo()
+                        smtp.login(config["user"], config["password"])
+                        print(f"[EMAIL] Step 6.{attempt}.{endpoint_index}b: Authentication successful")
+                        smtp_response = smtp.send_message(msg)
 
-            if smtp_response:
-                print(f"[EMAIL] Step 6.{attempt}i: SMTP returned response code (recipient refused): {smtp_response}")
-                raise smtplib.SMTPRecipientsRefused(smtp_response)
+                print(f"[EMAIL] Step 6.{attempt}.{endpoint_index}c: Message sent, SMTP response = {smtp_response}")
+                if smtp_response:
+                    raise smtplib.SMTPRecipientsRefused(smtp_response)
 
-            print(f"[EMAIL] Step 7: SMTP send success to={recipient}")
-            _set_last_email_error("")
-            return True
-        except smtplib.SMTPAuthenticationError as e:
-            last_exc = e
-            message = f"SMTP authentication failed: {str(e)}"
-            print(f"[EMAIL] ERROR (Attempt {attempt}): {message}")
-            # Bad credentials will not succeed on retry.
-            break
-        except Exception as e:
-            last_exc = e
-            error_msg = f"SMTP error (Attempt {attempt}): {type(e).__name__}: {str(e)}"
-            print(f"[EMAIL] {error_msg}")
-            if attempt < total_attempts and _is_retryable_smtp_error(e):
-                print(f"[EMAIL] Step 6.{attempt}i: Retryable error, will attempt {attempt + 1}/{total_attempts}")
-                continue
+                print(f"[EMAIL] Step 7: SMTP send success to={recipient}")
+                _set_last_email_error("")
+                return True
+            except smtplib.SMTPAuthenticationError as e:
+                last_exc = e
+                auth_failed = True
+                print(f"[EMAIL] ERROR: SMTP authentication failed on port {port}: {e}")
+                break
+            except Exception as e:
+                last_exc = e
+                print(f"[EMAIL] SMTP error on mode={mode} port={port}: {type(e).__name__}: {e}")
+                if _is_retryable_smtp_error(e):
+                    print(f"[EMAIL] Step 6.{attempt}.{endpoint_index}d: retryable, trying next endpoint")
+                    continue
+                break
+
+        if auth_failed:
             break
 
     if last_exc is None:
         last_exc = RuntimeError("Email delivery failed")
+
+    # If SMTP paths fail (timeouts/network issues), fallback to Brevo HTTPS API.
+    print("[EMAIL] Step 8: SMTP delivery failed, attempting Brevo API fallback...")
+    if _send_via_brevo_api(
+        recipient=recipient,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content,
+        from_address=config["from_address"],
+    ):
+        print(f"[EMAIL] Step 8a: Fallback delivery succeeded for {recipient}")
+        return True
 
     failure_message = _build_failure_message(last_exc)
     print(f"[EMAIL] ERROR: Final failure message: {failure_message}")
