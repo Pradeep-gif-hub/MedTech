@@ -89,7 +89,7 @@ export const fetchBackendProfile = async (): Promise<BackendProfile> => {
 
     const data = await userRes.json();
     console.log('[useBackendProfile] Fetched user profile:', data);
-    return data;
+    return data.user;
   } catch (error) {
     console.error('[useBackendProfile] Error fetching profile:', error);
     throw error;

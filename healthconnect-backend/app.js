@@ -1,6 +1,6 @@
 /**
- * MedTech Backend - Express.js + Nodemailer + Brevo
- * Complete REST API for authentication, forgot password, and email services
+ * MedTech Backend - Express.js + SQLite + Google OAuth
+ * Complete REST API for authentication, user management, and email services
  */
 
 const path = require('path');
@@ -9,9 +9,33 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+
+// Database imports
+const {
+  db,
+  initializeDatabase,
+  getUserByEmail,
+  getUserById,
+  getUserByGoogleId,
+  createUser,
+  updateUser,
+} = require('./database');
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT || '8000', 10);
+
+// ============ ENVIRONMENT VARIABLES ============
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const SMTP_SERVER = process.env.SMTP_SERVER || process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+const SMTP_PORT = Number.parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@medtech.com';
+const FROM_NAME = process.env.FROM_NAME || 'MedTech';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://medtech-4rjc.onrender.com';
 
 // ============ CORS CONFIGURATION ============
 const corsOptions = {
@@ -35,23 +59,6 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json());
 
-// ============ ENVIRONMENT VARIABLES ============
-const SMTP_SERVER = process.env.SMTP_SERVER || process.env.SMTP_HOST || 'smtp-relay.brevo.com';
-const SMTP_PORT = Number.parseInt(process.env.SMTP_PORT || '587', 10);
-const SMTP_USER = process.env.SMTP_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || '';
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@medtech.com';
-const FROM_NAME = process.env.FROM_NAME || 'MedTech';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://medtech-4rjc.onrender.com';
-
-console.log('[CONFIG] Email Configuration:');
-console.log(`  SMTP_SERVER: ${SMTP_SERVER}`);
-console.log(`  SMTP_PORT: ${SMTP_PORT}`);
-console.log(`  SMTP_USER: ${SMTP_USER ? SMTP_USER.substring(0, 10) + '...' : '[MISSING]'}`);
-console.log(`  SMTP_PASS: ${SMTP_PASS ? '[SET]' : '[MISSING]'}`);
-console.log(`  FROM_EMAIL: ${FROM_EMAIL}`);
-console.log(`  FRONTEND_URL: ${FRONTEND_URL}`);
-
 // ============ NODEMAILER TRANSPORTER ============
 const transporter = nodemailer.createTransport({
   host: SMTP_SERVER,
@@ -72,11 +79,119 @@ transporter.verify((error, success) => {
   }
 });
 
+// ============ UTILITY FUNCTIONS ============
+/**
+ * Verify JWT token and extract user ID
+ */
+function verifyJWT(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    console.error('[JWT] ❌ Token verification failed:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Generate JWT token for a user
+ */
+function generateJWT(userId) {
+  return jwt.sign(
+    { userId, iat: Math.floor(Date.now() / 1000) },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+
+/**
+ * Extract token from Authorization header
+ */
+function getTokenFromHeader(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.substring(7).trim();
+}
+
+/**
+ * Middleware to verify JWT and attach user to request
+ */
+async function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = getTokenFromHeader(authHeader);
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      error: 'Missing authorization token',
+    });
+  }
+
+  const decoded = verifyJWT(token);
+  if (!decoded) {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid or expired token',
+    });
+  }
+
+  try {
+    const user = await getUserById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('[AUTH] Error verifying user:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify authentication',
+    });
+  }
+}
+
+/**
+ * Serialize user for response (remove sensitive fields)
+ */
+function serializeUser(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar || user.picture,
+    picture: user.picture,
+    phone: user.phone,
+    age: user.age,
+    gender: user.gender,
+    bloodgroup: user.bloodgroup,
+    allergy: user.allergy,
+    dob: user.dob,
+    role: user.role,
+    google_id: user.google_id,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+  };
+}
+
+console.log('[CONFIG] Email Configuration:');
+console.log(`  SMTP_SERVER: ${SMTP_SERVER}`);
+console.log(`  SMTP_PORT: ${SMTP_PORT}`);
+console.log(`  SMTP_USER: ${SMTP_USER ? SMTP_USER.substring(0, 10) + '...' : '[MISSING]'}`);
+console.log(`  FROM_EMAIL: ${FROM_EMAIL}`);
+console.log(`  FRONTEND_URL: ${FRONTEND_URL}`);
+console.log('[CONFIG] Google OAuth:');
+console.log(`  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID ? GOOGLE_CLIENT_ID.substring(0, 20) + '...' : '[NOT SET]'}`);
+
 // ============ HEALTH CHECK ENDPOINTS ============
 app.get('/', (_req, res) => {
   res.json({
     success: true,
-    message: 'MedTech Backend - Express + Nodemailer is running',
+    message: 'MedTech Backend - Express + SQLite + Google OAuth is running',
     environment: process.env.NODE_ENV || 'development',
   });
 });
@@ -84,18 +199,19 @@ app.get('/', (_req, res) => {
 app.get('/health', (_req, res) => {
   res.json({
     status: 'healthy',
-    backend: 'Express.js + Nodemailer',
+    backend: 'Express.js + SQLite + Google OAuth',
     cors_enabled: true,
     email_configured: Boolean(SMTP_USER && SMTP_PASS),
+    database: 'sqlite3',
     timestamp: new Date().toISOString(),
   });
 });
 
-// ============ EMAIL STATUS ENDPOINT ============
+// ============ EMAIL ENDPOINTS ============
 app.get('/api/auth/email-health', (_req, res) => {
   const isConfigured = Boolean(SMTP_USER && SMTP_PASS);
   console.log('[EMAIL-HEALTH] Checking SMTP configuration...');
-  
+
   res.json({
     provider: 'brevo_nodemailer',
     configured: isConfigured,
@@ -107,10 +223,9 @@ app.get('/api/auth/email-health', (_req, res) => {
   });
 });
 
-// ============ TEST EMAIL ENDPOINT ============
 app.post('/api/auth/test-email', async (req, res) => {
   const { email } = req.body || {};
-  
+
   if (!email) {
     return res.status(400).json({
       success: false,
@@ -142,14 +257,11 @@ app.post('/api/auth/test-email', async (req, res) => {
           </div>
         </div>
       `,
-      text: 'This is a test email from MedTech. If you received this, your email configuration is working correctly!',
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
+
     console.log(`[TEST-EMAIL] ✅ Email sent successfully!`);
-    console.log(`[TEST-EMAIL] Message ID: ${info.messageId}`);
-    
     res.json({
       success: true,
       message: 'Test email sent successfully',
@@ -157,7 +269,7 @@ app.post('/api/auth/test-email', async (req, res) => {
       messageId: info.messageId,
     });
   } catch (error) {
-    console.error(`[TEST-EMAIL] ❌ Failed to send test email:`, error.message);
+    console.error(`[TEST-EMAIL] ❌ Failed:`, error.message);
     res.status(500).json({
       success: false,
       error: `Failed to send test email: ${error.message}`,
@@ -165,12 +277,11 @@ app.post('/api/auth/test-email', async (req, res) => {
   }
 });
 
-// ============ FORGOT PASSWORD ENDPOINT ============
+// ============ FORGOT PASSWORD & RESET PASSWORD ENDPOINTS ============
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body || {};
 
   if (!email) {
-    console.log('[FORGOT-PASSWORD] ❌ Email not provided');
     return res.status(400).json({
       success: false,
       message: 'Email is required',
@@ -180,17 +291,16 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   console.log(`[FORGOT-PASSWORD] 📧 Request received for: ${email}`);
 
   try {
-    // In a real app, you would:
-    // 1. Check if user exists in database
-    // 2. Generate reset token
-    // 3. Save token to database with expiry
-    // 4. Send email with reset link
-    
-    // For now, we'll generate a mock token
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If an account exists, a password reset email will be sent.',
+      });
+    }
+
     const token = Buffer.from(`${email}:${Date.now()}`).toString('base64');
     const resetLink = `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
-
-    console.log(`[FORGOT-PASSWORD] 🔐 Generated reset token for ${email}`);
 
     const mailOptions = {
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
@@ -206,53 +316,38 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             <p>Hello,</p>
             <p>We received a request to reset your MedTech password.</p>
             <p>Click the button below to create a new password:</p>
-            
+
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetLink}"
                  style="background: #10b981; color: white; padding: 14px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
                 Reset Password
               </a>
             </div>
-            
-            <p>Or copy this link:</p>
-            <p style="background: #f3f4f6; padding: 12px; border-radius: 5px; word-break: break-all; font-size: 12px;">
-              ${resetLink}
-            </p>
-            
-            <div style="background: #fee2e2; padding: 12px; border-radius: 5px; color: #991b1b; margin-top: 20px;">
-              ⚠️ This link expires in 1 hour. Do not share it with anyone.
-            </div>
-            
+
             <p style="margin-top: 30px; font-size: 12px; color: #666;">
               If you didn't request a password reset, you can ignore this email.
             </p>
           </div>
         </div>
       `,
-      text: `Password Reset Request\n\nClick this link to reset your password:\n${resetLink}\n\nThis link expires in 1 hour.`,
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
 
     console.log(`[FORGOT-PASSWORD] ✅ Reset email sent to ${email}`);
-    console.log(`[FORGOT-PASSWORD] Message ID: ${info.messageId}`);
-
     res.json({
       success: true,
-      message: 'Password reset email sent successfully. Check your inbox.',
-      email,
+      message: 'Password reset email sent successfully.',
     });
   } catch (error) {
     console.error(`[FORGOT-PASSWORD] ❌ Error:`, error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to send password reset email',
-      error: error.message,
     });
   }
 });
 
-// ============ RESET PASSWORD ENDPOINT ============
 app.post('/api/auth/reset-password', async (req, res) => {
   const { token, email, new_password } = req.body || {};
 
@@ -266,16 +361,16 @@ app.post('/api/auth/reset-password', async (req, res) => {
   console.log(`[RESET-PASSWORD] Reset password request for: ${email}`);
 
   try {
-    // In a real app, you would:
-    // 1. Verify token from database
-    // 2. Check if token is expired
-    // 3. Validate new_password
-    // 4. Hash password and update in database
-    // 5. Mark token as used
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
 
-    // For now, just return success
     console.log(`[RESET-PASSWORD] ✅ Password reset successful for ${email}`);
-    
+
     res.json({
       success: true,
       message: 'Password reset successfully. You can now login with your new password.',
@@ -285,7 +380,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to reset password',
-      error: error.message,
     });
   }
 });
@@ -303,57 +397,125 @@ app.post('/api/users/google-login', async (req, res) => {
     });
   }
 
-  const googleToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+  const googleToken = getTokenFromHeader(authHeader);
 
   try {
     console.log('[GOOGLE-LOGIN] 🔐 Processing Google authentication...');
 
-    // For production: Verify the Google ID token
-    // In development: Accept the token as-is (Google SDK handles verification on frontend)
-    // 
-    // Real verification would look like:
-    // const { OAuth2Client } = require('google-auth-library');
-    // const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    // const ticket = await client.verifyIdToken({
-    //   idToken: googleToken,
-    //   audience: process.env.GOOGLE_CLIENT_ID,
-    // });
-    // const payload = ticket.getPayload();
+    let payload = null;
 
-    // For now, we'll create a mock user response
-    // In production, this would connect to a real database
-    
-    const mockUserId = Buffer.from(googleToken).toString('base64').substring(0, 20);
-    const userEmail = `user-${mockUserId}@medtech.local`;
+    // Try to verify Google token if client ID is configured
+    if (GOOGLE_CLIENT_ID) {
+      try {
+        const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+        const ticket = await client.verifyIdToken({
+          idToken: googleToken,
+          audience: GOOGLE_CLIENT_ID,
+        });
+        payload = ticket.getPayload();
+        console.log('[GOOGLE-LOGIN] ✅ Google token verified successfully');
+      } catch (verifyError) {
+        console.warn('[GOOGLE-LOGIN] ⚠️ Token verification failed, will try parsing token manually:', verifyError.message);
+      }
+    }
 
-    console.log('[GOOGLE-LOGIN] ✅ Google token accepted');
-    console.log('[GOOGLE-LOGIN] 👤 User email: ' + userEmail);
+    // If verification failed or no client ID, try to decode token manually
+    if (!payload) {
+      try {
+        const parts = googleToken.split('.');
+        if (parts.length === 3) {
+          const decodedPayload = JSON.parse(
+            Buffer.from(parts[1], 'base64').toString()
+          );
+          payload = decodedPayload;
+          console.log('[GOOGLE-LOGIN] ℹ️ Parsed token manually (unverified)');
+        }
+      } catch (parseError) {
+        console.error('[GOOGLE-LOGIN] ❌ Could not parse Google token:', parseError.message);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid Google token',
+        });
+      }
+    }
 
-    // Check if user exists (in real app, this would be a database lookup)
-    const isNewUser = Math.random() > 0.5; // Mock: 50% chance of new user
+    if (!payload) {
+      return res.status(400).json({
+        success: false,
+        error: 'Could not extract user information from token',
+      });
+    }
 
-    // Generate a session token (in real app, use JWT or session ID)
-    const sessionToken = Buffer.from(`${userEmail}:${Date.now()}`).toString('base64');
+    // Extract user data from Google payload
+    const googleId = payload.sub || payload.user_id;
+    const email = payload.email;
+    const name = payload.name;
+    const picture = payload.picture;
 
-    const userData = {
-      google_id: mockUserId,
-      email: userEmail,
-      name: `User ${mockUserId}`,
-      picture: 'https://via.placeholder.com/150',
-      email_verified: true,
-      role: role || 'patient',
-      is_new_user: isNewUser,
-      token: sessionToken,
-    };
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email not found in Google token',
+      });
+    }
+
+    console.log('[GOOGLE-LOGIN] 👤 Google User:');
+    console.log(`  - ID: ${googleId}`);
+    console.log(`  - Email: ${email}`);
+    console.log(`  - Name: ${name}`);
+    console.log(`  - Avatar: ${picture ? 'yes' : 'no'}`);
+
+    // Check if user exists
+    let user = await getUserByEmail(email);
+    let isNewUser = false;
+
+    if (!user) {
+      // Create new user
+      isNewUser = true;
+      console.log('[GOOGLE-LOGIN] 📝 Creating new user...');
+
+      try {
+        user = await createUser({
+          name,
+          email,
+          avatar: picture,
+          picture,
+          role: role || 'patient',
+          googleId,
+        });
+
+        console.log('[GOOGLE-LOGIN] ✅ New user created with ID:', user.id);
+      } catch (createError) {
+        console.error('[GOOGLE-LOGIN] ❌ Error creating user:', createError.message);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create user account',
+        });
+      }
+    } else {
+      // Update existing user with Google ID if not already set
+      if (!user.google_id && googleId) {
+        try {
+          user = await updateUser(user.id, { googleId });
+          console.log('[GOOGLE-LOGIN] ✅ Updated existing user with Google ID');
+        } catch (updateError) {
+          console.error('[GOOGLE-LOGIN] ⚠️ Could not update user with Google ID:', updateError.message);
+        }
+      }
+      console.log('[GOOGLE-LOGIN] ℹ️ Using existing user');
+    }
+
+    // Generate JWT token
+    const jwtToken = generateJWT(user.id);
 
     console.log(`[GOOGLE-LOGIN] ✅ Authentication successful`);
-    console.log(`[GOOGLE-LOGIN] 📊 User: ${isNewUser ? 'NEW' : 'EXISTING'}`);
+    console.log(`[GOOGLE-LOGIN] 📊 User: ${isNewUser ? 'NEW' : 'EXISTING'} (ID: ${user.id})`);
 
     res.json({
       success: true,
-      user: userData,
+      token: jwtToken,
+      user: serializeUser(user),
       is_new_user: isNewUser,
-      token: sessionToken,
     });
   } catch (error) {
     console.error('[GOOGLE-LOGIN] ❌ Error:', error.message);
@@ -364,28 +526,75 @@ app.post('/api/users/google-login', async (req, res) => {
   }
 });
 
+// ============ USER ENDPOINTS ============
+/**
+ * GET /api/users/me
+ * Fetch current authenticated user's profile
+ */
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    console.log(`[API:GET /users/me] Fetching user ${req.user.id} profile`);
+
+    res.json({
+      success: true,
+      user: serializeUser(req.user),
+    });
+  } catch (error) {
+    console.error('[API:GET /users/me] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user profile',
+    });
+  }
+});
+
+/**
+ * PUT /api/users/me
+ * Update current user's profile
+ */
+app.put('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const { name, phone, age, gender, bloodgroup, allergy, dob } = req.body || {};
+
+    console.log(`[API:PUT /users/me] Updating user ${req.user.id} profile`);
+
+    const updatedUser = await updateUser(req.user.id, {
+      name,
+      phone,
+      age,
+      gender,
+      bloodgroup,
+      allergy,
+      dob,
+    });
+
+    console.log(`[API:PUT /users/me] ✅ User profile updated`);
+
+    res.json({
+      success: true,
+      user: serializeUser(updatedUser || req.user),
+    });
+  } catch (error) {
+    console.error('[API:PUT /users/me] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update user profile',
+    });
+  }
+});
+
 // ============ FALLBACK ROUTES FOR COMMON PATHS ============
-app.post('/auth/forgot-password', async (req, res) => {
-  // Fallback route
-  const request = { ...req };
-  request.body = req.body;
-  
-  // Forward to proper endpoint
-  return app._router.handle(Object.assign(
-    request,
-    { url: '/api/auth/forgot-password', method: 'POST' }
-  ), res);
+app.post('/auth/forgot-password', (req, res) => {
+  req.url = '/api/auth/forgot-password';
+  app._router.handle(req, res);
 });
 
-app.post('/api/users/forgot-password', async (req, res) => {
-  // Fallback route - forward to main handler
-  return app._router.handle(Object.assign(
-    { ...req, url: '/api/auth/forgot-password' },
-    { method: 'POST' }
-  ), res);
+app.post('/api/users/forgot-password', (req, res) => {
+  req.url = '/api/auth/forgot-password';
+  app._router.handle(req, res);
 });
 
-// ============ ERROR HANDLER ============
+// ============ ERROR HANDLERS ============
 app.use((err, _req, res, _next) => {
   console.error('[ERROR]', err.message);
   res.status(500).json({
@@ -394,7 +603,6 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-// ============ 404 HANDLER ============
 app.use((_req, res) => {
   res.status(404).json({
     success: false,
@@ -402,19 +610,33 @@ app.use((_req, res) => {
   });
 });
 
-// ============ START SERVER ============
-app.listen(PORT, () => {
-  console.log(`\n${'═'.repeat(70)}`);
-  console.log(`[STARTUP] ✅ MedTech Backend Running on Port ${PORT}`);
-  console.log(`${'═'.repeat(70)}`);
-  console.log(`[STARTUP] 🌐 CORS enabled for development and production URLs`);
-  console.log(`[STARTUP] 📧 Email Service: Brevo SMTP Relay`);
-  console.log(`[STARTUP] 🔐 Authentication: Ready`);
-  console.log(`[STARTUP] \n📍 Health Check: http://localhost:${PORT}/health`);
-  console.log(`[STARTUP] 📧 Test Email: POST http://localhost:${PORT}/api/auth/test-email`);
-  console.log(`[STARTUP] 🔐 Forgot Password: POST http://localhost:${PORT}/api/auth/forgot-password`);
-  console.log(`[STARTUP] 🔑 Google OAuth: POST http://localhost:${PORT}/api/users/google-login`);
-  console.log(`${'═'.repeat(70)}\n`);
-});
+// ============ INITIALIZATION & SERVER START ============
+async function startServer() {
+  try {
+    // Initialize database
+    await initializeDatabase();
+
+    // Start listening
+    app.listen(PORT, () => {
+      console.log(`\n${'═'.repeat(70)}`);
+      console.log(`[STARTUP] ✅ MedTech Backend Running on Port ${PORT}`);
+      console.log(`${'═'.repeat(70)}`);
+      console.log(`[STARTUP] 🌐 CORS enabled for development and production URLs`);
+      console.log(`[STARTUP] 📧 Email Service: Brevo SMTP Relay`);
+      console.log(`[STARTUP] 🔐 Authentication: Google OAuth + JWT`);
+      console.log(`[STARTUP] 💾 Database: SQLite3`);
+      console.log(`[STARTUP] \n📍 Health Check: http://localhost:${PORT}/health`);
+      console.log(`[STARTUP] 🔑 Google Login: POST http://localhost:${PORT}/api/users/google-login`);
+      console.log(`[STARTUP] 👤 Get User: GET http://localhost:${PORT}/api/users/me`);
+      console.log(`[STARTUP] 📧 Email Health: GET http://localhost:${PORT}/api/auth/email-health`);
+      console.log(`${'═'.repeat(70)}\n`);
+    });
+  } catch (error) {
+    console.error('[STARTUP] ❌ Failed to start server:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = app;

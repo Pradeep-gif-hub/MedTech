@@ -40,7 +40,25 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [liveHeartRate, setLiveHeartRate] = useState(72 as number);
   const [liveTemperature, setLiveTemperature] = useState(98.6 as number);
   const [liveOxygen, setLiveOxygen] = useState(98 as number);
-  const { profile, refreshProfile } = useBackendProfile();
+  
+  // Fetch user profile from backend
+  const { profile, refreshProfile, loading: profileLoading } = useBackendProfile();
+
+  // ============ CRITICAL: Refresh profile on component mount ============
+  useEffect(() => {
+    console.log('[PatientDashboard] Mounted, refreshing profile...');
+    refreshProfile();
+  }, []);
+
+  // ============ CRITICAL: Listen for user-updated events to refresh profile ============
+  useEffect(() => {
+    const handleUserUpdated = () => {
+      console.log('[PatientDashboard] User updated event received, refreshing profile...');
+      refreshProfile();
+    };
+    window.addEventListener('user-updated', handleUserUpdated);
+    return () => window.removeEventListener('user-updated', handleUserUpdated);
+  }, [refreshProfile]);
 
   // WebRTC / signaling refs (patient = sender)
   const localVideoRef = useRef(null as HTMLVideoElement | null);
@@ -663,7 +681,9 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           return;
         }
 
-        const data = await res.json();
+        const response = await res.json();
+        const data = response.user || response;
+        
         if (!data || !mounted) {
           return;
         }

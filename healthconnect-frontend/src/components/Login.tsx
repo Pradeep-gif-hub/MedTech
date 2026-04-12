@@ -141,7 +141,8 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
         return null;
       }
 
-      return await res.json();
+      const data = await res.json();
+      return data.user || data;
     } catch {
       return null;
     }
@@ -288,20 +289,25 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
 
       if (res.ok) {
         const response = await parseJsonSafe(res);
-        const { user, is_new_user } = response;
+        console.log('[Google Auth] Backend response:', response);
         
-        // Store Google identity in memory only.
-        setUser({
-          google_id: user.google_id || '',
-          email: user.email || '',
-          name: user.name,
-          picture: user.picture,
-          email_verified: user.email_verified
-        });
+        // Extract JWT token from response
+        const jwtToken = response.token;
+        if (!jwtToken) {
+          console.error('[Google Auth] No token in response:', response);
+          alert('Google login failed: No authentication token received');
+          return;
+        }
+
+        const { user, is_new_user } = response;
 
         if (is_new_user) {
           // New user - redirect to profile completion
           console.log('[Login] New user detected, redirecting to profile completion');
+          // Save token first
+          persistSession(jwtToken, selectedRole);
+          setToken(jwtToken);
+          
           if (onNewUser) {
             onNewUser({
               ...user,
@@ -311,20 +317,27 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
           }
         } else {
           // Existing user - login directly
-          const appToken = response.token || user.token || '';
-          if (!appToken) {
-            alert('Google login failed: missing session token');
-            return;
-          }
-          const resolvedRole = (user.role || selectedRole) as UserRole;
+          console.log('[Login] Existing user, logging in with token:', jwtToken.substring(0, 20) + '...');
+          
+          // Persist session with JWT token
+          persistSession(jwtToken, user.role || selectedRole);
+          setToken(jwtToken);
 
-          persistSession(appToken, resolvedRole);
-          if (appToken) {
-            setToken(appToken);
-          }
+          // Set user in auth context
+          setUser({
+            google_id: user.google_id || '',
+            email: user.email || '',
+            name: user.name,
+            picture: user.picture,
+            email_verified: user.email_verified || true
+          });
 
-          const hydratedProfile = await fetchCurrentUser(appToken);
-          const nextRole = (hydratedProfile?.role || resolvedRole) as UserRole;
+          // Fetch latest user profile from API
+          const hydratedProfile = await fetchCurrentUser(jwtToken);
+          console.log('[Login] Fetched user profile:', hydratedProfile);
+          
+          const nextRole = (hydratedProfile?.role || user.role || selectedRole) as UserRole;
+          
           if (hydratedProfile) {
             window.dispatchEvent(new CustomEvent('user-updated', { detail: hydratedProfile }));
           }
