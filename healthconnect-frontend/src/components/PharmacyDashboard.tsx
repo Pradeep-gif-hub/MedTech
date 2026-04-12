@@ -595,6 +595,18 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+    {/* Loading Spinner */}
+    {!profile && (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="text-center">
+          <div className="inline-block">
+            <div className="w-16 h-16 border-4 border-blue-400/30 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+          </div>
+          <p className="text-white/90 font-semibold text-lg">Loading Pharmacy Dashboard...</p>
+          <p className="text-white/60 text-sm mt-2">Initializing pharmacy data</p>
+        </div>
+      </div>
+    )}
     {/* Header */}
 <header className="bg-gradient-to-r from-blue-700 via-indigo-600 to-emerald-500 shadow-lg backdrop-blur-md">
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

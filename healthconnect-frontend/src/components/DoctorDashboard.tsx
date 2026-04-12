@@ -1840,6 +1840,18 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // ----------- STEP 9: Main component render -------  
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white">
+      {/* Loading Spinner - Show while profile is loading */}
+      {!profile && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="inline-block">
+              <div className="w-16 h-16 border-4 border-purple-400/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+            </div>
+            <p className="text-white/90 font-semibold text-lg">Loading Dashboard...</p>
+            <p className="text-white/60 text-sm mt-2">Fetching doctor profile and data</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-gradient-to-r from-[#7c3aed] to-[#ec4899] shadow-2xl">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
