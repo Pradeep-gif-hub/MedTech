@@ -74,11 +74,21 @@ const transporter = nodemailer.createTransport({
 });
 
 // Test transporter on startup
+console.log('[STARTUP] Testing SMTP connection...');
+console.log('[STARTUP] SMTP_USER set:', Boolean(SMTP_USER && SMTP_USER.trim()));
+console.log('[STARTUP] SMTP_PASS set:', Boolean(SMTP_PASS && SMTP_PASS.trim()));
+console.log('[STARTUP] Attempting transporter.verify()...');
+
 transporter.verify((error, success) => {
   if (error) {
-    console.error('[STARTUP] ❌ Nodemailer SMTP verification FAILED:', error.message);
+    console.error('[STARTUP] ❌ CRITICAL: Nodemailer SMTP verification FAILED');
+    console.error('[STARTUP] Error type:', error.code || error.name);
+    console.error('[STARTUP] Error message:', error.message);
+    console.error('[STARTUP] Full error:', JSON.stringify(error, null, 2));
+    console.error('[STARTUP] ⚠️  Email sending will fail until SMTP credentials are fixed!');
   } else {
     console.log('[STARTUP] ✅ Nodemailer SMTP verification SUCCESS - ready to send emails');
+    console.log('[STARTUP] Connected to:', SMTP_SERVER + ':' + SMTP_PORT);
   }
 });
 
@@ -181,14 +191,19 @@ function serializeUser(user) {
   };
 }
 
+console.log('\n╔═══════════════════════════════════════════════════════╗');
+console.log('║           MEDTECH BACKEND CONFIGURATION                 ║');
+console.log('╚═══════════════════════════════════════════════════════╝');
 console.log('[CONFIG] Email Configuration:');
 console.log(`  SMTP_SERVER: ${SMTP_SERVER}`);
 console.log(`  SMTP_PORT: ${SMTP_PORT}`);
-console.log(`  SMTP_USER: ${SMTP_USER ? SMTP_USER.substring(0, 10) + '...' : '[MISSING]'}`);
+console.log(`  SMTP_USER configured: ${Boolean(SMTP_USER && SMTP_USER.trim()) ? '✅ YES' : '❌ NO (PLACEHOLDER)'}`);
+console.log(`  SMTP_PASS configured: ${Boolean(SMTP_PASS && SMTP_PASS.trim() && !SMTP_PASS.includes('your_')) ? '✅ YES' : '❌ NO (PLACEHOLDER)'}`);
 console.log(`  FROM_EMAIL: ${FROM_EMAIL}`);
 console.log(`  FRONTEND_URL: ${FRONTEND_URL}`);
 console.log('[CONFIG] Google OAuth:');
-console.log(`  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID ? GOOGLE_CLIENT_ID.substring(0, 20) + '...' : '[NOT SET]'}`);
+console.log(`  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID ? '✅ SET' : '❌ NOT SET'}`);
+console.log('\n');
 
 // ============ HEALTH CHECK ENDPOINTS ============
 app.get('/', (_req, res) => {
@@ -292,10 +307,22 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 
   console.log(`[FORGOT-PASSWORD] 📧 Request received for: ${email}`);
+  console.log(`[FORGOT-PASSWORD] SMTP configured: ${Boolean(SMTP_USER && SMTP_PASS) ? 'YES' : 'NO - USING PLACEHOLDERS'}`);
+
+  // Check if SMTP is properly configured
+  if (!SMTP_USER || !SMTP_PASS || SMTP_USER.includes('your_') || SMTP_PASS.includes('your_')) {
+    console.error('[FORGOT-PASSWORD] ❌ SMTP credentials are not configured (still placeholders)');
+    return res.status(500).json({
+      success: false,
+      message: 'Email service is not properly configured on server',
+      error: 'Missing SMTP credentials - check Render environment variables',
+    });
+  }
 
   try {
     const user = await getUserByEmail(email);
     if (!user) {
+      console.log(`[FORGOT-PASSWORD] User not found: ${email}`);
       return res.json({
         success: true,
         message: 'If an account exists, a password reset email will be sent.',
@@ -336,28 +363,43 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     };
 
     try {
+      console.log(`[FORGOT-PASSWORD] Attempting to send email via SMTP...`);
       const info = await transporter.sendMail(mailOptions);
-      console.log(`[FORGOT-PASSWORD] ✅ Reset email sent to ${email}`);
+      console.log(`[FORGOT-PASSWORD] ✅ Reset email SENT SUCCESSFULLY to ${email}`);
       console.log(`[FORGOT-PASSWORD] Message ID: ${info.messageId}`);
       res.json({
         success: true,
         message: 'Password reset email sent successfully.',
       });
     } catch (emailError) {
-      console.error(`[FORGOT-PASSWORD] ❌ Email send failed:`, emailError.message);
-      console.error(`[FORGOT-PASSWORD] Error code:`, emailError.code);
-      console.error(`[FORGOT-PASSWORD] Error response:`, emailError.response);
+      console.error(`[FORGOT-PASSWORD] ❌ CRITICAL: Email send FAILED`);
+      console.error(`[FORGOT-PASSWORD] Error name: ${emailError.name}`);
+      console.error(`[FORGOT-PASSWORD] Error code: ${emailError.code}`);
+      console.error(`[FORGOT-PASSWORD] Error message: ${emailError.message}`);
+      if (emailError.response) {
+        console.error(`[FORGOT-PASSWORD] SMTP Response: ${emailError.response}`);
+      }
+      console.error(`[FORGOT-PASSWORD] Full error:`, JSON.stringify(emailError, null, 2).substring(0, 500));
+      
       res.status(500).json({
         success: false,
         message: 'Failed to send password reset email',
-        error: process.env.NODE_ENV === 'development' ? emailError.message : 'Email service error',
+        error: emailError.message,
+        details: process.env.NODE_ENV === 'development' ? {
+          code: emailError.code,
+          name: emailError.name,
+          message: emailError.message,
+        } : undefined,
       });
     }
   } catch (error) {
-    console.error(`[FORGOT-PASSWORD] ❌ Request error:`, error.message);
+    console.error(`[FORGOT-PASSWORD] ❌ CRITICAL: Unexpected request error`);
+    console.error(`[FORGOT-PASSWORD] Error: ${error.message}`);
+    console.error(`[FORGOT-PASSWORD] Stack:`, error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to process password reset request',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 });
