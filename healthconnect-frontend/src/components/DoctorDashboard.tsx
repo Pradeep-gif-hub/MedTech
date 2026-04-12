@@ -1581,7 +1581,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       <div className="space-y-6">
         {renderPrescriptionsForm()}
 
-        {renderRecentPrescriptions()}
+        {}
       </div>
     );
   };
