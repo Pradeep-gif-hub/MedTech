@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedTech Backend - Browser Testing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .status.healthy {
+            background: #10b981;
+            color: white;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .test-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        
+        .test-card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .test-card.loading h2 {
+            opacity: 0.6;
+        }
+        
+        .test-info {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #666;
+            border-left: 3px solid #667eea;
+        }
+        
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        
+        .test-button:hover {
+            background: #764ba2;
+        }
+        
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .test-button.secondary {
+            background: #10b981;
+        }
+        
+        .test-button.secondary:hover {
+            background: #059669;
+        }
+        
+        .test-result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .test-result.show {
+            display: block;
+        }
+        
+        .test-result.success {
+            background: #dcfce7;
+            color: #166534;
+            border-left: 3px solid #10b981;
+        }
+        
+        .test-result.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 3px solid #ef4444;
+        }
+        
+        .test-result.loading {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .input-group {
+            margin-bottom: 12px;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .buttons-group {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+        
+        .summary {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .summary h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+        
+        .badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        
+        .badge.success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .badge.error {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .badge.loading {
+            background: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 MedTech Backend Testing</h1>
+            <p>Test all endpoints and send test emails via Brevo SMTP</p>
+            <div class="status healthy">✅ Backend Running on localhost:8000</div>
+        </div>
+        
+        <div class="test-grid">
+            <!-- Test 1: Health Check -->
+            <div class="test-card" id="card-health">
+                <h2>🏥 Health Check</h2>
+                <div class="test-info">
+                    GET /health
+                    <br>Check if backend is healthy
+                </div>
+                <button class="test-button" onclick="testHealth()">Test Health</button>
+                <div class="test-result" id="result-health"></div>
+            </div>
+            
+            <!-- Test 2: Root Endpoint -->
+            <div class="test-card" id="card-root">
+                <h2>🏠 Root Endpoint</h2>
+                <div class="test-info">
+                    GET /
+                    <br>Check if server is running
+                </div>
+                <button class="test-button" onclick="testRoot()">Test Root</button>
+                <div class="test-result" id="result-root"></div>
+            </div>
+            
+            <!-- Test 3: Email Health -->
+            <div class="test-card" id="card-email-health">
+                <h2>📧 Email Health</h2>
+                <div class="test-info">
+                    GET /api/auth/email-health
+                    <br>Check SMTP configuration
+                </div>
+                <button class="test-button" onclick="testEmailHealth()">Test Email Config</button>
+                <div class="test-result" id="result-email-health"></div>
+            </div>
+            
+            <!-- Test 4: Test Email -->
+            <div class="test-card" id="card-test-email">
+                <h2>✉️ Send Test Email</h2>
+                <div class="test-info">
+                    POST /api/auth/test-email
+                    <br>Send a test email via Brevo
+                </div>
+                <div class="input-group">
+                    <label>Email Address:</label>
+                    <input type="email" id="input-test-email" placeholder="pawasthi063@gmail.com" value="pawasthi063@gmail.com">
+                </div>
+                <button class="test-button secondary" onclick="testSendEmail()">Send Test Email</button>
+                <div class="test-result" id="result-test-email"></div>
+            </div>
+            
+            <!-- Test 5: Forgot Password -->
+            <div class="test-card" id="card-forgot-password">
+                <h2>🔐 Forgot Password</h2>
+                <div class="test-info">
+                    POST /api/auth/forgot-password
+                    <br>Send password reset email
+                </div>
+                <div class="input-group">
+                    <label>Email Address:</label>
+                    <input type="email" id="input-forgot-password" placeholder="pawasthi063@gmail.com" value="pawasthi063@gmail.com">
+                </div>
+                <button class="test-button secondary" onclick="testForgotPassword()">Send Reset Email</button>
+                <div class="test-result" id="result-forgot-password"></div>
+            </div>
+            
+            <!-- Test 6: Invalid Request -->
+            <div class="test-card" id="card-invalid">
+                <h2>❌ Validation Test</h2>
+                <div class="test-info">
+                    POST /api/auth/forgot-password (invalid)
+                    <br>Test error handling
+                </div>
+                <button class="test-button" onclick="testInvalidRequest()">Test Error Handling</button>
+                <div class="test-result" id="result-invalid"></div>
+            </div>
+            
+            <!-- Test 7: 404 Handler -->
+            <div class="test-card" id="card-404">
+                <h2>🚫 404 Not Found</h2>
+                <div class="test-info">
+                    GET /non-existent-route
+                    <br>Test 404 error handling
+                </div>
+                <button class="test-button" onclick="test404()">Test 404 Handler</button>
+                <div class="test-result" id="result-404"></div>
+            </div>
+            
+            <!-- Test 8: CORS Headers -->
+            <div class="test-card" id="card-cors">
+                <h2>🔗 CORS Headers</h2>
+                <div class="test-info">
+                    Check CORS headers
+                    <br>Verify cross-origin support
+                </div>
+                <button class="test-button" onclick="testCORS()">Check CORS Headers</button>
+                <div class="test-result" id="result-cors"></div>
+            </div>
+        </div>
+        
+        <!-- Summary -->
+        <div class="summary">
+            <h2>📊 Test Summary</h2>
+            <div class="summary-item">
+                <span>Total Tests Run:</span>
+                <span id="summary-total" class="badge loading">0</span>
+            </div>
+            <div class="summary-item">
+                <span>Passed:</span>
+                <span id="summary-passed" class="badge success">0</span>
+            </div>
+            <div class="summary-item">
+                <span>Failed:</span>
+                <span id="summary-failed" class="badge error">0</span>
+            </div>
+            <div class="summary-item">
+                <span>Status:</span>
+                <span id="summary-status" class="badge loading">Testing...</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let stats = { total: 0, passed: 0, failed: 0 };
+        
+        function updateSummary() {
+            document.getElementById('summary-total').textContent = stats.total;
+            document.getElementById('summary-passed').textContent = stats.passed;
+            document.getElementById('summary-failed').textContent = stats.failed;
+            
+            if (stats.total === 0) {
+                document.getElementById('summary-status').textContent = 'Not started';
+                document.getElementById('summary-status').className = 'badge loading';
+            } else if (stats.failed === 0) {
+                document.getElementById('summary-status').textContent = '✅ All Passing';
+                document.getElementById('summary-status').className = 'badge success';
+            } else {
+                document.getElementById('summary-status').textContent = '❌ Some Failed';
+                document.getElementById('summary-status').className = 'badge error';
+            }
+        }
+        
+        function showResult(elementId, success, message, details = '') {
+            stats.total++;
+            if (success) stats.passed++; else stats.failed++;
+            updateSummary();
+            
+            const element = document.getElementById(elementId);
+            element.className = `test-result show ${success ? 'success' : 'error'}`;
+            element.innerHTML = `<strong>${success ? '✅ Success' : '❌ Error'}:</strong> ${message}${details ? `<br><small><code>${details}</code></small>` : ''}`;
+        }
+        
+        async function testHealth() {
+            const resultId = 'result-health';
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                showResult(resultId, response.ok, 'Backend is healthy', `Status: ${data.status}, CORS: ${data.cors_enabled}, Email: ${data.email_configured}`);
+            } catch (error) {
+                showResult(resultId, false, 'Failed to reach backend', error.message);
+            }
+        }
+        
+        async function testRoot() {
+            const resultId = 'result-root';
+            try {
+                const response = await fetch('http://localhost:8000/');
+                const data = await response.json();
+                showResult(resultId, response.ok, 'Root endpoint works', data.message);
+            } catch (error) {
+                showResult(resultId, false, 'Failed to reach root', error.message);
+            }
+        }
+        
+        async function testEmailHealth() {
+            const resultId = 'result-email-health';
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/email-health');
+                const data = await response.json();
+                const isConfigured = data.configured;
+                showResult(resultId, isConfigured, `Email service ${isConfigured ? 'configured' : 'not configured'}`, `Provider: ${data.provider}, Server: ${data.smtp_server}:${data.smtp_port}`);
+            } catch (error) {
+                showResult(resultId, false, 'Failed to check email health', error.message);
+            }
+        }
+        
+        async function testSendEmail() {
+            const resultId = 'result-test-email';
+            const email = document.getElementById('input-test-email').value;
+            
+            if (!email) {
+                showResult(resultId, false, 'Please enter an email address');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/test-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+                showResult(resultId, response.ok && data.success, 
+                    response.ok ? `Test email sent to ${email}` : data.error,
+                    response.ok ? `Message ID: ${data.messageId}` : '');
+            } catch (error) {
+                showResult(resultId, false, 'Failed to send test email', error.message);
+            }
+        }
+        
+        async function testForgotPassword() {
+            const resultId = 'result-forgot-password';
+            const email = document.getElementById('input-forgot-password').value;
+            
+            if (!email) {
+                showResult(resultId, false, 'Please enter an email address');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+                showResult(resultId, response.ok && data.success, 
+                    response.ok ? `Password reset email sent to ${email}` : data.message,
+                    response.ok ? 'Check your inbox for reset link' : '');
+            } catch (error) {
+                showResult(resultId, false, 'Failed to send forgot password email', error.message);
+            }
+        }
+        
+        async function testInvalidRequest() {
+            const resultId = 'result-invalid';
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+                showResult(resultId, response.status === 400, 
+                    response.status === 400 ? '✅ Validation working (rejected empty email)' : 'Validation failed',
+                    data.message);
+            } catch (error) {
+                showResult(resultId, false, 'Test failed', error.message);
+            }
+        }
+        
+        async function test404() {
+            const resultId = 'result-404';
+            try {
+                const response = await fetch('http://localhost:8000/non-existent-route');
+                const data = await response.json();
+                showResult(resultId, response.status === 404, 
+                    '✅ 404 handler working correctly (route not found)',
+                    data.error);
+            } catch (error) {
+                showResult(resultId, false, 'Test failed', error.message);
+            }
+        }
+        
+        async function testCORS() {
+            const resultId = 'result-cors';
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const corsHeader = response.headers.get('access-control-allow-origin');
+                const hasCORS = corsHeader !== null;
+                showResult(resultId, hasCORS, 
+                    hasCORS ? '✅ CORS headers present' : 'CORS headers missing',
+                    hasCORS ? `Allow-Origin: ${corsHeader}` : 'No CORS headers found');
+            } catch (error) {
+                showResult(resultId, false, 'Failed to check CORS', error.message);
+            }
+        }
+        
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testHealth();
+                testRoot();
+                testEmailHealth();
+                testCORS();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

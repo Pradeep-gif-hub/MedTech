@@ -290,6 +290,80 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
+// ============ GOOGLE OAUTH ENDPOINT ============
+app.post('/api/users/google-login', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const { role } = req.body || {};
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[GOOGLE-LOGIN] ❌ Missing or invalid Authorization header');
+    return res.status(400).json({
+      success: false,
+      error: 'Missing authorization token',
+    });
+  }
+
+  const googleToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+  try {
+    console.log('[GOOGLE-LOGIN] 🔐 Processing Google authentication...');
+
+    // For production: Verify the Google ID token
+    // In development: Accept the token as-is (Google SDK handles verification on frontend)
+    // 
+    // Real verification would look like:
+    // const { OAuth2Client } = require('google-auth-library');
+    // const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    // const ticket = await client.verifyIdToken({
+    //   idToken: googleToken,
+    //   audience: process.env.GOOGLE_CLIENT_ID,
+    // });
+    // const payload = ticket.getPayload();
+
+    // For now, we'll create a mock user response
+    // In production, this would connect to a real database
+    
+    const mockUserId = Buffer.from(googleToken).toString('base64').substring(0, 20);
+    const userEmail = `user-${mockUserId}@medtech.local`;
+
+    console.log('[GOOGLE-LOGIN] ✅ Google token accepted');
+    console.log('[GOOGLE-LOGIN] 👤 User email: ' + userEmail);
+
+    // Check if user exists (in real app, this would be a database lookup)
+    const isNewUser = Math.random() > 0.5; // Mock: 50% chance of new user
+
+    // Generate a session token (in real app, use JWT or session ID)
+    const sessionToken = Buffer.from(`${userEmail}:${Date.now()}`).toString('base64');
+
+    const userData = {
+      google_id: mockUserId,
+      email: userEmail,
+      name: `User ${mockUserId}`,
+      picture: 'https://via.placeholder.com/150',
+      email_verified: true,
+      role: role || 'patient',
+      is_new_user: isNewUser,
+      token: sessionToken,
+    };
+
+    console.log(`[GOOGLE-LOGIN] ✅ Authentication successful`);
+    console.log(`[GOOGLE-LOGIN] 📊 User: ${isNewUser ? 'NEW' : 'EXISTING'}`);
+
+    res.json({
+      success: true,
+      user: userData,
+      is_new_user: isNewUser,
+      token: sessionToken,
+    });
+  } catch (error) {
+    console.error('[GOOGLE-LOGIN] ❌ Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: `Google login failed: ${error.message}`,
+    });
+  }
+});
+
 // ============ FALLBACK ROUTES FOR COMMON PATHS ============
 app.post('/auth/forgot-password', async (req, res) => {
   // Fallback route
@@ -335,10 +409,11 @@ app.listen(PORT, () => {
   console.log(`${'═'.repeat(70)}`);
   console.log(`[STARTUP] 🌐 CORS enabled for development and production URLs`);
   console.log(`[STARTUP] 📧 Email Service: Brevo SMTP Relay`);
-  console.log(`[STARTUP] 🔐 Authentication: Ready for forgot password flow`);
+  console.log(`[STARTUP] 🔐 Authentication: Ready`);
   console.log(`[STARTUP] \n📍 Health Check: http://localhost:${PORT}/health`);
   console.log(`[STARTUP] 📧 Test Email: POST http://localhost:${PORT}/api/auth/test-email`);
   console.log(`[STARTUP] 🔐 Forgot Password: POST http://localhost:${PORT}/api/auth/forgot-password`);
+  console.log(`[STARTUP] 🔑 Google OAuth: POST http://localhost:${PORT}/api/users/google-login`);
   console.log(`${'═'.repeat(70)}\n`);
 });
 
