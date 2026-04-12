@@ -63,11 +63,14 @@ app.use(express.json());
 const transporter = nodemailer.createTransport({
   host: SMTP_SERVER,
   port: SMTP_PORT,
-  secure: SMTP_PORT === 465,
+  secure: false,  // Brevo SMTP relay uses 587 without TLS
   auth: {
     user: SMTP_USER,
     pass: SMTP_PASS,
   },
+  tls: {
+    rejectUnauthorized: false  // Allow self-signed certs
+  }
 });
 
 // Test transporter on startup
@@ -332,18 +335,29 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-
-    console.log(`[FORGOT-PASSWORD] ✅ Reset email sent to ${email}`);
-    res.json({
-      success: true,
-      message: 'Password reset email sent successfully.',
-    });
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`[FORGOT-PASSWORD] ✅ Reset email sent to ${email}`);
+      console.log(`[FORGOT-PASSWORD] Message ID: ${info.messageId}`);
+      res.json({
+        success: true,
+        message: 'Password reset email sent successfully.',
+      });
+    } catch (emailError) {
+      console.error(`[FORGOT-PASSWORD] ❌ Email send failed:`, emailError.message);
+      console.error(`[FORGOT-PASSWORD] Error code:`, emailError.code);
+      console.error(`[FORGOT-PASSWORD] Error response:`, emailError.response);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send password reset email',
+        error: process.env.NODE_ENV === 'development' ? emailError.message : 'Email service error',
+      });
+    }
   } catch (error) {
-    console.error(`[FORGOT-PASSWORD] ❌ Error:`, error.message);
+    console.error(`[FORGOT-PASSWORD] ❌ Request error:`, error.message);
     res.status(500).json({
       success: false,
-      message: 'Failed to send password reset email',
+      message: 'Failed to process password reset request',
     });
   }
 });
