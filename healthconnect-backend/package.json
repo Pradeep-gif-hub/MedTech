@@ -2,12 +2,14 @@
   "name": "healthconnect-backend",
   "version": "1.0.0",
   "private": true,
-  "main": "server.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node app.js",
+    "dev": "node app.js",
+    "test:email": "node test-email.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "html2canvas": "^1.4.1",
