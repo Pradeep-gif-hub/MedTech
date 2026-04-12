@@ -163,6 +163,7 @@ def serialize_user(user: models.User) -> dict:
         "allergy": user.allergy,
         "profile_picture_url": user.profile_picture_url,
         "picture": user.profile_picture_url,
+        "avatar": user.profile_picture_url,
         "token": build_local_token(user.id),
     }
 
@@ -294,6 +295,7 @@ async def google_login(
                     "is_google_user": True,
                     "profile_completed": False,
                     "picture": picture,
+                    "avatar": picture,
                     "email_verified": token_payload.get("email_verified"),
                     "token": local_token,
                 },
@@ -356,6 +358,7 @@ async def google_login(
                 "is_google_user": True,
                 "profile_completed": not is_new_user,
                 "picture": picture or user.profile_picture_url,
+                "avatar": picture or user.profile_picture_url,
                 "email_verified": token_payload.get("email_verified"),
                 "token": local_token,
             },
@@ -566,6 +569,7 @@ async def login(
             "emergency_contact": getattr(user, 'emergency_contact', None),
             "profile_picture_url": getattr(user, 'profile_picture_url', None),
             "picture": getattr(user, 'profile_picture_url', None),
+            "avatar": getattr(user, 'profile_picture_url', None),
             "token": build_local_token(getattr(user, 'id', 0))
         }
     except HTTPException:

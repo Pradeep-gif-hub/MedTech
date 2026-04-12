@@ -13,6 +13,7 @@ export type StoredUser = {
   dob?: string | null;
   phone?: string | null;
   picture?: string | null;
+  avatar?: string | null;
   profile_picture_url?: string | null;
   photoURL?: string | null;
 };
@@ -21,6 +22,7 @@ const normalizeUser = (input: any): StoredUser | null => {
   if (!input || typeof input !== 'object') return null;
 
   const picture =
+    input.avatar ||
     input.picture ||
     input.profile_picture_url ||
     input.photoURL ||
@@ -38,6 +40,7 @@ const normalizeUser = (input: any): StoredUser | null => {
     dob: input.dob || input.birthdate || null,
     phone: input.phone || null,
     picture,
+    avatar: picture,
     profile_picture_url: input.profile_picture_url || null,
     photoURL: input.photoURL || null,
   };

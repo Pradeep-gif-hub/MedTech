@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import schemas
@@ -26,6 +26,13 @@ def get_notifications(user_id: int, db: Session = Depends(get_db)):
         .all()
     )
     return notifications
+
+
+@router.get("", response_model=list[schemas.NotificationResponse])
+def get_notifications_by_query(userId: int | None = Query(default=None), db: Session = Depends(get_db)):
+    if userId is None:
+        return []
+    return get_notifications(user_id=userId, db=db)
 
 @router.put("/{user_id}/mark-read")
 def mark_notifications_read(user_id: int, db: Session = Depends(get_db)):

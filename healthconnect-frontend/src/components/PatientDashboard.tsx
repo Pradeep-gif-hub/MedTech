@@ -27,6 +27,9 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [notifications, setNotifications] = useState([] as any[]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [currentConsultation, setCurrentConsultation] = useState<any>(null);
+  const [loadingConsultation, setLoadingConsultation] = useState(false);
+  const [consultationError, setConsultationError] = useState<string | null>(null);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null as any);
   const [hrHistory, setHrHistory] = useState([vitalSigns.heartRate] as number[]);
@@ -66,6 +69,13 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const pcRef = useRef(null as RTCPeerConnection | null);
   const wsRef = useRef(null as WebSocket | null);
   const pendingSends = useRef([] as string[]);
+
+  const buildWsUrl = (endpoint: string) => {
+    const httpUrl = buildApiUrl(endpoint);
+    if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
+    if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
+    return httpUrl;
+  };
 
   const escapeHtml = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
@@ -206,71 +216,147 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // Simulated vitals updater
   useEffect(() => { let mounted = true; const tick = () => { if (!mounted) return; setLiveHeartRate((h: number) => Math.max(55, Math.min(110, h + Math.round((Math.random() * 2 - 1) * 3)))); setLiveTemperature((t: number) => Math.round((t + ((Math.random() * 2 - 1) * 0.2)) * 10) / 10); setLiveOxygen((o: number) => Math.max(90, Math.min(100, o + Math.round((Math.random() * 2 - 1) * 1)))); setTimeout(tick, 3000 + Math.floor(Math.random() * 1000)); }; const id = window.setTimeout(tick, 1000); return () => { mounted = false; clearTimeout(id); } }, []);
 
-  // Create consultation in backend database
-  const createConsultationInBackend = async () => {
+  const fetchCurrentConsultation = async () => {
+    if (!userId) return null;
+
+    setLoadingConsultation(true);
     try {
-      const pendingConsultationStr = localStorage.getItem('pendingConsultation');
-      if (!pendingConsultationStr) {
-        console.log('No pending consultation found');
-        return;
+      const response = await fetch(buildApiUrl('/api/consultation/current'), {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setCurrentConsultation(null);
+          setConsultationError(null);
+          return null;
+        }
+        const errorText = await response.text();
+        setConsultationError(`Failed to load consultation (${response.status})`);
+        console.warn('Consultation fetch failed', response.status, errorText);
+        return null;
       }
 
-      const consultationData = JSON.parse(pendingConsultationStr);
-      
-      // Get patient ID from stored user profile
+      const data = await response.json();
+      console.log('Consultation:', data);
+      if (!data || data.status === 'none') {
+        setCurrentConsultation(null);
+        setConsultationError(null);
+        return null;
+      }
+
+      const normalized = {
+        ...data,
+        consultation_id: data.consultation_id || data.id,
+        room_id: data.room_id || `consultation-${data.consultation_id || data.id}`,
+      };
+
+      setCurrentConsultation(normalized);
+      setConsultationError(null);
+      if (normalized.consultation_id) {
+        localStorage.setItem('currentConsultationId', String(normalized.consultation_id));
+      }
+      return normalized;
+    } catch (error) {
+      console.error('Failed to fetch consultation', error);
+      setConsultationError('Failed to load consultation status');
+      return null;
+    } finally {
+      setLoadingConsultation(false);
+    }
+  };
+
+  // Create consultation in backend database
+  const createConsultationInBackend = async (inputConsultationData?: any) => {
+    try {
+      const consultationData = inputConsultationData || (() => {
+        const pendingConsultationStr = localStorage.getItem('pendingConsultation');
+        return pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
+      })();
+
+      if (!consultationData) {
+        console.log('No pending consultation found');
+        return null;
+      }
+
       const patientId = profile?.id;
       if (!patientId) {
         console.error('Patient ID not found');
         alert('Error: Patient ID not found');
-        return;
+        return null;
       }
 
-      // Send to backend API
+      const condition = consultationData.disease || consultationData.condition;
+
       const response = await fetch(buildApiUrl('/api/consultations'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           patient_id: patientId,
-          disease: consultationData.disease,
+          patientId,
+          disease: condition,
+          condition,
           symptoms: consultationData.symptoms,
           duration: consultationData.duration,
-          appointment_time: new Date().toLocaleTimeString()
-        })
+          appointment_time: new Date().toLocaleTimeString(),
+        }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Consultation created:', result);
-        // Store consultation ID for reference
-        localStorage.setItem('currentConsultationId', result.id?.toString() || '');
-        return true;
-      } else {
+      if (!response.ok) {
         const error = await response.json();
         console.error('Failed to create consultation:', error);
-        alert(`Failed to create consultation: ${error.detail || 'Unknown error'}`);
-        return false;
+        setConsultationError(error.detail || error.message || 'Unknown error');
+        alert(`Failed to create consultation: ${error.detail || error.message || 'Unknown error'}`);
+        return null;
       }
+
+      const result = await response.json();
+      const normalized = {
+        ...result,
+        consultation_id: result.consultation_id || result.id,
+        room_id: result.room_id || `consultation-${result.consultation_id || result.id}`,
+      };
+      console.log('Consultation:', normalized);
+
+      setCurrentConsultation(normalized);
+      setConsultationError(null);
+      if (normalized.consultation_id) {
+        localStorage.setItem('currentConsultationId', String(normalized.consultation_id));
+      }
+
+      return normalized;
     } catch (err) {
       console.error('Error creating consultation:', err);
+      setConsultationError('Error submitting consultation to backend');
       alert('Error submitting consultation to backend');
-      return false;
+      return null;
     }
   };
 
   // Start live as sender (patient)
   const startLiveSender = async () => {
-    // First, ensure consultation is created in backend
-    const consultationCreated = await createConsultationInBackend();
-    if (!consultationCreated) {
-      console.log('Consultation not created, but proceeding with WebRTC...');
+    const consultation = currentConsultation?.consultation_id
+      ? currentConsultation
+      : await createConsultationInBackend();
+
+    if (!consultation?.consultation_id) {
+      alert('Submit consultation details first.');
+      return;
     }
+
+    if (!consultation?.doctor) {
+      alert('Doctor is still being assigned. Please wait a moment.');
+      return;
+    }
+
+    const roomId = consultation.room_id || `consultation-${consultation.consultation_id}`;
+
     try {
-      // open signaling websocket
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${protocol}://${window.location.host}/ws/live-consultation/sender`;
+      const wsUrl = buildWsUrl(`/webrtc/ws/live-consultation/sender?roomId=${encodeURIComponent(roomId)}`);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -278,16 +364,16 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       const pc = new RTCPeerConnection(rtcConfig);
       pcRef.current = pc;
 
-      // flush any queued messages when socket opens
       const flushPending = () => {
         while (pendingSends.current.length && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const m = pendingSends.current.shift();
-          if (m) wsRef.current.send(m);
+          const message = pendingSends.current.shift();
+          if (message) wsRef.current.send(message);
         }
       };
 
       ws.onopen = () => {
-        // send a ready message if needed
+        console.log('Joining room:', roomId);
+        ws.send(JSON.stringify({ type: 'join-room', roomId, role: 'patient' }));
         flushPending();
       };
 
@@ -296,50 +382,49 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           const data = JSON.parse(ev.data);
           if (data.type === 'answer' && data.sdp) {
             await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.sdp));
-          } else if (data.type === 'ice' && data.candidate) {
-            try { await pcRef.current?.addIceCandidate(data.candidate); } catch { /* ignore */ }
+          } else if ((data.type === 'ice' || data.type === 'ice-candidate') && data.candidate) {
+            try {
+              await pcRef.current?.addIceCandidate(data.candidate);
+            } catch {
+              // Ignore late/malformed candidates.
+            }
           }
         } catch (err) {
           console.error('WS msg parse error', err);
         }
       };
 
-      ws.onclose = () => { /* noop */ };
+      ws.onclose = () => { };
       ws.onerror = (e) => console.warn('WS error', e);
 
-      // send ICE candidates over websocket
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          const msg = JSON.stringify({ type: 'ice', candidate: e.candidate });
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(msg);
-          else pendingSends.current.push(msg);
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const message = JSON.stringify({ type: 'ice-candidate', candidate: event.candidate, roomId });
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(message);
+          else pendingSends.current.push(message);
         }
       };
 
-      // when remote track arrives, show doctor's stream
-      pc.ontrack = (e) => {
+      pc.ontrack = (event) => {
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = e.streams[0];
+          remoteVideoRef.current.srcObject = event.streams[0];
           remoteVideoRef.current.play().catch(() => { });
         }
       };
 
-      // capture local media and add tracks
       const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = localStream;
         localVideoRef.current.play().catch(() => { });
       }
-      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
 
-      // create offer and send
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const offerMsg = JSON.stringify({ type: 'offer', sdp: pc.localDescription });
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(offerMsg);
-      else pendingSends.current.push(offerMsg);
+      const offerMessage = JSON.stringify({ type: 'offer', sdp: pc.localDescription, roomId });
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(offerMessage);
+      else pendingSends.current.push(offerMessage);
 
-      // update UI
       setInConsultation(true);
     } catch (err) {
       console.error('startLiveSender failed', err);
@@ -461,7 +546,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     if (!userId) return;
     setLoadingServerPrescriptions(true);
     try {
-      const response = await fetch(buildApiUrl(`/api/prescriptions/patient/${userId}`), {
+      const response = await fetch(buildApiUrl(`/api/prescriptions?patientId=${encodeURIComponent(userId)}`), {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
@@ -470,6 +555,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         return;
       }
       const data = await response.json();
+      console.log('Prescriptions:', data);
       if (Array.isArray(data)) {
         const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
         setServerPrescriptions(sorted);
@@ -488,7 +574,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     if (!userId) return;
     setLoadingNotifications(true);
     try {
-      const response = await fetch(buildApiUrl(`/api/notifications/${userId}`), {
+      const response = await fetch(buildApiUrl(`/api/notifications?userId=${encodeURIComponent(userId)}`), {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
@@ -499,6 +585,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         return;
       }
       const data = await response.json();
+      console.log('Notifications:', data);
       if (Array.isArray(data)) {
         const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         setNotifications(sorted);
@@ -519,9 +606,11 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     if (!userId) return;
     fetchPatientPrescriptions();
     fetchNotifications();
+    fetchCurrentConsultation();
     const interval = window.setInterval(() => {
       fetchPatientPrescriptions();
       fetchNotifications();
+      fetchCurrentConsultation();
     }, 10000);
     return () => {
       window.clearInterval(interval);
@@ -781,7 +870,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105">
                   <img
-                    src={profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
+                    src={profile?.avatar || profile?.picture || profile?.profile_picture_url || sessionUser?.avatar || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
@@ -950,7 +1039,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               // Get form values
               const diseaseSelect = document.getElementById('diseaseSelect') as HTMLSelectElement;
               const symptomsTextarea = document.getElementById('symptomsTextarea') as HTMLTextAreaElement;
@@ -978,6 +1067,13 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 timestamp: new Date().toISOString()
               };
               localStorage.setItem('pendingConsultation', JSON.stringify(consultationData));
+
+              const createdConsultation = await createConsultationInBackend(consultationData);
+              if (!createdConsultation) {
+                return;
+              }
+
+              await fetchCurrentConsultation();
               
               // Switch to consultation tab
               setActiveTab('consultation');
@@ -1022,34 +1118,44 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                   // Get pending consultation data
                   const pendingConsultationStr = localStorage.getItem('pendingConsultation');
                   const pendingConsultation = pendingConsultationStr ? JSON.parse(pendingConsultationStr) : null;
+                  const consultationPreview = pendingConsultation || (currentConsultation ? {
+                    disease: currentConsultation.condition,
+                    symptoms: currentConsultation.symptoms,
+                    duration: currentConsultation.duration,
+                    timestamp: currentConsultation.created_at,
+                  } : null);
 
-                  return pendingConsultation ? (
+                  return consultationPreview ? (
 <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-200 w-full max-w-md">
                       <h3 className="text-xl font-semibold mb-4 text-gray-900">Your Consultation Request</h3>
                       
                       <div className="space-y-4">
                         <div>
                           <div className="text-sm text-gray-600">Condition</div>
-                          <div className="text-gray-900 font-medium">{pendingConsultation.disease}</div>
+                          <div className="text-gray-900 font-medium">{consultationPreview.disease || 'Not provided'}</div>
                         </div>
                         
                         <div>
                           <div className="text-sm text-gray-600">Symptoms</div>
-                          <div className="text-gray-900 font-medium">{pendingConsultation.symptoms}</div>
+                          <div className="text-gray-900 font-medium">{consultationPreview.symptoms || 'Not provided'}</div>
                         </div>
                         
                         <div>
                           <div className="text-sm text-gray-600">Duration</div>
-                          <div className="text-gray-900 font-medium">{pendingConsultation.duration}</div>
+                          <div className="text-gray-900 font-medium">{consultationPreview.duration || 'Not provided'}</div>
                         </div>
 
                         <div className="text-sm text-gray-600 pt-2">
-                          Submitted on: {new Date(pendingConsultation.timestamp).toLocaleString()}
+                          Submitted on: {consultationPreview.timestamp ? new Date(consultationPreview.timestamp).toLocaleString() : 'Unknown'}
                         </div>
                       </div>
 
                       <div className="mt-6 text-center text-sm text-gray-600">
-                        Waiting for doctor to connect...
+                        {loadingConsultation
+                          ? 'Looking for available doctor...'
+                          : currentConsultation?.doctor
+                            ? `Doctor assigned: ${currentConsultation.doctor.name}`
+                            : 'Waiting for doctor assignment...'}
                         <div className="mt-2">
                           <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></div>
                           <div className="animate-pulse inline-block w-2 h-2 bg-green-400 rounded-full mr-1" style={{animationDelay: '0.2s'}}></div>
@@ -1060,10 +1166,11 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                       <div className="mt-6">
                         <button
                           onClick={startLiveSender}
-                          className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full justify-center"
+                          disabled={loadingConsultation || !currentConsultation?.doctor}
+                          className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           <Video className="h-5 w-5" />
-                          Start Video Consultation
+                          {currentConsultation?.doctor ? 'Start Video Consultation' : 'Waiting for Doctor Assignment'}
                         </button>
                       </div>
                     </div>
@@ -1120,27 +1227,45 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               {!inConsultation ? (
                 <>
                   <h3 className="font-bold text-gray-900 mb-6 text-2xl">Doctor Information</h3>
-                  <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md">
-                    <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
-                        <span>DR</span>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-lg mb-1">Dr. Rajesh Kumar</h3>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                            General Physician
-                          </span>
+                  {loadingConsultation ? (
+                    <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md text-gray-600">
+                      Finding a matching doctor based on your condition...
+                    </div>
+                  ) : currentConsultation?.doctor ? (
+                    <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md">
+                      <div className="flex items-start gap-4">
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
+                          {currentConsultation.doctor.avatar ? (
+                            <img
+                              src={currentConsultation.doctor.avatar}
+                              alt={currentConsultation.doctor.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>DR</span>
+                          )}
                         </div>
-                        <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
-                          MedTech Clinic
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 text-lg mb-1">{currentConsultation.doctor.name}</h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                              {currentConsultation.doctor.specialization || 'General Medicine'}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+                            Assigned based on your consultation condition
+                          </div>
+                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            Consultation status: {currentConsultation.status || 'assigned'}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                          Expert in family medicine and teleconsultations
-                        </p>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md text-gray-600">
+                      {consultationError || 'Submit consultation details to get an assigned doctor.'}
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -1238,10 +1363,11 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               {!inConsultation ? (
                 <button
                   onClick={startLiveSender}
-                  className="bg-emerald-600 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:bg-emerald-700 transition-all inline-flex items-center gap-2"
+                  disabled={loadingConsultation || !currentConsultation?.doctor}
+                  className="bg-emerald-600 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:bg-emerald-700 transition-all inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Video className="h-5 w-5" />
-                  Start Consultation
+                  {currentConsultation?.doctor ? 'Start Consultation' : 'Waiting for Assignment'}
                 </button>
               ) : (
                 <button
@@ -1412,7 +1538,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         {loadingServerPrescriptions ? (
           <div className="text-gray-600">Loading prescriptions...</div>
         ) : serverPrescriptions.length === 0 ? (
-          <div className="text-gray-600">No prescriptions found yet. Check back after your next consultation.</div>
+          <div className="text-gray-600">No prescriptions available for your account yet.</div>
         ) : (
           <div className="space-y-4">
             {serverPrescriptions.map((prescription, index) => (
@@ -1472,7 +1598,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         ) : notificationError ? (
           <div className="text-red-600">{notificationError}</div>
         ) : notifications.length === 0 ? (
-          <div className="text-gray-600">No notifications yet.</div>
+          <div className="text-gray-600">No new notifications for your account.</div>
         ) : (
           <div className="space-y-4">
             {notifications.map((notification, index) => (
@@ -1609,7 +1735,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
               <div className="text-sm opacity-90">Signed in as <span className="font-semibold">{sessionUser?.email || 'Not signed in'}</span></div>
               <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
                 <img
-                  src={profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
+                  src={profile?.avatar || profile?.picture || profile?.profile_picture_url || sessionUser?.avatar || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />

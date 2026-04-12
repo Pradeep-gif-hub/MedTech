@@ -20,6 +20,7 @@ export type BackendProfile = {
   phone?: string | null;
   emergency_contact?: string | null;
   picture?: string | null;
+  avatar?: string | null;
   profile_picture_url?: string | null;
   token?: string | null;
   
@@ -89,7 +90,7 @@ export const fetchBackendProfile = async (): Promise<BackendProfile> => {
 
     const data = await userRes.json();
     console.log('[useBackendProfile] Fetched user profile:', data);
-    return data.user;
+    return data.user || data;
   } catch (error) {
     console.error('[useBackendProfile] Error fetching profile:', error);
     throw error;

@@ -77,6 +77,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const [patientQueue, setPatientQueue] = useState<any[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({
+    patientId: '',
     patientEmail: '',
     doctorEmail: '',
     date: new Date().toISOString().split('T')[0],
@@ -130,6 +131,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // Helper to log messages
   const logLive = (msg: string) => setLiveLog((l: string) => `[${new Date().toLocaleTimeString()}] ${msg}\n` + l);
 
+  const buildWsUrl = (endpoint: string) => {
+    const httpUrl = buildApiUrl(endpoint);
+    if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
+    if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
+    return httpUrl;
+  };
+
   // ===== STEP 3: Data fetching and WebRTC helpers (can reference derived variables safely) =====
   const fetchAnalyticsData = async () => {
     if (!profile?.id) return;
@@ -152,9 +160,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   // --- Start as Receiver (Doctor) ---
-  const startLiveReceiver = async () => {
+  const startLiveReceiver = async (roomId: string) => {
     setInLiveConsult(true);
-    logLive('Starting as receiver (doctor)...');
+    logLive(`Starting as receiver (doctor) in room ${roomId}...`);
 
     // Create peer connection first so incoming offers can be handled immediately
     try {
@@ -163,7 +171,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
       pc.onicecandidate = e => {
         if (e.candidate) {
-          const msg = JSON.stringify({ type: 'ice', candidate: e.candidate });
+          const msg = JSON.stringify({ type: 'ice-candidate', candidate: e.candidate, roomId });
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(msg);
           } else {
@@ -187,8 +195,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     }
 
     // Connect WebSocket
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws/live-consultation/receiver`;
+    const wsUrl = buildWsUrl(`/webrtc/ws/live-consultation/receiver?roomId=${encodeURIComponent(roomId)}`);
     const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -199,7 +206,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       }
     };
 
-    ws.onopen = () => { logLive('WebSocket open (receiver)'); flushPending(); };
+    ws.onopen = () => {
+      logLive('WebSocket open (receiver)');
+      console.log('Joining room:', roomId);
+      ws.send(JSON.stringify({ type: 'join-room', roomId, role: 'doctor' }));
+      flushPending();
+    };
     ws.onerror = (e) => { console.error('WebSocket error', e); logLive('WebSocket error'); };
     ws.onclose = () => { logLive('WebSocket closed'); };
 
@@ -233,7 +245,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             const answer = await pcRef.current?.createAnswer();
             if (!answer) throw new Error('createAnswer returned empty');
             await pcRef.current?.setLocalDescription(answer);
-            const ansMsg = JSON.stringify({ type: 'answer', sdp: pcRef.current?.localDescription });
+            const ansMsg = JSON.stringify({ type: 'answer', sdp: pcRef.current?.localDescription, roomId });
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
               wsRef.current.send(ansMsg);
             } else {
@@ -244,7 +256,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             console.error('Answer creation/sending error', err);
             logLive('Answer error: ' + String(err));
           }
-        } else if (data.type === 'ice' && data.candidate) {
+        } else if ((data.type === 'ice' || data.type === 'ice-candidate') && data.candidate) {
           try {
             const candidate = new RTCIceCandidate(data.candidate);
             await pcRef.current?.addIceCandidate(candidate);
@@ -575,12 +587,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // ===== STEP 7: Interaction helpers =====
   const startConsultation = async (patient: any) => {
     try {
+      const roomId = patient.room_id || (patient.consultation_id ? `consultation-${patient.consultation_id}` : `consultation-${patient.id}`);
+
       // First, redirect to consultation tab immediately for user feedback
       setActiveTab('consultation');
       
       // Then set the current patient and consultation state
-      setCurrentPatient(patient);
+      setCurrentPatient({ ...patient, room_id: roomId });
       setInConsultation(true);
+
+      setPrescriptionForm(prev => ({
+        ...prev,
+        patientId: String(patient.patient_id || patient.id || ''),
+        patientEmail: patient.patient_email || prev.patientEmail,
+      }));
       
       // Update consultation status to in-progress
       if (patient.consultation_id) {
@@ -591,7 +611,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       }
       
       // Start WebRTC as receiver (doctor) with proper timing
-      setTimeout(() => startLiveReceiver(), 300); // slight delay to allow UI to update
+      setTimeout(() => startLiveReceiver(roomId), 300); // slight delay to allow UI to update
     } catch (error) {
       console.error('Error starting consultation:', error);
       // Still keep the tab open even if there's an error
@@ -1260,7 +1280,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       console.log('Creating prescription...');
 
       const payload = {
+        patient_id: prescriptionForm.patientId ? Number(prescriptionForm.patientId) : (currentPatient?.patient_id ? Number(currentPatient.patient_id) : undefined),
         patient_email: prescriptionForm.patientEmail,
+        doctor_id: doctorId ? Number(doctorId) : undefined,
         doctor_email: prescriptionForm.doctorEmail,
         date: prescriptionForm.date,
         diagnosis: prescriptionForm.diagnosis,
@@ -1300,6 +1322,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       
       // Reset form
       setPrescriptionForm({
+        patientId: '',
         patientEmail: '',
         doctorEmail: email,
         date: new Date().toISOString().split('T')[0],

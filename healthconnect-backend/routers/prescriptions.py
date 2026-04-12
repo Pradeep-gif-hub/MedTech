@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -190,6 +190,8 @@ def create_prescription(
     if not doctor:
         raise HTTPException(status_code=400, detail="Invalid doctor ID or email")
 
+    print(f"[PRESCRIPTION] Creating prescription for patient_id={patient.id}, doctor_id={doctor.id}")
+
     medications_json = json.dumps(prescription.medications)
     date_value = None
     if prescription.date:
@@ -211,6 +213,12 @@ def create_prescription(
     new_prescription.pdf_url = f"/api/prescriptions/pdf/{new_prescription.id}"
     db.commit()
     db.refresh(new_prescription)
+    print("Prescription saved:", {
+        "id": new_prescription.id,
+        "patient_id": new_prescription.patient_id,
+        "doctor_id": new_prescription.doctor_id,
+        "pdf_url": new_prescription.pdf_url,
+    })
 
     notification = Notification(
         user_id=patient.id,
@@ -220,6 +228,11 @@ def create_prescription(
     )
     db.add(notification)
     db.commit()
+    print("Notifications created:", {
+        "notification_id": notification.id,
+        "user_id": notification.user_id,
+        "related_prescription_id": notification.related_prescription_id,
+    })
 
     return {
         "message": "Prescription created",
@@ -247,6 +260,16 @@ def get_prescriptions(patient_id: int, db: Session = Depends(get_db)):
         result.append(serialized)
     
     return result
+
+
+@router.get("", response_model=list[schemas.PrescriptionResponse])
+def get_prescriptions_by_query(
+    patientId: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    if patientId is None:
+        return []
+    return get_prescriptions(patientId, db)
 
 
 @router.get("/pdf/{prescription_id}")
@@ -315,7 +338,7 @@ def mark_prescription_read(prescription_id: int, db: Session = Depends(get_db)):
         Notification.related_prescription_id == prescription_id
     ).first()
     if notification:
-        notification.read = True
+        notification.is_read = True
         db.commit()
     
     return {"message": "Prescription marked as read", "prescription_id": prescription_id}
