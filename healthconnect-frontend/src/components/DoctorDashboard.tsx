@@ -131,10 +131,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // Format date/time to IST timezone
   const formatIST = (date: any) => {
     if (!date) return '';
+    console.log('[DoctorDashboard formatIST] Input date:', date);
     const utcDate = new Date(date);
+    console.log('[DoctorDashboard formatIST] UTC Date:', utcDate.toISOString());
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istDate = new Date(utcDate.getTime() + istOffset);
-    return istDate.toLocaleString('en-IN', {
+    const formatted = istDate.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'numeric',
       year: 'numeric',
@@ -143,6 +145,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       second: '2-digit',
       hour12: true
     });
+    console.log('[DoctorDashboard formatIST] IST Date:', istDate.toISOString());
+    console.log('[DoctorDashboard formatIST] Formatted:', formatted);
+    return formatted;
   };
 
   // Helper to log messages with IST timestamp

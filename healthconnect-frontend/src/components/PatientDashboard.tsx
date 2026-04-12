@@ -101,11 +101,12 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
   const formatIST = (date) => {
   if (!date) return "";
+  console.log('[formatIST] Input date:', date);
   const utcDate = new Date(date);
-  const istOffset = 5.5 * 60 * 60 * 1000; 
+  console.log('[formatIST] UTC Date:', utcDate.toISOString());
+  const istOffset = 5.5 * 60 * 60 * 1000;
   const istDate = new Date(utcDate.getTime() + istOffset);
-
-  return istDate.toLocaleString("en-IN", {
+  const formatted = istDate.toLocaleString("en-IN", {
     day: "numeric",
     month: "numeric",
     year: "numeric",
@@ -114,6 +115,9 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     second: "2-digit",
     hour12: true
   });
+  console.log('[formatIST] IST Date:', istDate.toISOString());
+  console.log('[formatIST] Formatted:', formatted);
+  return formatted;
 };
 
   // Styled multi-page-aware PDF
@@ -313,7 +317,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
           condition,
           symptoms: consultationData.symptoms,
           duration: consultationData.duration,
-          appointment_time: new Date().toLocaleTimeString(),
+          appointment_time: (() => { const now = new Date(); const istOffset = 5.5 * 60 * 60 * 1000; return new Date(now.getTime() + istOffset).toLocaleTimeString('en-IN'); })(),
         }),
       });
 
@@ -1184,7 +1188,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                         </div>
 
                         <div className="text-sm text-gray-600 pt-2">
-                          Submitted on: {consultationPreview.timestamp ? new Date(consultationPreview.timestamp).toLocaleString() : 'Unknown'}
+                          Submitted on: {consultationPreview.timestamp ? formatIST(consultationPreview.timestamp) : 'Unknown'}
                         </div>
                       </div>
 
@@ -1863,7 +1867,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 <span className="font-semibold">Prescribed by:  Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'Dr. Unknown'}</span>
               </div>
               <div className="text-sm">
-                <span className="font-semibold">Date:</span> <span className="text-gray-800">{new Date(selectedPrescription.created_at || selectedPrescription.date || Date.now()).toLocaleString()}</span>
+                <span className="font-semibold">Date:</span> <span className="text-gray-800">{formatIST(selectedPrescription.created_at || selectedPrescription.date || Date.now())}</span>
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Diagnosis / Notes:</span>
