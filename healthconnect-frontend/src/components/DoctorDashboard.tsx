@@ -128,8 +128,31 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url,
   } as any;
 
-  // Helper to log messages
-  const logLive = (msg: string) => setLiveLog((l: string) => `[${new Date().toLocaleTimeString()}] ${msg}\n` + l);
+  // Format date/time to IST timezone
+  const formatIST = (date: any) => {
+    if (!date) return '';
+    const utcDate = new Date(date);
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(utcDate.getTime() + istOffset);
+    return istDate.toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Helper to log messages with IST timestamp
+  const logLive = (msg: string) => {
+    const utcDate = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(utcDate.getTime() + istOffset);
+    const istTime = istDate.toLocaleTimeString('en-IN');
+    setLiveLog((l: string) => `[${istTime}] ${msg}\n` + l);
+  };
 
   const buildWsUrl = (endpoint: string) => {
     const httpUrl = buildApiUrl(endpoint);
@@ -1656,7 +1679,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 mb-1">
-                  {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {formatIST(f.created_at)}
                 </p>
                 {f.feedback_text && (
                   <p className="text-gray-700 text-sm italic">"{f.feedback_text}"</p>

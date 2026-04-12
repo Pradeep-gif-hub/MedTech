@@ -119,7 +119,18 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   // Styled multi-page-aware PDF
   const handleDownloadPDF = async (prescription: any) => {
     if (!prescription) { alert('No prescription'); return }
-    const downloadDate = new Date().toLocaleString();
+    const utcDate = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(utcDate.getTime() + istOffset);
+    const downloadDate = istDate.toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
     const patientId = userId || 'N/A';
     const medicines = Array.isArray(prescription.medicines) ? prescription.medicines : (prescription.medicines ? [prescription.medicines] : []);
 
@@ -146,7 +157,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
             <div style="font-size:12px;color:#64748b">Prescribed By</div>
             <div style="font-size:14px;font-weight:600">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</div>
             <div style="font-size:12px;color:#64748b;margin-top:6px">Prescription Date</div>
-            <div style="font-size:14px;font-weight:600">${new Date(prescription.created_at || prescription.date || Date.now()).toLocaleDateString()}</div>
+            <div style="font-size:14px;font-weight:600">${formatIST(prescription.created_at || prescription.date || Date.now())}</div>
           </div>
         </div>
         <h2 style="font-size:16px;color:#0f172a;margin:8px 0 6px">Diagnosis / Notes</h2>
@@ -1636,7 +1647,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-gray-900">{notification.message}</p>
-                    <p className="text-sm text-gray-500 mt-2">{new Date(notification.created_at || Date.now()).toLocaleString()}</p>
+                    <p className="text-sm text-gray-500 mt-2">{formatIST(notification.created_at || Date.now())}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <button
@@ -1676,7 +1687,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
             <div className="border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50 rounded">
               <p className="text-sm text-gray-600">You are rating:</p>
               <p className="font-semibold text-gray-900">Dr. {serverPrescriptions[0].doctor_name || 'Your Doctor'}</p>
-              <p className="text-xs text-gray-500 mt-1">Prescription Date: {new Date(serverPrescriptions[0].created_at || Date.now()).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-500 mt-1">Prescription Date: {formatIST(serverPrescriptions[0].created_at || Date.now())}</p>
             </div>
 
             {/* Rating Stars */}
