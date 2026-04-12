@@ -424,17 +424,20 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
     setIsSendingReset(true);
     setForgotPasswordMessage('');
     try {
-      const endpoints = ['/api/auth/forgot-password', '/auth/forgot-password', '/api/users/forgot-password'];
+      const endpoint = buildApiUrl('/api/auth/forgot-password');
       console.log('[ForgotPassword] Request started:', {
         email: forgotEmail || '[missing-email]',
-        endpoints: endpoints.map((endpoint) => buildApiUrl(endpoint)),
+        endpoint,
         browserOrigin: window.location.origin,
       });
 
-      const res = await tryPost(
-        endpoints,
-        { email: forgotEmail }
-      );
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
 
       const data: any = await parseJsonSafe(res);
       console.log('[ForgotPassword] Response received:', {
@@ -443,18 +446,20 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
         success: data && Object.prototype.hasOwnProperty.call(data, 'success') ? data.success : '[missing-success-field]',
         detail: data && data.detail ? data.detail : null,
         message: data && data.message ? data.message : null,
+        error: data && data.error ? data.error : null,
       });
 
-      if (res.ok && data?.success === true) {
-        setForgotPasswordStep('success');
-        setForgotPasswordMessage(data.detail || 'Check your inbox for the reset link');
-      } else {
-        setForgotPasswordMessage(data.detail || data.message || 'Failed to send reset link. Please try again.');
-        setForgotPasswordStep('email');
+      if (!res.ok || data?.success !== true) {
+        const backendError = data?.error || data?.detail || data?.message || `Request failed with status ${res.status}`;
+        throw new Error(backendError);
       }
+
+      setForgotPasswordStep('success');
+      setForgotPasswordMessage(data.detail || data.message || 'Check your inbox for the reset link');
     } catch (err) {
       console.error(err);
-      setForgotPasswordMessage('Network error. Please check your connection and try again.');
+      const errMessage = err instanceof Error ? err.message : 'Network error. Please check your connection and try again.';
+      setForgotPasswordMessage(errMessage);
       setForgotPasswordStep('email');
     } finally {
       setIsSendingReset(false);
