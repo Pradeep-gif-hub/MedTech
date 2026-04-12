@@ -225,6 +225,66 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// ============ DEBUG ENDPOINT - Test SMTP directly ============
+app.post('/api/debug/test-smtp', async (req, res) => {
+  const { to_email = 'pawasthi063@gmail.com' } = req.body || {};
+  
+  console.log('\n\n🔍🔍🔍 DEBUG EMAIL TEST STARTING 🔍🔍🔍');
+  console.log(`[DEBUG] Target email: ${to_email}`);
+  console.log(`[DEBUG] SMTP_SERVER: ${SMTP_SERVER}`);
+  console.log(`[DEBUG] SMTP_PORT: ${SMTP_PORT}`);
+  console.log(`[DEBUG] SMTP_USER: ${SMTP_USER ? SMTP_USER.substring(0, 10) + '...' : 'NOT SET'}`);
+  console.log(`[DEBUG] SMTP_PASS length: ${SMTP_PASS ? SMTP_PASS.length : 0}`);
+  console.log(`[DEBUG] FROM_EMAIL: ${FROM_EMAIL}`);
+  console.log(`[DEBUG] Creating test email...`);
+
+  try {
+    const testMail = {
+      from: `MedTech <${FROM_EMAIL}>`,
+      to: to_email,
+      subject: '🔍 MedTech SMTP Debug Test',
+      html: `<h1>SMTP Test Email</h1><p>If you see this, SMTP is working!</p><p>Sent at: ${new Date().toISOString()}</p>`,
+      text: 'SMTP Test Email - If you see this, SMTP is working!',
+    };
+
+    console.log(`[DEBUG] Mail options created. Attempting sendMail()...`);
+    const info = await transporter.sendMail(testMail);
+    
+    console.log(`[DEBUG] ✅ Email sent successfully!`);
+    console.log(`[DEBUG] Message ID: ${info.messageId}`);
+    console.log(`[DEBUG] Response: ${info.response}`);
+    console.log('🔍🔍🔍 DEBUG EMAIL TEST PASSED 🔍🔍🔍\n\n');
+
+    res.json({
+      success: true,
+      message: 'SMTP test email sent successfully',
+      messageId: info.messageId,
+      response: info.response,
+    });
+  } catch (err) {
+    console.error(`[DEBUG] ❌ EMAIL TEST FAILED`);
+    console.error(`[DEBUG] Error name: ${err.name}`);
+    console.error(`[DEBUG] Error code: ${err.code}`);
+    console.error(`[DEBUG] Error message: ${err.message}`);
+    console.error(`[DEBUG] Error command: ${err.command}`);
+    console.error(`[DEBUG] Error response: ${err.response}`);
+    console.error(`[DEBUG] Full error object:`, JSON.stringify(err, null, 2));
+    console.error('🔍🔍🔍 DEBUG EMAIL TEST FAILED 🔍🔍🔍\n\n');
+
+    res.status(500).json({
+      success: false,
+      message: 'SMTP test email failed',
+      error: {
+        name: err.name,
+        code: err.code,
+        message: err.message,
+        command: err.command,
+        response: err.response,
+      },
+    });
+  }
+});
+
 // ============ EMAIL ENDPOINTS ============
 app.get('/api/auth/email-health', (_req, res) => {
   const isConfigured = Boolean(SMTP_USER && SMTP_PASS);
