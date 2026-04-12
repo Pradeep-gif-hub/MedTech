@@ -191,7 +191,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               {/* Geographic & Usage */}
               <motion.div className="bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
                 <h3 className="text-lg font-semibold mb-4">Current Geographical Distribution</h3>
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                   <div>
                     <h4 className="font-semibold mb-3">Top States by Users</h4>
                     <div className="space-y-3">
@@ -315,7 +315,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               {/* Form example */}
               <motion.div className="mt-6 bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
                 <h3 className="text-lg font-semibold mb-4">Create / Invite User</h3>
-                <form className="grid md:grid-cols-2 gap-4">
+                <form className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   <input className="px-4 py-3 rounded-md bg-white/5 focus:outline-none focus:ring-2 focus:ring-pink-400" placeholder="Full name" />
                   <input className="px-4 py-3 rounded-md bg-white/5" placeholder="Email" />
                   <select className="px-4 py-3 rounded-md bg-white/5">
@@ -388,7 +388,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
           {activeTab === 'system' && (
             <motion.section key="system" variants={tabSlide} initial="hidden" animate="visible" exit="exit">
-              <motion.div className="grid md:grid-cols-2 gap-6 mb-6" variants={fadeInUp} initial="hidden" animate="visible">
+              <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-6 overflow-x-hidden" variants={fadeInUp} initial="hidden" animate="visible">
                 <div className="bg-white/6 p-6 rounded-2xl shadow-xl">
                   <h3 className="font-semibold mb-4">General Settings</h3>
                   <div className="space-y-4">
@@ -426,7 +426,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
               <motion.div className="bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
                 <h3 className="font-semibold mb-4">System Monitoring</h3>
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                   <div className="p-4 rounded-lg bg-emerald-900/30">
                     <div className="font-semibold">Server Status</div>
                     <div className="text-2xl font-bold">Operational</div>

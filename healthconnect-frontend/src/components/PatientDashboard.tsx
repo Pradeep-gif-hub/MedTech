@@ -898,7 +898,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
   // Replace the consultation renderer with a richer, doctor-like UI but for the patient
   const renderHome = () => (
-    <div className="grid md:grid-cols-2 gap-8 items-start">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start overflow-x-hidden">
       {/* LEFT HALF - Info */}
       <div className="space-y-6 md:col-start-1 md:col-span-1">
 
@@ -1431,7 +1431,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
-        <div className="grid md:grid-cols-2 gap-6 text-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-gray-700">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
             <input

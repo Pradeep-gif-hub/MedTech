@@ -135,10 +135,10 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-4 sm:p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Complete Your Profile</h1>
-          <p className="text-gray-600 mt-2">Welcome to MedTech! Please provide your information to get started.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Complete Your Profile</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">Welcome to MedTech! Please provide your information to get started.</p>
         </div>
 
         {error && (

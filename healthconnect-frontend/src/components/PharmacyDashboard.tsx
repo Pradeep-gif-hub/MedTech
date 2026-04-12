@@ -477,7 +477,7 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   const renderAnalytics = () => (
     <div className="space-y-6">
   {/* Stats Section */}
-  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 overflow-x-hidden">
     {[
       {
         title: "Monthly Revenue",
@@ -537,7 +537,7 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   </div>
 
   {/* Medicines & Reviews */}
-  <div className="grid lg:grid-cols-2 gap-6">
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 overflow-x-hidden">
     {/* Top Selling Medicines */}
     <div className="bg-gradient-to-br from-blue-50 to-cyan-100 rounded-xl shadow-md p-6">
       <h3 className="text-lg font-bold text-gray-900 mb-4">Top Selling Medicines</h3>

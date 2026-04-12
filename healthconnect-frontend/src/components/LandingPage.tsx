@@ -57,22 +57,22 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-cyan-50 to-blue-100 py-24">
+      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-cyan-50 to-blue-100 py-12 sm:py-20 md:py-24">
         {/* Decorative Blobs */}
-        <div className="absolute top-0 left-0 w-72 h-72 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-0 left-0 w-48 sm:w-72 h-48 sm:h-72 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+        <div className="absolute top-1/2 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
             {/* Text Section */}
             <div>
-              <h1 className="text-4xl lg:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
                 Healthcare That Reaches
                 <span className="text-emerald-600 block drop-shadow-lg">
                   Every Village
                 </span>
               </h1>
-              <p className="text-lg lg:text-xl text-gray-700 mb-8 leading-relaxed max-w-xl">
+              <p className="text-base sm:text-lg lg:text-xl text-gray-700 mb-8 leading-relaxed max-w-xl">
                 Bridging healthcare gaps in rural and semi-urban areas through
                 digital kiosks and remote consultations. Expert medical care,
                 now accessible to everyone.
@@ -96,8 +96,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             {/* Portal Card Section */}
-            <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-gray-100 hover:shadow-3xl transition-shadow duration-500">
-              <h3 className="text-2xl font-bold text-black-900 mb-6">
+            <div className="bg-white/90 backdrop-blur-md p-4 sm:p-8 rounded-3xl shadow-2xl border border-gray-100 hover:shadow-3xl transition-shadow duration-500">
+              <h3 className="text-xl sm:text-2xl font-bold text-black-900 mb-6">
                 Access Healthcare Portal
               </h3>
               <div className="space-y-4">
@@ -139,7 +139,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-white relative">
+      <section className="py-12 sm:py-16 md:py-20 bg-white relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
@@ -152,10 +152,10 @@ const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-emerald-50 p-8 rounded-xl hover:shadow-xl transition-all border border-emerald-100">
-              <div className="bg-emerald-100 w-16 h-16 rounded-xl flex items-center justify-center mb-6">
-                <MapPin className="h-8 w-8 text-emerald-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
+            <div className="bg-emerald-50 p-4 sm:p-8 rounded-xl hover:shadow-xl transition-all border border-emerald-100">
+              <div className="bg-emerald-100 w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center mb-6">
+                <MapPin className="h-6 sm:h-8 w-6 sm:w-8 text-emerald-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">
                 Physical Kiosk Access
@@ -235,7 +235,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* Process Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-12 sm:py-16 md:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
@@ -246,7 +246,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-12">
             <div className="text-center bg-white p-8 rounded-xl shadow hover:shadow-lg transition-all bg-yellow-50" >
               <div className="bg-emerald-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-md">
                 <span className="text-2xl font-bold text-white">1</span>
@@ -366,9 +366,9 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
+      <footer className="bg-gray-900 text-white py-8 sm:py-12 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <Heart className="h-6 w-6 text-emerald-400" />

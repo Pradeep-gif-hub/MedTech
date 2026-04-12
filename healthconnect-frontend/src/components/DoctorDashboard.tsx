@@ -1193,21 +1193,21 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <ConsultationHeader patient={currentPatient} />
 
-            <div className="grid lg:grid-cols-4 h-86">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-auto lg:h-86 overflow-x-hidden">
               {/* Left: Video (remote fullscreen, local floating) */}
               {renderConsultationLeft(currentPatient)}
 
               {/* Middle-left: Patient Info */}
-              <div className="bg-white p-4 border-l">{renderConsultationRightTop(currentPatient)}</div>
+              <div className="bg-white p-2 sm:p-4 border-l border-t lg:border-t-0">{renderConsultationRightTop(currentPatient)}</div>
 
               {/* Right column: Vitals */}
-              <div className="bg-white p-4 border-l">{renderConsultationRightBottom(currentPatient)}</div>
+              <div className="bg-white p-2 sm:p-4 border-l border-t lg:border-t-0">{renderConsultationRightBottom(currentPatient)}</div>
             </div>
 
             {/* Controls */}
-            <div className="bg-gray-100 p-4">
+            <div className="bg-gray-100 p-2 sm:p-4 overflow-x-auto">
               <div className="flex justify-between items-center">
-                <div className="flex space-x-4">
+                <div className="flex flex-wrap gap-2 sm:gap-4">
                   <button className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors">
                     <Phone className="h-6 w-6" />
                   </button>
@@ -1757,7 +1757,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       <div className="space-y-6">
         {renderAnalyticsOverview()}
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 overflow-x-hidden">
           {renderPatientFeedback()}
 
           {renderCommonDiagnoses()}

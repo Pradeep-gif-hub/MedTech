@@ -42,13 +42,13 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
 
   <div className="grid md:grid-cols-3 gap-10">
     {/* Compassionate Care */}
-    <div className="bg-gradient-to-br from-emerald-100 via-green-50 to-white p-8 rounded-2xl shadow-md 
+    <div className="bg-gradient-to-br from-emerald-100 via-green-50 to-white p-4 sm:p-8 rounded-2xl shadow-md 
       hover:shadow-2xl transition-transform duration-500 hover:scale-105 text-center">
-      <div className="bg-gradient-to-tr from-emerald-400 to-green-600 w-20 h-20 rounded-full flex items-center 
+      <div className="bg-gradient-to-tr from-emerald-400 to-green-600 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center 
         justify-center mx-auto mb-6 shadow-lg">
-        <Heart className="h-10 w-10 text-white" />
+        <Heart className="h-6 sm:h-10 w-6 sm:w-10 text-white" />
       </div>
-      <h3 className="text-2xl font-bold text-emerald-700 mb-4">Compassionate Care</h3>
+      <h3 className="text-lg sm:text-2xl font-bold text-emerald-700 mb-4">Compassionate Care</h3>
       <p className="text-gray-700 leading-relaxed">
         Every patient receives <span className="text-emerald-600 font-semibold">personalized, empathetic healthcare</span> 
         regardless of their location or economic status.
@@ -56,13 +56,13 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
     </div>
 
     {/* Universal Access */}
-    <div className="bg-gradient-to-br from-sky-100 via-blue-50 to-white p-8 rounded-2xl shadow-md 
+    <div className="bg-gradient-to-br from-sky-100 via-blue-50 to-white p-4 sm:p-8 rounded-2xl shadow-md 
       hover:shadow-2xl transition-transform duration-500 hover:scale-105 text-center">
-      <div className="bg-gradient-to-tr from-sky-500 to-blue-700 w-20 h-20 rounded-full flex items-center 
+      <div className="bg-gradient-to-tr from-sky-500 to-blue-700 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center 
         justify-center mx-auto mb-6 shadow-lg">
-        <Globe className="h-10 w-10 text-white" />
+        <Globe className="h-6 sm:h-10 w-6 sm:w-10 text-white" />
       </div>
-      <h3 className="text-2xl font-bold text-sky-700 mb-4">Universal Access</h3>
+      <h3 className="text-lg sm:text-2xl font-bold text-sky-700 mb-4">Universal Access</h3>
       <p className="text-gray-700 leading-relaxed">
         Breaking down <span className="text-blue-600 font-semibold">geographical barriers</span> to ensure healthcare 
         reaches underserved communities everywhere.
@@ -70,13 +70,13 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
     </div>
 
     {/* Excellence */}
-    <div className="bg-gradient-to-br from-purple-100 via-indigo-50 to-white p-8 rounded-2xl shadow-md 
+    <div className="bg-gradient-to-br from-purple-100 via-indigo-50 to-white p-4 sm:p-8 rounded-2xl shadow-md 
       hover:shadow-2xl transition-transform duration-500 hover:scale-105 text-center">
-      <div className="bg-gradient-to-tr from-purple-500 to-indigo-700 w-20 h-20 rounded-full flex items-center 
+      <div className="bg-gradient-to-tr from-purple-500 to-indigo-700 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center 
         justify-center mx-auto mb-6 shadow-lg">
-        <Award className="h-10 w-10 text-white" />
+        <Award className="h-6 sm:h-10 w-6 sm:w-10 text-white" />
       </div>
-      <h3 className="text-2xl font-bold text-purple-700 mb-4">Excellence</h3>
+      <h3 className="text-lg sm:text-2xl font-bold text-purple-700 mb-4">Excellence</h3>
       <p className="text-gray-700 leading-relaxed">
         Maintaining the <span className="text-purple-600 font-semibold">highest standards</span> of medical care 
         through innovation and technology.
@@ -265,7 +265,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
     Medical Specialties
   </h2>
   
-  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
     {[
       'General Medicine',
       'Pediatrics',
