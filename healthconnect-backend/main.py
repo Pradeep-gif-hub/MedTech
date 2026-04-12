@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from config import settings
+import datetime
 
 # Backend deployment fix - reverted to stable version
 # required routers
@@ -48,16 +50,39 @@ except Exception:
 
 app = FastAPI(title="HealthConnect")
 
-# CORS configuration with secure defaults
+# CORS configuration - CRITICAL: Must be first middleware
+# Allow all origins in development, restrict in production
+cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://medtech-4rjc.onrender.com",
+    "https://medtech-hcmo.onrender.com",
+]
+
+print("[STARTUP] Configuring CORS with origins:", cors_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://medtech-4rjc.onrender.com", "https://medtech-hcmo.onrender.com"],  # Production and local development URLs
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-    expose_headers=["Content-Length"],
-    max_age=600  # Cache preflight requests for 10 minutes
+    allow_methods=["*"],  # Allow all methods including OPTIONS
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],
+    max_age=3600  # Cache preflight requests for 1 hour
 )
+
+# Health check endpoint - tests CORS and general connectivity
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "backend": "FastAPI",
+        "cors_enabled": True,
+        "timestamp": str(datetime.datetime.now(datetime.timezone.utc))
+    }
 
 # mount users router at both common prefixes to handle frontend path differences
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
