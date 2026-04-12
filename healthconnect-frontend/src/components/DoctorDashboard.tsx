@@ -1341,6 +1341,39 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     }
   };
 
+  const validatePrescriptionForm = () => {
+    const hasDoctorEmail = Boolean(prescriptionForm.doctorEmail?.trim());
+    const hasPatientEmail = Boolean(prescriptionForm.patientEmail?.trim());
+    const hasDate = Boolean(prescriptionForm.date?.trim());
+    const hasDiagnosis = Boolean(prescriptionForm.diagnosis?.trim());
+    const hasInstructions = Boolean(prescriptionForm.instructions?.trim());
+    const hasMedicines = prescriptionForm.medicines.length > 0;
+
+    const medicinesFilled = prescriptionForm.medicines.every((medicine) => {
+      return (
+        Boolean(medicine.name?.trim()) &&
+        Boolean(medicine.dosage?.trim()) &&
+        Boolean(medicine.duration?.trim())
+      );
+    });
+
+    const isFormComplete =
+      hasDoctorEmail &&
+      hasPatientEmail &&
+      hasDate &&
+      hasDiagnosis &&
+      hasInstructions &&
+      hasMedicines &&
+      medicinesFilled;
+
+    if (isFormComplete) {
+      alert('Your prescription is successfully done and ready to be sent.');
+      return;
+    }
+
+    alert('Kindly fill the entire field.');
+  };
+
   const renderPrescriptionsForm = () => {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -1462,13 +1495,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         </div>
 
         <div className="mt-6 flex space-x-4">
-          <button className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
+          <button
+            type="button"
+            onClick={validatePrescriptionForm}
+            className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+          >
             Generate Prescription
           </button>
 
-          <button className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-            Save as Draft
-          </button>
         </div>
       </div>
     );
