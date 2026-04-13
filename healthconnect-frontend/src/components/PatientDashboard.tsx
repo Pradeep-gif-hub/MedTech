@@ -30,6 +30,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const [currentConsultation, setCurrentConsultation] = useState<any>(null);
   const [loadingConsultation, setLoadingConsultation] = useState(false);
   const [consultationError, setConsultationError] = useState<string | null>(null);
+  const [assignedDoctor, setAssignedDoctor] = useState<any>(null);
+  const [doctorLoading, setDoctorLoading] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null as any);
   const [hrHistory, setHrHistory] = useState([vitalSigns.heartRate] as number[]);
@@ -306,6 +308,35 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     }
   };
 
+  const fetchDoctorDetails = async (doctorId: number) => {
+    setDoctorLoading(true);
+    try {
+      const response = await fetch(buildApiUrl(`/api/doctors/${doctorId}`), {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[PatientDashboard] Doctor details fetched:', data);
+        setAssignedDoctor(data);
+        // Update consultation with doctor details
+        if (currentConsultation) {
+          setCurrentConsultation((prev: any) => ({
+            ...prev,
+            doctor: data,
+            doctor_name: data.full_name || data.name || prev?.doctor_name,
+          }));
+        }
+        return data;
+      } else {
+        console.error('Failed to fetch doctor details:', response.status);
+      }
+    } catch (err) {
+      console.error('[PatientDashboard] Error fetching doctor details:', err);
+    } finally {
+      setDoctorLoading(false);
+    }
+  };
+
   // Create consultation in backend database
   const createConsultationInBackend = async (inputConsultationData?: any) => {
     try {
@@ -423,6 +454,28 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         try {
           const data = JSON.parse(ev.data);
           console.log('[WebRTC] Message received:', data.type);
+          
+          // Handle consultation/doctor data updates
+          if (data.type === 'joined') {
+            console.log('[WebRTC] Joined consultation room');
+            if (currentConsultation?.doctor_id) {
+              await fetchDoctorDetails(currentConsultation.doctor_id);
+            }
+            return;
+          }
+          
+          if (data.type === 'doctor-assigned') {
+            console.log('[WebRTC] Doctor assigned:', data.doctor);
+            setAssignedDoctor(data.doctor);
+            setCurrentConsultation((prev: any) => ({
+              ...prev,
+              doctor: data.doctor,
+              doctor_id: data.doctor.id || data.doctor.user_id,
+              doctor_name: data.doctor.full_name || data.doctor.name,
+            }));
+            return;
+          }
+          
           if (data.type === 'answer' && data.sdp) {
             await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.sdp));
           } else if ((data.type === 'ice' || data.type === 'ice-candidate') && data.candidate) {
@@ -666,6 +719,14 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       window.clearInterval(interval);
     };
   }, [userId]);
+
+  // Fetch doctor details when doctor is assigned to consultation
+  useEffect(() => {
+    if (inConsultation && currentConsultation?.doctor_id && !assignedDoctor) {
+      console.log('[PatientDashboard] Fetching assigned doctor details:', currentConsultation.doctor_id);
+      fetchDoctorDetails(currentConsultation.doctor_id);
+    }
+  }, [inConsultation, currentConsultation?.doctor_id]);
 
   const openPrescriptionPdf = (prescription: any) => {
     const url = prescription.pdf_url || buildApiUrl(`/api/prescriptions/pdf/${prescription.id}`);

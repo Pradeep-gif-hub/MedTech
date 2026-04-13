@@ -76,6 +76,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const [errorMessage, setErrorMessage] = useState('');
   const [patientQueue, setPatientQueue] = useState<any[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
+  const [consultationDetails, setConsultationDetails] = useState<any>(null);
+  const [consultationLoading, setConsultationLoading] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({
     patientId: '',
     patientEmail: '',
@@ -282,6 +284,29 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     ws.onmessage = async ev => {
       try {
         const data = JSON.parse(ev.data);
+        console.log('[WebRTC] WS Message type:', data.type, 'data:', data);
+        
+        // Handle consultation/patient data updates
+        if (data.type === 'joined') {
+          console.log('[WebRTC] Joined consultation room');
+          if (currentPatient?.consultation_id) {
+            await fetchConsultationDetails(currentPatient.consultation_id);
+          }
+          return;
+        }
+        
+        if (data.type === 'consultation-update' || data.type === 'consultation-data') {
+          console.log('[WebRTC] Updating consultation data:', data);
+          setCurrentPatient((prev: any) => ({
+            ...prev,
+            ...data.consultation,
+            patient_name: data.consultation?.patient_name || data.patient?.name || prev?.patient_name,
+            age: data.consultation?.age || data.patient?.age || prev?.age,
+            disease: data.consultation?.condition || data.consultation?.disease || prev?.disease,
+          }));
+          return;
+        }
+        
         if (data.type === 'offer' && data.sdp) {
           logLive('Received offer, creating answer...');
           try {
@@ -510,6 +535,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     return () => window.removeEventListener('profile-updated', handleProfileUpdated);
   }, [refreshProfile]);
 
+  // ===== Fetch full consultation details when a consultation is selected =====
+  useEffect(() => {
+    if (inConsultation && currentPatient?.consultation_id) {
+      console.log('[DoctorDashboard] Fetching consultation details for:', currentPatient.consultation_id);
+      fetchConsultationDetails(currentPatient.consultation_id);
+    }
+  }, [inConsultation, currentPatient?.consultation_id]);
+
   // ===== Step 5: Handle profile page navigation (AFTER hooks, BEFORE rendering) =====
   const handleEditProfile = () => {
     setShowProfilePage(true);
@@ -553,6 +586,37 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       setPatientQueue([]);
     } finally {
       setQueueLoading(false);
+    }
+  };
+
+  const fetchConsultationDetails = async (consultationId: number) => {
+    setConsultationLoading(true);
+    try {
+      const response = await fetch(buildApiUrl(`/api/consultations/${consultationId}`), {
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[DoctorDashboard] Consultation details fetched:', data);
+        setConsultationDetails(data);
+        // Update currentPatient with full consultation details
+        if (currentPatient) {
+          setCurrentPatient((prev: any) => ({
+            ...prev,
+            ...data,
+            patient_name: data.patient?.name || prev?.patient_name || data.name,
+            age: data.patient?.age || prev?.age || data.age,
+            disease: data.condition || prev?.disease,
+          }));
+        }
+        return data;
+      } else {
+        console.error('Failed to fetch consultation details:', response.status);
+      }
+    } catch (err) {
+      console.error('[DoctorDashboard] Error fetching consultation details:', err);
+    } finally {
+      setConsultationLoading(false);
     }
   };
 
