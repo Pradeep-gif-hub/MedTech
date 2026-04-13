@@ -1187,6 +1187,17 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           className="w-full h-[350px] md:h-[400px] object-cover rounded-xl bg-black border-4 border-emerald-500 shadow-lg"
           style={{ background: '#111' }}
         />
+        {/* Doctor's own video as floating window in bottom right */}
+        <div className="absolute bottom-4 right-4 w-40 h-32 bg-black rounded-lg overflow-hidden border-2 border-blue-400 shadow-xl flex items-center justify-center">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover rounded-lg"
+            style={{ background: '#222' }}
+          />
+        </div>
 
         {/* Camera error message */}
         {cameraError && <p className="absolute bottom-2 left-2 text-xs text-red-400">{cameraError}</p>}
