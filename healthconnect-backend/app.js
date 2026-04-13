@@ -57,6 +57,29 @@ const corsOptions = {
 console.log('[STARTUP] Configuring CORS with origins:', corsOptions.origin);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// ============ SECURITY HEADERS FOR COOP/COEP ============
+// These headers allow cross-origin popup communication (Google Auth, postMessage, etc.)
+app.use((req, res, next) => {
+  // COOP: same-origin-allow-popups allows popups to communicate back via postMessage
+  // This is required for Google OAuth popup to communicate with the opener window
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  
+  // COEP: unsafe-none allows loading cross-origin resources
+  // Necessary for WebRTC, analytics, and other cross-origin features
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  
+  // Additional security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  console.log('[SECURITY] Headers set - COOP:', res.getHeader('Cross-Origin-Opener-Policy'), 
+              'COEP:', res.getHeader('Cross-Origin-Embedder-Policy'));
+  
+  next();
+});
+
 app.use(express.json());
 
 // ============ NODEMAILER TRANSPORTER ============

@@ -56,6 +56,18 @@ export const getAuthHeaders = (): Record<string, string> => {
   return headers;
 };
 
+/**
+ * Get fetch options with auth headers and credentials for cross-origin requests
+ * Includes credentials: 'include' to allow cookies and auth tokens to be sent
+ */
+export const getFetchOptions = (method = 'GET'): RequestInit => {
+  return {
+    method,
+    headers: getAuthHeaders(),
+    credentials: 'include', // Important for CORS + auth + COOP policies
+  };
+};
+
 export const fetchBackendProfile = async (): Promise<BackendProfile> => {
   // Try doctor profile endpoint first, then fall back to users/me
   try {

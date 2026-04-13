@@ -2,6 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- COOP and COEP headers allow cross-origin popup communication (Google OAuth) -->
+    <!-- same-origin-allow-popups: allows popups opened by this page to communicate back -->
+    <!-- unsafe-none: allows loading resources from other origins -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups" />
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="unsafe-none" />
+    
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MedTech</title>
