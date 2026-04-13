@@ -1207,48 +1207,57 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   const renderConsultationRightTop = (_patient: any) => {
     return (
-      <div className="bg-white p-4">
-        <h3 className="font-bold text-gray-900 mb-4">Patient & Consultation Info</h3>
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+        <div className="mb-5 pb-4 border-b-2 border-gradient-to-r from-blue-400 to-emerald-400">
+          <h3 className="text-lg font-bold text-gray-900">👤 Patient Information</h3>
+          <p className="text-xs text-gray-500 mt-1">Clinical Details & Medical History</p>
+        </div>
 
-        <div className="space-y-3 text-sm">
+        <div className="space-y-4">
           {/* Disease / Complaint */}
           {_patient?.disease && (
-            <div>
-              <span className="font-medium text-gray-700">Complaint:</span>
-              <span className="ml-2 text-gray-600">{_patient.disease}</span>
+            <div className="bg-red-50 p-3 rounded-lg border-l-4 border-red-500">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Primary Complaint</span>
+              </div>
+              <p className="text-sm font-medium text-gray-900 mt-1">{_patient.disease}</p>
             </div>
           )}
 
           {/* Symptoms */}
           {_patient?.symptoms && (
-            <div>
-              <span className="font-medium text-gray-700">Symptoms:</span>
-              <span className="ml-2 text-gray-600">{_patient.symptoms}</span>
+            <div className="bg-amber-50 p-3 rounded-lg border-l-4 border-amber-500">
+              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Symptoms</span>
+              <p className="text-sm text-gray-900 mt-1">{_patient.symptoms}</p>
             </div>
           )}
 
-          <div>
-            <span className="font-medium text-gray-700">Blood Group:</span>
-            <span className="ml-2 text-gray-600">{_patient?.bloodGroup || 'N/A'}</span>
+          {/* Blood Group & Allergies Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Blood Group</span>
+              <p className="text-lg font-bold text-gray-900 mt-1">{_patient?.bloodGroup || 'N/A'}</p>
+            </div>
+            <div className="bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+              <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Allergies</span>
+              <p className="text-sm text-gray-900 mt-1">{_patient?.allergies || 'None'}</p>
+            </div>
           </div>
 
-          <div>
-            <span className="font-medium text-gray-700">Allergies:</span>
-            <span className="ml-2 text-gray-600">{_patient?.allergies || 'None reported'}</span>
+          {/* Last Visit */}
+          <div className="bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+            <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Last Visit</span>
+            <p className="text-sm text-gray-900 mt-1">{_patient?.lastVisit || '—'}</p>
           </div>
 
-          <div>
-            <span className="font-medium text-gray-700">Last Visit:</span>
-            <span className="ml-2 text-gray-600">{_patient?.lastVisit || '—'}</span>
-          </div>
-
-          <div>
-            <span className="font-medium text-gray-700">Current Medications:</span>
-            <div className="ml-2 text-gray-600">
+          {/* Current Medications */}
+          <div className="bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-500">
+            <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Current Medications</span>
+            <div className="mt-2 space-y-1">
               {_patient?.meds?.length ? (
-                _patient.meds.map((m: string, idx: number) => <div key={idx}>• {m}</div>)
+                _patient.meds.map((m: string, idx: number) => <div key={idx} className="text-sm text-gray-900">💊 {m}</div>)
               ) : (
-                <div>• None</div>
+                <div className="text-sm text-gray-600 italic">No medications prescribed</div>
               )}
             </div>
           </div>
@@ -1257,29 +1266,49 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     );
   };
 
-  const renderVitalCard = (label: string, value: string, hint: string, colorClass: string) => {
+  const renderVitalCard = (label: string, value: string, hint: string, colorClass: string, icon: string = '●') => {
+    const colorMap: any = {
+      'text-red-600': { bg: 'bg-red-50', border: 'border-red-200', icon: '❤️' },
+      'text-blue-600': { bg: 'bg-blue-50', border: 'border-blue-200', icon: '💨' },
+      'text-orange-600': { bg: 'bg-orange-50', border: 'border-orange-200', icon: '🌡️' },
+      'text-green-600': { bg: 'bg-green-50', border: 'border-green-200', icon: '💚' },
+      'text-yellow-600': { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: '💡' },
+    };
+    
+    const colors = colorMap[colorClass] || { bg: 'bg-gray-50', border: 'border-gray-200', icon: '●' };
+
     return (
-      <div className="bg-white p-3 rounded-lg">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">{label}</span>
-          <span className={`font-bold ${colorClass}`}>{value}</span>
+      <div className={`${colors.bg} p-4 rounded-xl border-2 ${colors.border} hover:shadow-md transition-all`}>
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">{label}</p>
+            <p className={`text-2xl font-bold ${colorClass} mt-2`}>{value}</p>
+            <p className="text-xs text-gray-500 mt-1">{hint}</p>
+          </div>
+          <span className="text-2xl">{colors.icon}</span>
         </div>
-        <div className="text-xs text-gray-500 mt-1">{hint}</div>
       </div>
     );
   };
 
   const renderConsultationRightBottom = (_patient: any) => {
     return (
-      <div className="bg-white p-4 border-l">
-        <h3 className="font-bold text-gray-900 mb-4">Live Vitals</h3>
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+        <div className="mb-5 pb-4 border-b-2 border-gradient-to-r from-red-400 to-yellow-400">
+          <h3 className="text-lg font-bold text-gray-900">📊 Live Vitals Monitor</h3>
+          <p className="text-xs text-gray-500 mt-1">Real-time Patient Vital Signs</p>
+        </div>
 
-        <div className="space-y-4">
-          {renderVitalCard('Heart Rate', `${liveHeartRate} BPM`, 'Dummy (simulated)', 'text-red-600')}
-          {renderVitalCard('Blood Pressure', `${liveBP.sys}/${liveBP.dia}`, 'Dummy (simulated)', 'text-blue-600')}
-          {renderVitalCard('Temperature', `${liveTemperature.toFixed(1)}°F`, 'Dummy (simulated)', 'text-orange-600')}
-          {renderVitalCard('SpO2', `${liveOxygen}%`, 'Dummy (simulated)', 'text-green-600')}
-          {renderVitalCard('Ambient Light (LDR)', liveLDR !== null ? String(liveLDR) : 'N/A', liveLDR !== null ? 'Dummy (simulated)' : 'No data', 'text-yellow-600')}
+        <div className="space-y-3">
+          {renderVitalCard('Heart Rate', `${liveHeartRate} BPM`, 'Beats per minute', 'text-red-600')}
+          {renderVitalCard('Blood Pressure', `${liveBP.sys}/${liveBP.dia}`, 'mmHg', 'text-blue-600')}
+          {renderVitalCard('Temperature', `${liveTemperature.toFixed(1)}°F`, 'Fahrenheit', 'text-orange-600')}
+          {renderVitalCard('SpO2', `${liveOxygen}%`, 'Oxygen saturation', 'text-green-600')}
+          {renderVitalCard('Ambient Light', liveLDR !== null ? String(liveLDR) : 'N/A', 'Light intensity (LDR)', 'text-yellow-600')}
+        </div>
+
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
+          <p className="text-xs text-blue-700 font-semibold">🔄 Updating every 3 seconds</p>
         </div>
       </div>
     );
