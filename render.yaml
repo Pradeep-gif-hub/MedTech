@@ -1,4 +1,5 @@
 services:
+  # FastAPI Backend Service
   - type: web
     name: medtech-backend
     env: python
@@ -7,3 +8,39 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /
     autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8000
+
+  # React Frontend Service
+  - type: static
+    name: medtech-frontend
+    env: static
+    rootDir: healthconnect-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_URL
+        value: https://medtech-backend.onrender.com
+      - key: VITE_WS_URL
+        value: wss://medtech-backend.onrender.com
+
+  # Groq AI Chatbot Service
+  - type: web
+    name: medtech-chatbot
+    env: node
+    rootDir: healthconnect-chatbot
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/history
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
+      - key: GROQ_API_KEY
+        fromService:
+          name: medtech-chatbot
+          property: env.GROQ_API_KEY
