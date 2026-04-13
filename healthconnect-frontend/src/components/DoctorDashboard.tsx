@@ -24,8 +24,6 @@ import {
   BarChart3,
   Video,
   User,
-  Phone,
-  MessageCircle,
   Activity,
 } from 'lucide-react';
 
@@ -1189,17 +1187,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           className="w-full h-[350px] md:h-[400px] object-cover rounded-xl bg-black border-4 border-emerald-500 shadow-lg"
           style={{ background: '#111' }}
         />
-        {/* Doctor's own video as floating window, match PatientDashboard size */}
-        <div className="absolute bottom-10 right-2 w-40 h-28 bg-black rounded-lg overflow-hidden border-2 border-white shadow-xl flex items-center justify-center">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover rounded-lg"
-            style={{ background: '#222' }}
-          />
-        </div>
+
         {/* Camera error message */}
         {cameraError && <p className="absolute bottom-2 left-2 text-xs text-red-400">{cameraError}</p>}
       </div>
@@ -1308,15 +1296,10 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             <div className="bg-gray-100 p-2 sm:p-4 overflow-x-auto">
               <div className="flex justify-between items-center">
                 <div className="flex flex-wrap gap-2 sm:gap-4">
-                  <button className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors">
-                    <Phone className="h-6 w-6" />
-                  </button>
-
-                  <button className="bg-green-600 text-white p-3 rounded-lg hover:bg-green-700 transition-colors">
-                    <MessageCircle className="h-6 w-6" />
-                  </button>
-
-                  <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                  <button 
+                    onClick={() => setActiveTab('prescriptions')}
+                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                  >
                     Create Prescription
                   </button>
                 </div>
@@ -1330,20 +1313,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Notes */}
-            <div className="p-4 border-t bg-white">
-              <h3 className="font-bold text-gray-900 mb-2">Consultation Notes</h3>
-              <textarea
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg h-24"
-                placeholder="Enter consultation notes, diagnosis, and treatment plan..."
-              />
-            </div>
-            {/* Debug log for live consultation */}
-            <div className="p-2 bg-gray-100 text-xs text-gray-700 max-h-32 overflow-y-auto mt-2 rounded">
-              <strong>Live Log:</strong>
-              <pre>{liveLog}</pre>
             </div>
           </div>
         ) : (

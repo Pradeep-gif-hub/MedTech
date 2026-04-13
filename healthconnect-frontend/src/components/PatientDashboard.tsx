@@ -1251,17 +1251,6 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                   playsInline
                   className="w-full h-full object-cover rounded-xl bg-gray-200"
                 />
-                {/* floating self-preview when in consultation */}
-                <div className="absolute bottom-4 right-4 w-40 h-32 bg-gray-900 rounded-lg overflow-hidden border-2 border-blue-400 shadow-lg">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay={true}
-                    muted={true}
-                    playsInline={true}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    className="bg-gray-900"
-                  />
-                </div>
               </>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 px-6">
