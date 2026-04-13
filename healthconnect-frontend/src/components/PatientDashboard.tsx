@@ -515,12 +515,24 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         }
       };
 
-      const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = localStream;
-        localVideoRef.current.play().catch(() => { });
+      try {
+        const localStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+          audio: true 
+        });
+        console.log('[PatientDashboard] Got local media stream:', localStream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStream;
+          localVideoRef.current.play().catch((err) => { 
+            console.error('[PatientDashboard] Video play error:', err);
+          });
+        }
+        localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+      } catch (mediaErr) {
+        console.error('[PatientDashboard] getUserMedia failed:', mediaErr);
+        alert('Camera/microphone permission denied or not available. Please allow access and try again.');
+        throw mediaErr;
       }
-      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -1240,13 +1252,14 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                   className="w-full h-full object-cover rounded-xl bg-gray-200"
                 />
                 {/* floating self-preview when in consultation */}
-                <div className="absolute bottom-2 right-4 w-40 h-30 bg-gray-200 rounded-lg overflow-hidden border border-gray-300">
+                <div className="absolute bottom-4 right-4 w-40 h-32 bg-gray-900 rounded-lg overflow-hidden border-2 border-blue-400 shadow-lg">
                   <video
                     ref={localVideoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover rounded-lg"
+                    autoPlay={true}
+                    muted={true}
+                    playsInline={true}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    className="bg-gray-900"
                   />
                 </div>
               </>
