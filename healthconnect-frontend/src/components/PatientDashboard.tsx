@@ -1910,11 +1910,7 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
                 />
               </div>
             </div>
-            <button onClick={() => {
-              console.log('[PatientDashboard] 💬 Chat button clicked');
-              console.log('[PatientDashboard] User:', profile?.email || 'Unknown');
-              onNavigateToChatbot();
-            }} className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition flex items-center gap-2">
+            <button onClick={onNavigateToChatbot} className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition flex items-center gap-2">
               💬 Chat
             </button>
             <button onClick={handleLocalLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
