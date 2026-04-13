@@ -33,7 +33,7 @@ services:
     rootDir: healthconnect-chatbot
     buildCommand: npm install
     startCommand: node server.js
-    healthCheckPath: /api/history
+    healthCheckPath: /
     autoDeploy: true
     envVars:
       - key: PORT
