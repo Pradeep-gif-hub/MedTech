@@ -64,6 +64,12 @@ function App() {
         const currentPath = window.location.pathname;
         const searchParams = new URLSearchParams(window.location.search);
 
+        // CRITICAL: Don't reset view if user is in chatbot (preserves navigation)
+        if (currentPath === '/chatbot') {
+          console.log('[App] User in chatbot path, skipping session restore redirect');
+          return;
+        }
+
         if (currentPath === '/reset-password') {
           setCurrentView('reset-password');
           return;
