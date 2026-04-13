@@ -160,6 +160,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   const buildWsUrl = (endpoint: string) => {
+    // Use explicit WebSocket URL if provided
+    const wsBaseUrl = import.meta.env.VITE_WS_URL;
+    if (wsBaseUrl) {
+      console.log('[WebSocket] Using VITE_WS_URL:', wsBaseUrl);
+      return `${wsBaseUrl}${endpoint}`;
+    }
+
+    // Fallback: convert API URL to WebSocket URL
     const httpUrl = buildApiUrl(endpoint);
     if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
     if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
@@ -224,6 +232,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
     // Connect WebSocket
     const wsUrl = buildWsUrl(`/webrtc/ws/live-consultation/receiver?roomId=${encodeURIComponent(roomId)}`);
+    console.log('[WebRTC] Doctor connecting to:', wsUrl);
+    console.log('[WebRTC] Room ID:', roomId);
+    
     const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -235,13 +246,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     };
 
     ws.onopen = () => {
+      console.log('✅ WebSocket connected! Joining room:', roomId);
       logLive('WebSocket open (receiver)');
-      console.log('Joining room:', roomId);
       ws.send(JSON.stringify({ type: 'join-room', roomId, role: 'doctor' }));
       flushPending();
     };
-    ws.onerror = (e) => { console.error('WebSocket error', e); logLive('WebSocket error'); };
-    ws.onclose = () => { logLive('WebSocket closed'); };
+    
+    ws.onerror = (e) => {
+      console.error('❌ WebSocket ERROR:', e);
+      console.error('[WebRTC] Failed to connect to:', wsUrl);
+      logLive('WebSocket error - check connection');
+    };
+    
+    ws.onclose = () => {
+      console.log('⚠️ WebSocket closed');
+      logLive('WebSocket closed');
+    };
 
     ws.onmessage = async ev => {
       try {

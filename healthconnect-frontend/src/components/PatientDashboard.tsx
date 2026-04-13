@@ -71,6 +71,14 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const pendingSends = useRef([] as string[]);
 
   const buildWsUrl = (endpoint: string) => {
+    // Use explicit WebSocket URL if provided
+    const wsBaseUrl = import.meta.env.VITE_WS_URL;
+    if (wsBaseUrl) {
+      console.log('[WebSocket] Using VITE_WS_URL:', wsBaseUrl);
+      return `${wsBaseUrl}${endpoint}`;
+    }
+
+    // Fallback: convert API URL to WebSocket URL
     const httpUrl = buildApiUrl(endpoint);
     if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
     if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
@@ -372,6 +380,9 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
 
     try {
       const wsUrl = buildWsUrl(`/webrtc/ws/live-consultation/sender?roomId=${encodeURIComponent(roomId)}`);
+      console.log('[WebRTC] Patient connecting to:', wsUrl);
+      console.log('[WebRTC] Room ID:', roomId);
+      
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -387,7 +398,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       };
 
       ws.onopen = () => {
-        console.log('Joining room:', roomId);
+        console.log('✅ WebSocket connected! Joining room:', roomId);
         ws.send(JSON.stringify({ type: 'join-room', roomId, role: 'patient' }));
         flushPending();
       };
@@ -395,6 +406,7 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
       ws.onmessage = async (ev) => {
         try {
           const data = JSON.parse(ev.data);
+          console.log('[WebRTC] Message received:', data.type);
           if (data.type === 'answer' && data.sdp) {
             await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.sdp));
           } else if ((data.type === 'ice' || data.type === 'ice-candidate') && data.candidate) {
@@ -409,8 +421,15 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
         }
       };
 
-      ws.onclose = () => { };
-      ws.onerror = (e) => console.warn('WS error', e);
+      ws.onclose = () => {
+        console.log('⚠️ WebSocket closed');
+      };
+      
+      ws.onerror = (e) => {
+        console.error('❌ WebSocket ERROR:', e);
+        console.error('[WebRTC] Failed to connect to:', wsUrl);
+        alert('WebSocket connection failed. Check console and verify backend is running.');
+      };
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
