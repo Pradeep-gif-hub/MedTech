@@ -160,7 +160,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   const buildWsUrl = (endpoint: string) => {
-  const buildWsUrl = (endpoint: string) => {
     // ===== DEBUG: Trace environment variables =====
     console.log('[WebSocket] ==== DEBUG TRACE ====');
     console.log('[WebSocket] VITE_WS_URL env:', import.meta.env.VITE_WS_URL);
@@ -2030,9 +2029,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   );
 };
 
-export default DoctorDashboard;
-
-// Add this helper component for consistent detail rows
+// Helper component for consistent detail rows
 const DetailRow = ({ label, value, fullWidth = false }: { 
   label: string; 
   value: string; 
@@ -2044,19 +2041,5 @@ const DetailRow = ({ label, value, fullWidth = false }: {
   </div>
 );
 
-// Add new animation class to your global CSS or inline styles
-const styles = `
-  @keyframes float {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-    100% { transform: translateY(0px); }
-  }
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-`;
+export default DoctorDashboard;
 
-// Add style tag to head
-const styleSheet = document.createElement("style");
-styleSheet.innerText = styles;
-document.head.appendChild(styleSheet);
