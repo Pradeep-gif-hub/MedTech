@@ -7,7 +7,10 @@ import { useStoredUser } from '../hooks/useStoredUser';
 import { buildApiUrl } from '../config/api';
 import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
 
-interface PatientDashboardProps { onLogout: () => void }
+interface PatientDashboardProps { 
+  onLogout: () => void;
+  onNavigateToChatbot: () => void;
+}
 // sample vitals and data (replace with real API data)
 const vitalSigns = {
   heartRate: 78,
@@ -16,7 +19,7 @@ const vitalSigns = {
   oxygenLevel: 96,
 };
 
-const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
+const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardProps) => {
   // normalize tab keys to lowercase ('home') because the rest of the file uses 'home'
   const [activeTab, setActiveTab] = useState('home' as 'home' | 'consultation' | 'profile' | 'prescriptions' | 'notifications');
   const [inConsultation, setInConsultation] = useState(false);
@@ -1907,6 +1910,13 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
                 />
               </div>
             </div>
+            <button onClick={() => {
+              console.log('[PatientDashboard] 💬 Chat button clicked');
+              console.log('[PatientDashboard] User:', profile?.email || 'Unknown');
+              onNavigateToChatbot();
+            }} className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition flex items-center gap-2">
+              💬 Chat
+            </button>
             <button onClick={handleLocalLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
           </div>
         </div>

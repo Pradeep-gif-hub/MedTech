@@ -8,6 +8,7 @@ import PublicPages from './components/PublicPages';
 import Login from './components/Login';
 import ProfileCompletion from './components/ProfileCompletion';
 import ResetPassword from './components/ResetPassword';
+import ChatbotPage from './pages/ChatbotPage';
 import { AuthProvider } from './contexts/AuthContext';
 
 export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'unknown';
@@ -20,6 +21,7 @@ export type CurrentView =
   | 'profile-completion'
   | 'reset-password'
   | 'dashboard'
+  | 'chatbot'
   | 'public'
   | 'admin';
 
@@ -166,6 +168,30 @@ function App() {
     setCurrentView('public');
   };
 
+  const handleNavigateToChatbot = () => {
+    console.log('[App] Navigating to chatbot...');
+    console.log('[App] Current URL:', window.location.pathname);
+    console.log('[App] User role:', userRole);
+    setCurrentView('chatbot');
+    if (window.location.pathname !== '/chatbot') {
+      console.log('[App] Updating URL to /chatbot');
+      window.history.pushState({}, '', '/chatbot');
+    }
+    console.log('[App] ✅ Chatbot navigation complete');
+  };
+
+  const handleCloseChatbot = () => {
+    console.log('[App] Closing chatbot, returning to dashboard');
+    setCurrentView('dashboard');
+    // Navigate back to patient home
+    const targetPath = '/patient/home';
+    if (window.location.pathname !== targetPath) {
+      console.log('[App] Updating URL to', targetPath);
+      window.history.pushState({}, '', targetPath);
+    }
+    console.log('[App] ✅ Chatbot closed, back to dashboard');
+  };
+
   const renderContent = () => {
     switch (currentView) {
       // Login pages for each role
@@ -267,7 +293,7 @@ function App() {
       case 'dashboard':
         switch (userRole) {
           case 'patient':
-            return <PatientDashboard onLogout={handleLogout} />;
+            return <PatientDashboard onLogout={handleLogout} onNavigateToChatbot={handleNavigateToChatbot} />;
           case 'doctor':
             return <DoctorDashboard onLogout={handleLogout} />;
           case 'pharmacy':
@@ -280,6 +306,9 @@ function App() {
               />
             );
         }
+
+      case 'chatbot':
+        return <ChatbotPage onClose={handleCloseChatbot} />;
 
       case 'admin':
         return <AdminPanel onLogout={handleLogout} />;

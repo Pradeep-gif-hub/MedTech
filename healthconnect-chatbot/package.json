@@ -1,0 +1,24 @@
+{
+  "name": "medtech-chatbot-service",
+  "version": "1.0.0",
+  "description": "Medical AI Chatbot powered by Groq API - Integrated with MedTech Platform",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "cli": "node cli.js"
+  },
+  "keywords": ["chatbot", "groq", "ai", "medical-assistant", "medtech"],
+  "author": "MedTech Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "groq-sdk": "^0.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
