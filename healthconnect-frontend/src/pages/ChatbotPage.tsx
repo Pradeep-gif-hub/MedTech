@@ -44,7 +44,34 @@ const ChatbotPage: React.FC<ChatbotPageProps> = ({ onClose }) => {
   const handleIframeError = () => {
     console.error('[ChatbotPage] ❌ Failed to load chatbot iframe');
     setIsLoading(false);
-    setError('Failed to load chatbot service. Make sure the chatbot server is running.');
+    
+    // Check if we're in production trying to access non-existent service
+    const isDev = import.meta.env.MODE === 'development';
+    if (!isDev) {
+      setError(
+        '🚀 Chatbot service not yet deployed to production.\n\n' +
+        'To use the AI health chatbot, the backend service needs to be deployed to Render.\n\n' +
+        '📋 DEPLOYMENT STEPS:\n' +
+        '1. Push healthconnect-chatbot/ to your GitHub repo\n' +
+        '2. Create new Render Web Service from the repo\n' +
+        '3. Set Environment Variables:\n' +
+        '   - GROQ_API_KEY (from console.groq.com)\n' +
+        '   - PORT: 3001\n' +
+        '4. Deploy and get the service URL\n' +
+        '5. Update ChatbotPage.tsx production URL:\n' +
+        '   const prodUrl = "https://your-chatbot.onrender.com"\n\n' +
+        '✨ In development, it uses localhost:3001'
+      );
+    } else {
+      setError(
+        'Failed to load chatbot service.\n\n' +
+        'Please check:\n' +
+        '• Chatbot service is deployed to production\n' +
+        '• GROQ_API_KEY is set in Render environment\n' +
+        '• Production URL is correct in code\n' +
+        '• Service is running (check Render dashboard)'
+      );
+    }
   };
 
   const handleRetry = () => {
@@ -98,38 +125,34 @@ const ChatbotPage: React.FC<ChatbotPageProps> = ({ onClose }) => {
       {/* Error State */}
       {error && (
         <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-          <div className="bg-white border-2 border-red-200 rounded-2xl p-8 max-w-md text-center shadow-lg">
+          <div className="bg-white border-2 border-red-200 rounded-2xl p-8 max-w-2xl text-center shadow-lg max-h-[85vh] overflow-y-auto">
             <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-3">Connection Failed</h2>
-            <p className="text-gray-700 mb-6">{error}</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">⚠️ Service Configuration Needed</h2>
             
-            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left space-y-2 text-sm text-gray-600">
-              <p>💡 <strong>Troubleshooting:</strong></p>
-              <ul className="ml-4 space-y-1">
-                <li>✓ Ensure chatbot server is running on port 3001 (dev)</li>
-                <li>✓ Check internet connection</li>
-                <li>✓ Verify GROQ_API_KEY is set in .env</li>
-                <li>✓ Check browser console for detailed errors</li>
-              </ul>
+            {/* Display error message with proper line formatting */}
+            <div className="text-left bg-gray-50 rounded-lg p-4 mb-6 text-sm text-gray-700 whitespace-pre-wrap font-mono">
+              {error}
             </div>
 
-            <button
-              onClick={handleRetry}
-              className="w-full px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-colors font-semibold flex items-center justify-center gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Try Again
-            </button>
-            
-            <button
-              onClick={() => {
-                console.log('[ChatbotPage] Error page back button clicked');
-                onClose();
-              }}
-              className="w-full mt-3 px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
-            >
-              Return to Dashboard
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={handleRetry}
+                className="w-full px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-colors font-semibold flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Try Again
+              </button>
+              
+              <button
+                onClick={() => {
+                  console.log('[ChatbotPage] Error page back button clicked');
+                  onClose();
+                }}
+                className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+              >
+                Return to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       )}
