@@ -45,7 +45,9 @@ except Exception:
     analytics = None
 try:
     from routers import webrtc
-except Exception:
+    print("[STARTUP] WebRTC router imported successfully")
+except Exception as e:
+    print(f"[STARTUP] WebRTC router import failed: {e}")
     webrtc = None
 
 app = FastAPI(title="HealthConnect")
@@ -121,6 +123,9 @@ if analytics and hasattr(analytics, "router"):
     app.include_router(analytics.router, tags=["Analytics"])
 if webrtc and hasattr(webrtc, "router"):
     app.include_router(webrtc.router, prefix="/webrtc", tags=["WebRTC"])
+    print("[STARTUP] WebRTC route mounted at /webrtc/ws/live-consultation/{role}")
+else:
+    print("[STARTUP] WebRTC router NOT mounted")
 
 # optional: root health-check
 @app.get("/")

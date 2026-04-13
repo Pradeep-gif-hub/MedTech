@@ -71,18 +71,33 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
   const pendingSends = useRef([] as string[]);
 
   const buildWsUrl = (endpoint: string) => {
+    // ===== DEBUG: Trace environment variables =====
+    console.log('[WebSocket] ==== DEBUG TRACE ====');
+    console.log('[WebSocket] VITE_WS_URL env:', import.meta.env.VITE_WS_URL);
+    console.log('[WebSocket] VITE_API_URL env:', import.meta.env.VITE_API_URL);
+    console.log('[WebSocket] DEV mode:', import.meta.env.DEV);
+    console.log('[WebSocket] Full env keys:', Object.keys(import.meta.env).filter(k => k.includes('VITE')));
+
     // Use explicit WebSocket URL if provided
     const wsBaseUrl = import.meta.env.VITE_WS_URL;
     if (wsBaseUrl) {
-      console.log('[WebSocket] Using VITE_WS_URL:', wsBaseUrl);
-      return `${wsBaseUrl}${endpoint}`;
+      const finalUrl = `${wsBaseUrl}${endpoint}`;
+      console.log('✅ [WebSocket] Using VITE_WS_URL:', wsBaseUrl);
+      console.log('✅ [WebSocket] Final URL:', finalUrl);
+      return finalUrl;
     }
 
     // Fallback: convert API URL to WebSocket URL
+    console.warn('[WebSocket] ⚠️ VITE_WS_URL not set, converting from API URL');
     const httpUrl = buildApiUrl(endpoint);
-    if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
-    if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
-    return httpUrl;
+    console.log('[WebSocket] Converted from API URL:', httpUrl);
+    
+    let wsUrl = httpUrl;
+    if (httpUrl.startsWith('https://')) wsUrl = httpUrl.replace('https://', 'wss://');
+    else if (httpUrl.startsWith('http://')) wsUrl = httpUrl.replace('http://', 'ws://');
+    
+    console.log('✅ [WebSocket] Final WS URL:', wsUrl);
+    return wsUrl;
   };
 
   const escapeHtml = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
@@ -227,7 +242,8 @@ const PatientDashboard = ({ onLogout }: PatientDashboardProps) => {
     if (!userId) { alert('Login required'); return }
     setLoadingServerPrescriptions(true);
     try {
-      const urls = [`https://medtech-hcmo.onrender.com/api/prescriptions/${userId}`, `https://medtech-hcmo.onrender.com/api/prescriptions/patient/${userId}`, `https://medtech-hcmo.onrender.com/api/prescriptions`];
+      const baseUrl = buildApiUrl('');
+      const urls = [`${baseUrl}/api/prescriptions/${userId}`, `${baseUrl}/api/prescriptions/patient/${userId}`, `${baseUrl}/api/prescriptions`];
       let list: any[] = [];
       for (const u of urls) { try { const r = await fetch(u); if (!r.ok) continue; const d = await r.json(); if (Array.isArray(d)) list = d; else if (d) list = [d]; if (list.length) break } catch (e) { } }
       setServerPrescriptions(list);

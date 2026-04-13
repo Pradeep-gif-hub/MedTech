@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass, field
+from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter()
@@ -14,8 +15,8 @@ def _normalize_role(role: str) -> str:
 
 @dataclass
 class RoomState:
-    patient: WebSocket | None = None
-    doctor: WebSocket | None = None
+    patient: Optional[WebSocket] = None
+    doctor: Optional[WebSocket] = None
     pending_for_patient: list[str] = field(default_factory=list)
     pending_for_doctor: list[str] = field(default_factory=list)
 
@@ -85,6 +86,10 @@ manager = ConnectionManager()
 
 @router.websocket("/ws/live-consultation/{role}")
 async def websocket_endpoint(websocket: WebSocket, role: str):
+    print("[WEBRTC] Incoming WS request")
+    print(f"[WEBRTC] path={websocket.url.path} role={role}")
+    print(f"[WEBRTC] headers={dict(websocket.headers)}")
+
     room_id = (
         websocket.query_params.get("roomId")
         or websocket.query_params.get("room_id")
@@ -94,6 +99,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str):
 
     print(f"[WEBRTC] connect role={normalized_role} room={room_id}")
     await manager.connect(websocket, normalized_role, room_id)
+    print("[WEBRTC] WebSocket connected")
 
     try:
         while True:
@@ -127,4 +133,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str):
                 await manager.relay(room_id, normalized_role, json.dumps(payload))
     except WebSocketDisconnect:
         print(f"[WEBRTC] disconnect role={normalized_role} room={room_id}")
+    except Exception as e:
+        print(f"[WEBRTC] error role={normalized_role} room={room_id}: {e}")
+    finally:
         manager.disconnect(normalized_role, room_id)

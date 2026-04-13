@@ -160,18 +160,34 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   };
 
   const buildWsUrl = (endpoint: string) => {
+  const buildWsUrl = (endpoint: string) => {
+    // ===== DEBUG: Trace environment variables =====
+    console.log('[WebSocket] ==== DEBUG TRACE ====');
+    console.log('[WebSocket] VITE_WS_URL env:', import.meta.env.VITE_WS_URL);
+    console.log('[WebSocket] VITE_API_URL env:', import.meta.env.VITE_API_URL);
+    console.log('[WebSocket] DEV mode:', import.meta.env.DEV);
+    console.log('[WebSocket] Full env keys:', Object.keys(import.meta.env).filter(k => k.includes('VITE')));
+
     // Use explicit WebSocket URL if provided
     const wsBaseUrl = import.meta.env.VITE_WS_URL;
     if (wsBaseUrl) {
-      console.log('[WebSocket] Using VITE_WS_URL:', wsBaseUrl);
-      return `${wsBaseUrl}${endpoint}`;
+      const finalUrl = `${wsBaseUrl}${endpoint}`;
+      console.log('✅ [WebSocket] Using VITE_WS_URL:', wsBaseUrl);
+      console.log('✅ [WebSocket] Final URL:', finalUrl);
+      return finalUrl;
     }
 
     // Fallback: convert API URL to WebSocket URL
+    console.warn('[WebSocket] ⚠️ VITE_WS_URL not set, converting from API URL');
     const httpUrl = buildApiUrl(endpoint);
-    if (httpUrl.startsWith('https://')) return httpUrl.replace('https://', 'wss://');
-    if (httpUrl.startsWith('http://')) return httpUrl.replace('http://', 'ws://');
-    return httpUrl;
+    console.log('[WebSocket] Converted from API URL:', httpUrl);
+    
+    let wsUrl = httpUrl;
+    if (httpUrl.startsWith('https://')) wsUrl = httpUrl.replace('https://', 'wss://');
+    else if (httpUrl.startsWith('http://')) wsUrl = httpUrl.replace('http://', 'ws://');
+    
+    console.log('✅ [WebSocket] Final WS URL:', wsUrl);
+    return wsUrl;
   };
 
   // ===== STEP 3: Data fetching and WebRTC helpers (can reference derived variables safely) =====

@@ -16,9 +16,9 @@ export const getAPIBaseUrl = (): string => {
     return envUrl;
   }
 
-  // Fallback to deployed backend
-  console.warn('[API Config] VITE_API_URL not set, using default backend');
-  return 'https://medtech-hcmo.onrender.com';
+  // Fallback: never use hardcoded domain, fail loudly
+  console.error('[API Config] ❌ VITE_API_URL is NOT set!');
+  throw new Error('[CRITICAL] VITE_API_URL environment variable is required for production');
 };
 
 export const API_BASE_URL = getAPIBaseUrl();
