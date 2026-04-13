@@ -217,6 +217,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
     // Create peer connection first so incoming offers can be handled immediately
     try {
+      const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
       const pc = new RTCPeerConnection(rtcConfig);
       pcRef.current = pc;
 
