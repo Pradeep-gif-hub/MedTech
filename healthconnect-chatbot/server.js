@@ -1,10 +1,17 @@
-import express from "express";
-import cors from "cors";
+import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+
+// Get the directory of this file
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables from .env file in this directory
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+import express from "express";
+import cors from "cors";
 import { chat, clearHistory, getHistory } from "./assistant.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 

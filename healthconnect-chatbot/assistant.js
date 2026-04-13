@@ -1,6 +1,13 @@
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
-dotenv.config();
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get the directory of this file
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables from .env file
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 console.log('[Assistant] Initializing Groq SDK...');
 console.log('[Assistant] API Key Status: ' + (process.env.GROQ_API_KEY ? 'PRESENT' : 'MISSING ⚠️'));
