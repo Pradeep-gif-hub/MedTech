@@ -15,10 +15,10 @@
     "express-session": "^1.17.3",
     "google-auth-library": "^9.4.1",
     "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.2",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^3.0.2",
     "nodemailer": "^6.10.1",
-    "puppeteer": "^21.6.1",
+    "pdfkit": "^0.18.0",
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {

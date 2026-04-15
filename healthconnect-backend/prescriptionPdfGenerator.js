@@ -1,298 +1,357 @@
 /**
- * MedTech Prescription PDF Generator
- * Professional hospital-grade prescription PDFs using Puppeteer + HTML + CSS
- * 
- * Features:
- * - Dynamic patient/doctor/medicine data
- * - Professional medical branding
- * - Responsive table layout
- * - Print-friendly A4 format
- * - Authorized stamp and signature placeholder
+ * MedTech Prescription PDF Generator (PDFKit)
+ * Data flow: JSON -> PDFKit -> PDF Buffer/File
  */
 
-const puppeteer = require('puppeteer');
+const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-const TEMPLATE_PATH = path.join(__dirname, 'prescription-template.html');
-let templateCache = null;
-let templateMtimeMs = 0;
+const PAGE_MARGIN = 50;
+const TABLE_COLUMNS = [
+  { key: 'name', label: 'Medicine', width: 190 },
+  { key: 'dosage', label: 'Dosage', width: 90 },
+  { key: 'frequency', label: 'Frequency', width: 115 },
+  { key: 'duration', label: 'Duration', width: 70 },
+];
 
-function getPrescriptionTemplateHtml() {
-  console.log('[PrescriptionPDF] 📂 TEMPLATE FILE USED:', TEMPLATE_PATH);
-  const templateStat = fs.statSync(TEMPLATE_PATH);
-  const disableCache = process.env.DISABLE_TEMPLATE_CACHE === '1';
-  const needsReload = disableCache || templateCache === null || templateMtimeMs !== templateStat.mtimeMs;
-
-  if (needsReload) {
-    templateMtimeMs = templateStat.mtimeMs;
-    templateCache = fs.readFileSync(TEMPLATE_PATH, 'utf8');
-    if (disableCache) {
-      console.log('[PrescriptionPDF] Template cache disabled by DISABLE_TEMPLATE_CACHE=1.');
-    } else {
-      console.log('[PrescriptionPDF] Template cache refreshed from disk.');
-    }
-    console.log('[PrescriptionPDF] 📄 RAW TEMPLATE CONTENT:\n', templateCache.slice(0, 500));
-  }
-
-  return templateCache;
-}
-
-function resolveBrowserExecutablePath() {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].filter(Boolean);
-
-  return candidates.find((candidate) => fs.existsSync(candidate));
-}
-
-/**
- * 🔧 FIX 1: GLOBAL escapeHtml - Available everywhere (not just inside functions)
- */
-function escapeHtml(str) {
-  if (!str) return 'N/A';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-/**
- * Format date to readable format
- */
-function formatDate(dateStr) {
+function formatDate(dateValue) {
   try {
-    const d = new Date(dateStr);
+    const d = new Date(dateValue || Date.now());
     return d.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
   } catch {
-    return dateStr || 'N/A';
+    return String(dateValue || 'N/A');
   }
 }
 
-/**
- * Get current time in HH:MM:SS format
- */
-function getCurrentTime() {
-  const now = new Date();
-  return now.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+function sanitizeText(value, fallback = 'N/A') {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  const str = String(value).trim();
+  return str || fallback;
 }
 
-/**
- * Generate HTML prescription template with dynamic data
- * @param {Object} data - Prescription data
- * @returns {string} - HTML string ready for PDF conversion
- */
-function generatePrescriptionHTML(data) {
-  // Validate and sanitize data
-  const {
-    patientName = 'N/A',
-    patientId = 'N/A',
-    patientAge = 'N/A',
-    gender = 'N/A',
-    doctor = 'N/A',
-    diagnosis = 'N/A',
-    date = new Date().toISOString().split('T')[0],
-    medicines = [],
-  } = data;
+function resolveImagePath(filePath) {
+  if (!filePath) {
+    return null;
+  }
 
-  // Escape all values before passing to template.
-  const safeData = {
-    patientName: escapeHtml(patientName),
-    patientId: escapeHtml(patientId),
-    patientAge: escapeHtml(patientAge),
-    gender: escapeHtml(gender),
-    doctor: escapeHtml(doctor),
-    diagnosis: escapeHtml(diagnosis),
-    dateFormatted: formatDate(date),
-    timeFormatted: getCurrentTime(),
+  const candidates = [
+    filePath,
+    path.resolve(__dirname, filePath),
+    path.resolve(process.cwd(), filePath),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveDefaultAsset(relativePaths) {
+  for (const rel of relativePaths) {
+    const found = resolveImagePath(rel);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function normalizePrescriptionData(data = {}) {
+  const doctorBlock = typeof data.doctor === 'object' && data.doctor !== null
+    ? data.doctor
+    : {
+        name: data.doctor || 'Dr. John Doe',
+        qualification: data.doctorQualification || data.qualification || 'MBBS, MD',
+        registrationNumber: data.doctorRegistrationNumber || data.registrationNumber || 'N/A',
+      };
+
+  const patientBlock = typeof data.patient === 'object' && data.patient !== null
+    ? data.patient
+    : {
+        name: data.patientName || 'N/A',
+        age: data.patientAge || 'N/A',
+        gender: data.gender || 'N/A',
+      };
+
+  const medicines = Array.isArray(data.medicines)
+    ? data.medicines.map((med) => ({
+        name: sanitizeText(med?.name),
+        dosage: sanitizeText(med?.dosage || med?.dose),
+        frequency: sanitizeText(med?.frequency),
+        duration: sanitizeText(med?.duration),
+      }))
+    : [];
+
+  return {
+    clinicName: sanitizeText(data.clinicName || data.clinic?.name || 'MedTech Clinic'),
+    clinicAddress: sanitizeText(
+      data.clinicAddress || data.clinic?.address || '21 Health Avenue, Sector 12, New Delhi',
+      '21 Health Avenue, Sector 12, New Delhi'
+    ),
+    clinicContact: sanitizeText(
+      data.clinicContact || data.clinic?.contact || '+91-98765-43210 | support@medtechclinic.com',
+      '+91-98765-43210 | support@medtechclinic.com'
+    ),
+    emergencyContact: sanitizeText(data.emergencyContact || 'Emergency: +91-102-108'),
+    doctor: {
+      name: sanitizeText(doctorBlock.name),
+      qualification: sanitizeText(doctorBlock.qualification, 'MBBS, MD'),
+      registrationNumber: sanitizeText(doctorBlock.registrationNumber),
+    },
+    patient: {
+      name: sanitizeText(patientBlock.name),
+      age: sanitizeText(patientBlock.age),
+      gender: sanitizeText(patientBlock.gender),
+    },
+    diagnosis: sanitizeText(data.diagnosis || data.notes || data.clinicalNotes || 'General consultation'),
+    prescriptionId: sanitizeText(data.prescriptionId || data.patientId || `RX-${Date.now()}`),
+    dateFormatted: formatDate(data.date),
+    medicines,
+    footerDisclaimer: sanitizeText(
+      data.footerDisclaimer || 'This is a computer-generated prescription',
+      'This is a computer-generated prescription'
+    ),
+    logoPath: resolveImagePath(data.logoPath || data.assets?.logoPath || data.logo) ||
+      resolveDefaultAsset(['assets/logo.png', 'assets/logo.jpg', 'assets/logo.jpeg']),
+    signaturePath: resolveImagePath(data.signaturePath || data.assets?.signaturePath || data.signature) ||
+      resolveDefaultAsset(['assets/signature.png', 'assets/signature.jpg']),
+    stampPath: resolveImagePath(data.stampPath || data.assets?.stampPath || data.stamp) ||
+      resolveDefaultAsset(['assets/stamp.png', 'assets/stamp.jpg']),
   };
-
-  // Build medicine table rows with escaping
-  const medicinesRows = medicines.length > 0
-    ? medicines
-        .map(
-          (med, idx) => `
-            <tr style="background-color: ${idx % 2 === 0 ? '#f8fafb' : 'white'};">
-              <td class="table-cell medicine-name">${escapeHtml(med.name || 'N/A')}</td>
-              <td class="table-cell">${escapeHtml(med.dose || 'N/A')}</td>
-              <td class="table-cell">${escapeHtml(med.frequency || 'N/A')}</td>
-              <td class="table-cell">${escapeHtml(med.duration || 'N/A')}</td>
-            </tr>
-          `
-        )
-        .join('')
-    : '<tr><td colspan="4" class="table-cell empty">No medicines prescribed</td></tr>';
-
-  // Call template with safe, pre-escaped data
-  const templateHtml = beautifulPrescriptionTemplate({
-    patientName: safeData.patientName,
-    patientId: safeData.patientId,
-    patientAge: safeData.patientAge,
-    gender: safeData.gender,
-    doctor: safeData.doctor,
-    diagnosis: safeData.diagnosis,
-    dateFormatted: safeData.dateFormatted,
-    timeFormatted: safeData.timeFormatted,
-    medicinesRows,
-    medicinesCount: medicines.length,
-  });
-
-  return templateHtml;
 }
 
-function beautifulPrescriptionTemplate(data) {
-  const safeData = data && typeof data === 'object'
-    ? data
-    : {};
+function addWatermark(doc, watermarkText) {
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
 
-  const replacements = {
-    patientName: safeData.patientName || 'N/A',
-    patientId: safeData.patientId || 'N/A',
-    patientAge: safeData.patientAge || 'N/A',
-    gender: safeData.gender || 'N/A',
-    doctor: safeData.doctor || 'N/A',
-    diagnosis: safeData.diagnosis || 'N/A',
-    dateFormatted: safeData.dateFormatted || formatDate(new Date().toISOString().split('T')[0]),
-    timeFormatted: safeData.timeFormatted || getCurrentTime(),
-    medicinesRows: safeData.medicinesRows || '<tr><td colspan="4" class="table-cell empty">No medicines prescribed</td></tr>',
-  };
+  doc.save();
+  doc.fillOpacity(0.08);
+  doc.fillColor('#6b7280');
+  doc.font('Helvetica-Bold');
+  doc.fontSize(64);
+  doc.rotate(-35, { origin: [pageWidth / 2, pageHeight / 2] });
 
-  let template = getPrescriptionTemplateHtml();
-  for (const [key, value] of Object.entries(replacements)) {
-    template = template.split(`{{${key}}}`).join(value);
+  const watermarkWidth = doc.widthOfString(watermarkText);
+  doc.text(
+    watermarkText,
+    (pageWidth - watermarkWidth) / 2,
+    pageHeight / 2,
+    { lineBreak: false }
+  );
+
+  doc.restore();
+  doc.fillOpacity(1);
+  doc.fillColor('#111827');
+}
+
+function drawHeader(doc, payload, startY) {
+  const leftX = PAGE_MARGIN;
+  const rightX = doc.page.width - PAGE_MARGIN - 180;
+  let titleX = leftX;
+
+  if (payload.logoPath) {
+    try {
+      doc.image(payload.logoPath, leftX, startY, { fit: [52, 52], align: 'left' });
+      titleX = leftX + 62;
+    } catch (error) {
+      console.warn('[PrescriptionPDF] Could not load logo image:', error.message);
+    }
   }
 
-  console.log('[PrescriptionPDF] 🧪 FINAL HTML AFTER REPLACEMENT:\n', template.slice(0, 500));
+  doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text(payload.clinicName, titleX, startY);
+  doc.font('Helvetica').fontSize(10).fillColor('#334155').text(payload.clinicAddress, titleX, startY + 30, { width: 320 });
+  doc.fontSize(10).text(payload.clinicContact, titleX, startY + 45, { width: 320 });
 
-  return template;
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e3a8a').text('Prescription ID', rightX, startY);
+  doc.font('Helvetica').fontSize(11).fillColor('#111827').text(payload.prescriptionId, rightX, startY + 14, { width: 180 });
+  doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e3a8a').text('Date', rightX, startY + 32);
+  doc.font('Helvetica').fontSize(11).fillColor('#111827').text(payload.dateFormatted, rightX, startY + 46, { width: 180 });
+
+  const lineY = startY + 72;
+  doc.moveTo(PAGE_MARGIN, lineY).lineTo(doc.page.width - PAGE_MARGIN, lineY).lineWidth(1).strokeColor('#cbd5e1').stroke();
+  return lineY + 14;
 }
 
-/**
- * Generate PDF from prescription data
- * @param {Object} data - Prescription data object
- * @param {string} outputPath - Path where PDF should be saved (optional)
- * @returns {Promise<Buffer|string>} - PDF buffer or file path
- */
-async function generatePrescriptionPDF(data, outputPath = null) {
-  let browser = null;
-  try {
-    console.log('[PrescriptionPDF] Starting PDF generation...');
+function drawInformationBlocks(doc, payload, startY) {
+  const cardHeight = 96;
+  const totalWidth = doc.page.width - PAGE_MARGIN * 2;
+  const gap = 12;
+  const cardWidth = (totalWidth - gap) / 2;
+  const leftX = PAGE_MARGIN;
+  const rightX = leftX + cardWidth + gap;
 
-    // Validate data
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid data: must be an object');
-    }
+  doc.roundedRect(leftX, startY, cardWidth, cardHeight, 8).fillAndStroke('#f8fafc', '#dbeafe');
+  doc.roundedRect(rightX, startY, cardWidth, cardHeight, 8).fillAndStroke('#f8fafc', '#dbeafe');
 
-    // 🔧 FIX 6: Ensure correct function flow
-    console.log('[PrescriptionPDF] Generating HTML with generatePrescriptionHTML()...');
-    let html = generatePrescriptionHTML(data);
-    console.log('[PrescriptionPDF] HTML generated successfully');
+  doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11).text('Patient Details', leftX + 12, startY + 10);
+  doc.font('Helvetica').fontSize(10)
+    .text(`Name: ${payload.patient.name}`, leftX + 12, startY + 28)
+    .text(`Age / Gender: ${payload.patient.age} / ${payload.patient.gender}`, leftX + 12, startY + 44)
+    .text(`Prescription ID: ${payload.prescriptionId}`, leftX + 12, startY + 60);
 
-    if (process.env.FORCE_PDF_TEMPLATE_TEST === '1') {
-      html = "<h1 style='color:red;'>FORCE TEST TEMPLATE</h1>";
-      console.log('[PrescriptionPDF] ⚠️ FORCE_PDF_TEMPLATE_TEST is enabled. Overriding html with FORCE TEST TEMPLATE.');
-    }
+  doc.fillColor('#111827').font('Helvetica-Bold').fontSize(11).text('Doctor Details', rightX + 12, startY + 10);
+  doc.font('Helvetica').fontSize(10)
+    .text(`Name: ${payload.doctor.name}`, rightX + 12, startY + 28)
+    .text(`Qualification: ${payload.doctor.qualification}`, rightX + 12, startY + 44)
+    .text(`Reg. No: ${payload.doctor.registrationNumber}`, rightX + 12, startY + 60);
 
-    console.log('🚨 FINAL HTML SENT TO PUPPETEER:\n', html);
+  return startY + cardHeight + 16;
+}
 
-    // 🔧 FIX 7: Launch Puppeteer browser
-    console.log('[PrescriptionPDF] Launching Puppeteer browser...');
-    const executablePath = resolveBrowserExecutablePath();
-    console.log('[PrescriptionPDF] Browser executable path:', executablePath || 'default Puppeteer browser');
+function drawDiagnosisSection(doc, payload, startY) {
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Diagnosis / Clinical Notes', PAGE_MARGIN, startY);
+  const boxY = startY + 16;
+  const boxWidth = doc.page.width - PAGE_MARGIN * 2;
+  const boxHeight = Math.max(48, doc.heightOfString(payload.diagnosis, { width: boxWidth - 20 }) + 18);
 
-    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'medtech-puppeteer-profile-'));
+  doc.roundedRect(PAGE_MARGIN, boxY, boxWidth, boxHeight, 6).fillAndStroke('#f0f9ff', '#bae6fd');
+  doc.fillColor('#0f172a').font('Helvetica').fontSize(10).text(payload.diagnosis, PAGE_MARGIN + 10, boxY + 8, { width: boxWidth - 20 });
 
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath,
-      pipe: true,
-      timeout: 120000,
-      userDataDir,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    });
+  return boxY + boxHeight + 18;
+}
 
-    const page = await browser.newPage();
+function drawTableHeader(doc, y) {
+  const tableWidth = TABLE_COLUMNS.reduce((sum, col) => sum + col.width, 0);
+  doc.rect(PAGE_MARGIN, y, tableWidth, 24).fill('#1e3a8a');
 
-    // Set viewport
-    await page.setViewport({ width: 1024, height: 1440 });
-
-    // 🔧 FIX 7: Use networkidle0 for better rendering
-    console.log('[PrescriptionPDF] Setting HTML content...');
-    await page.setContent(html, {
-      waitUntil: 'networkidle0',
-    });
-    console.log('[PrescriptionPDF] HTML content rendered successfully');
-
-    console.log('[PrescriptionPDF] Generating PDF...');
-
-    // If output path provided, save to file
-    if (outputPath) {
-      await page.pdf({
-        path: outputPath,
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0px',
-          right: '0px',
-          bottom: '0px',
-          left: '0px',
-        },
-      });
-      console.log(`[PrescriptionPDF] ✅ PDF saved to: ${outputPath}`);
-      await browser.close();
-      return outputPath;
-    }
-
-    // Otherwise return buffer
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '0px',
-        right: '0px',
-        bottom: '0px',
-        left: '0px',
-      },
-    });
-
-    await browser.close();
-    console.log('[PrescriptionPDF] ✅ PDF generated successfully - Buffer size:', pdfBuffer.length, 'bytes');
-    return pdfBuffer;
-  } catch (error) {
-    console.error('[PrescriptionPDF] ❌ Error generating PDF:', error.message);
-    console.error('[PrescriptionPDF] Stack trace:', error.stack);
-    if (browser) {
-      await browser.close();
-    }
-    throw error;
+  let cursorX = PAGE_MARGIN;
+  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(10);
+  for (const col of TABLE_COLUMNS) {
+    doc.text(col.label, cursorX + 8, y + 7, { width: col.width - 12, align: 'left' });
+    cursorX += col.width;
   }
+
+  doc.fillColor('#111827');
+  return y + 24;
 }
 
-/**
- * Generate filename for prescription
- * @param {string} patientName - Patient name
- * @returns {string} - Formatted filename
- */
+function drawContinuationHeader(doc, payload) {
+  addWatermark(doc, payload.clinicName);
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Prescription - Continued', PAGE_MARGIN, PAGE_MARGIN - 6);
+  doc.moveTo(PAGE_MARGIN, PAGE_MARGIN + 10).lineTo(doc.page.width - PAGE_MARGIN, PAGE_MARGIN + 10).strokeColor('#cbd5e1').stroke();
+  return PAGE_MARGIN + 18;
+}
+
+function drawMedicinesTable(doc, payload, startY) {
+  const medicines = payload.medicines.length > 0
+    ? payload.medicines
+    : [{ name: 'No medicines prescribed', dosage: '-', frequency: '-', duration: '-' }];
+
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Prescribed Medicines', PAGE_MARGIN, startY);
+  let y = drawTableHeader(doc, startY + 16);
+  let rowIndex = 0;
+
+  for (const med of medicines) {
+    const textHeight = Math.max(
+      doc.heightOfString(med.name, { width: TABLE_COLUMNS[0].width - 14 }),
+      doc.heightOfString(med.dosage, { width: TABLE_COLUMNS[1].width - 14 }),
+      doc.heightOfString(med.frequency, { width: TABLE_COLUMNS[2].width - 14 }),
+      doc.heightOfString(med.duration, { width: TABLE_COLUMNS[3].width - 14 })
+    );
+
+    const rowHeight = Math.max(26, textHeight + 10);
+    const footerReserve = 130;
+    if (y + rowHeight > doc.page.height - PAGE_MARGIN - footerReserve) {
+      doc.addPage();
+      y = drawTableHeader(doc, drawContinuationHeader(doc, payload));
+      rowIndex = 0;
+    }
+
+    const rowFill = rowIndex % 2 === 0 ? '#f8fafc' : '#ffffff';
+    const tableWidth = TABLE_COLUMNS.reduce((sum, col) => sum + col.width, 0);
+    doc.rect(PAGE_MARGIN, y, tableWidth, rowHeight).fill(rowFill);
+
+    let x = PAGE_MARGIN;
+    doc.fillColor('#111827').font('Helvetica').fontSize(10);
+    for (const col of TABLE_COLUMNS) {
+      doc.text(med[col.key], x + 7, y + 5, { width: col.width - 12, align: 'left' });
+      x += col.width;
+      doc.moveTo(x, y).lineTo(x, y + rowHeight).strokeColor('#e2e8f0').stroke();
+    }
+
+    doc.moveTo(PAGE_MARGIN, y + rowHeight).lineTo(PAGE_MARGIN + tableWidth, y + rowHeight).strokeColor('#e2e8f0').stroke();
+    y += rowHeight;
+    rowIndex += 1;
+  }
+
+  return y + 16;
+}
+
+function drawSignatureAndFooter(doc, payload, startY) {
+  const minRequired = 120;
+  let y = startY;
+  if (y + minRequired > doc.page.height - PAGE_MARGIN) {
+    doc.addPage();
+    y = drawContinuationHeader(doc, payload);
+  }
+
+  const signatureBlockX = doc.page.width - PAGE_MARGIN - 180;
+  const signatureTopY = y;
+
+  if (payload.signaturePath) {
+    try {
+      doc.image(payload.signaturePath, signatureBlockX + 20, signatureTopY, { fit: [130, 45], align: 'center' });
+    } catch (error) {
+      console.warn('[PrescriptionPDF] Could not load signature image:', error.message);
+    }
+  }
+
+  if (payload.stampPath) {
+    try {
+      doc.image(payload.stampPath, signatureBlockX - 65, signatureTopY - 8, { fit: [58, 58] });
+    } catch (error) {
+      console.warn('[PrescriptionPDF] Could not load stamp image:', error.message);
+    }
+  }
+
+  doc.moveTo(signatureBlockX + 18, signatureTopY + 52)
+    .lineTo(signatureBlockX + 158, signatureTopY + 52)
+    .strokeColor('#334155')
+    .stroke();
+  doc.font('Helvetica').fontSize(9).fillColor('#475569').text('Authorized Signature', signatureBlockX + 36, signatureTopY + 57);
+
+  const footerY = doc.page.height - PAGE_MARGIN - 30;
+  doc.moveTo(PAGE_MARGIN, footerY - 8)
+    .lineTo(doc.page.width - PAGE_MARGIN, footerY - 8)
+    .strokeColor('#cbd5e1')
+    .stroke();
+
+  doc.font('Helvetica').fontSize(9).fillColor('#475569')
+    .text(payload.footerDisclaimer, PAGE_MARGIN, footerY, { width: doc.page.width - PAGE_MARGIN * 2, align: 'center' })
+    .text(payload.emergencyContact, PAGE_MARGIN, footerY + 12, { width: doc.page.width - PAGE_MARGIN * 2, align: 'center' });
+}
+
+function renderPrescriptionDocument(doc, payload) {
+  addWatermark(doc, payload.clinicName);
+
+  let cursorY = PAGE_MARGIN;
+  cursorY = drawHeader(doc, payload, cursorY);
+  cursorY = drawInformationBlocks(doc, payload, cursorY);
+  cursorY = drawDiagnosisSection(doc, payload, cursorY);
+  cursorY = drawMedicinesTable(doc, payload, cursorY);
+  drawSignatureAndFooter(doc, payload, cursorY);
+}
+
+function getPatientName(data) {
+  if (typeof data?.patient === 'object' && data.patient?.name) {
+    return data.patient.name;
+  }
+  return data?.patientName || 'prescription';
+}
+
 function generatePrescriptionFilename(patientName = 'prescription') {
   const sanitizedName = String(patientName)
     .toLowerCase()
@@ -303,46 +362,75 @@ function generatePrescriptionFilename(patientName = 'prescription') {
 }
 
 /**
- * Generate prescription and save to temp directory
- * @param {Object} data - Prescription data
- * @returns {Promise<{filename: string, filepath: string, buffer: Buffer}>}
+ * Generate prescription PDF.
+ * @param {Object} data
+ * @param {string|null} outputPath
+ * @returns {Promise<Buffer|string>}
  */
-async function generateAndSavePrescription(data) {
-  try {
-    const filename = generatePrescriptionFilename(data.patientName);
-    const tempDir = path.join(os.tmpdir(), 'medtech-prescriptions');
-
-    // Create temp directory if it doesn't exist
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    const filepath = path.join(tempDir, filename);
-
-    console.log('[PrescriptionPDF] Generating prescription:', filename);
-    await generatePrescriptionPDF(data, filepath);
-
-    // Read file to get buffer
-    const buffer = fs.readFileSync(filepath);
-
-    return {
-      filename,
-      filepath,
-      buffer,
-    };
-  } catch (error) {
-    console.error('[PrescriptionPDF] Error in generateAndSavePrescription:', error.message);
-    throw error;
+async function generatePrescriptionPDF(data, outputPath = null) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid data: must be an object');
   }
+
+  const payload = normalizePrescriptionData(data);
+  const doc = new PDFDocument({
+    size: 'A4',
+    margins: {
+      top: PAGE_MARGIN,
+      bottom: PAGE_MARGIN,
+      left: PAGE_MARGIN,
+      right: PAGE_MARGIN,
+    },
+  });
+
+  const chunks = [];
+  return new Promise((resolve, reject) => {
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('error', reject);
+    doc.on('end', () => {
+      try {
+        const pdfBuffer = Buffer.concat(chunks);
+        if (outputPath) {
+          fs.writeFileSync(outputPath, pdfBuffer);
+          console.log(`[PrescriptionPDF] PDF saved to ${outputPath}`);
+          resolve(outputPath);
+          return;
+        }
+
+        resolve(pdfBuffer);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    try {
+      renderPrescriptionDocument(doc, payload);
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
-/**
- * Generate prescription as buffer only (for streaming)
- * @param {Object} data - Prescription data
- * @returns {Promise<Buffer>} - PDF buffer
- */
 async function generatePrescriptionBuffer(data) {
   return generatePrescriptionPDF(data, null);
+}
+
+async function generateAndSavePrescription(data) {
+  const filename = generatePrescriptionFilename(getPatientName(data));
+  const tempDir = path.join(os.tmpdir(), 'medtech-prescriptions');
+
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  const filepath = path.join(tempDir, filename);
+  await generatePrescriptionPDF(data, filepath);
+  return {
+    filename,
+    filepath,
+    buffer: fs.readFileSync(filepath),
+  };
 }
 
 module.exports = {
@@ -350,6 +438,5 @@ module.exports = {
   generatePrescriptionBuffer,
   generateAndSavePrescription,
   generatePrescriptionFilename,
-  generatePrescriptionHTML,
-  beautifulPrescriptionTemplate,
+  normalizePrescriptionData,
 };

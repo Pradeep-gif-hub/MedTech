@@ -48,10 +48,10 @@ delete require.cache[require.resolve('./prescriptionPdfGenerator')];
 
 // Prescription PDF Generator
 const {
-  generatePrescriptionPDF,
   generatePrescriptionBuffer,
   generateAndSavePrescription,
   generatePrescriptionFilename,
+  normalizePrescriptionData,
 } = require('./prescriptionPdfGenerator');
 
 const app = express();
@@ -768,60 +768,59 @@ app.post('/api/users/forgot-password', (req, res) => {
 
 /**
  * POST /api/prescription/generate
- * Generate a prescription PDF from patient data
+ * Generate a prescription PDF from JSON data using PDFKit
  * 
  * Body:
  * {
- *   "patientName": "string",
- *   "patientId": "string",
- *   "patientAge": "string or number",
- *   "gender": "string",
- *   "doctor": "string",
- *   "diagnosis": "string",
- *   "date": "YYYY-MM-DD (optional)",
+ *   "clinicName": "MedTech Clinic",
+ *   "clinicAddress": "...",
+ *   "clinicContact": "...",
+ *   "doctor": {
+ *     "name": "Dr. John Doe",
+ *     "qualification": "MBBS, MD",
+ *     "registrationNumber": "12345"
+ *   },
+ *   "patient": {
+ *     "name": "Rahul Sharma",
+ *     "age": 25,
+ *     "gender": "Male"
+ *   },
+ *   "diagnosis": "...",
+ *   "prescriptionId": "RX-1001",
  *   "medicines": [
  *     {
  *       "name": "string",
- *       "dose": "string",
+ *       "dosage": "string",
  *       "frequency": "string",
  *       "duration": "string"
  *     }
- *   ]
+ *   ],
+ *   "logoPath": "assets/logo.png",
+ *   "signaturePath": "assets/signature.png",
+ *   "stampPath": "assets/stamp.png"
  * }
  */
 app.post('/api/prescription/generate', async (req, res) => {
   try {
     console.log('[Prescription API] Received prescription generation request');
 
-    const { patientName, patientId, patientAge, gender, doctor, diagnosis, date, medicines } = req.body;
+    const normalized = normalizePrescriptionData(req.body || {});
 
     // Validate required fields
-    if (!patientName || !doctor) {
+    if (!normalized.patient.name || !normalized.doctor.name || normalized.patient.name === 'N/A' || normalized.doctor.name === 'N/A') {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: patientName, doctor',
+        error: 'Missing required fields: patient.name and doctor.name (or legacy patientName and doctor)',
       });
     }
 
-    // Prepare prescription data
-    const prescriptionData = {
-      patientName: patientName || 'N/A',
-      patientId: patientId || 'N/A',
-      patientAge: patientAge || 'N/A',
-      gender: gender || 'N/A',
-      doctor: doctor || 'N/A',
-      diagnosis: diagnosis || 'N/A',
-      date: date || new Date().toISOString().split('T')[0],
-      medicines: Array.isArray(medicines) ? medicines : [],
-    };
-
-    console.log('[Prescription API] Generating PDF for patient:', prescriptionData.patientName);
+    console.log('[Prescription API] Generating PDF for patient:', normalized.patient.name);
 
     // Generate PDF buffer
-    const pdfBuffer = await generatePrescriptionBuffer(prescriptionData);
+    const pdfBuffer = await generatePrescriptionBuffer(req.body || {});
 
     // Set response headers
-    const filename = generatePrescriptionFilename(patientName);
+    const filename = generatePrescriptionFilename(normalized.patient.name);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
@@ -842,50 +841,23 @@ app.post('/api/prescription/generate', async (req, res) => {
 
 /**
  * POST /api/prescription/preview
- * Get HTML preview of prescription (for testing)
+ * Get normalized prescription JSON preview (for testing)
  */
 app.post('/api/prescription/preview', (req, res) => {
   try {
-    console.log('🚀 PREVIEW ROUTE HIT');
-    console.log('📦 FUNCTION USED:', generatePrescriptionPDF.name);
     console.log('[Prescription API] Received preview request');
-
-    const { patientName, patientId, patientAge, gender, doctor, diagnosis, date, medicines } = req.body;
-
-    // Validate required fields
-    if (!patientName || !doctor) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: patientName, doctor',
-      });
-    }
-
-    // Prepare prescription data
-    const prescriptionData = {
-      patientName: patientName || 'N/A',
-      patientId: patientId || 'N/A',
-      patientAge: patientAge || 'N/A',
-      gender: gender || 'N/A',
-      doctor: doctor || 'N/A',
-      diagnosis: diagnosis || 'N/A',
-      date: date || new Date().toISOString().split('T')[0],
-      medicines: Array.isArray(medicines) ? medicines : [],
-    };
-
-    // Force fresh load for debugging route-level cache issues
-    delete require.cache[require.resolve('./prescriptionPdfGenerator')];
-    const { generatePrescriptionHTML } = require('./prescriptionPdfGenerator');
-    const htmlContent = generatePrescriptionHTML(prescriptionData);
-
-    console.log('[Prescription API] HTML preview generated');
-
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(htmlContent);
+    const normalizedPreview = normalizePrescriptionData(req.body || {});
+    res.json({
+      success: true,
+      renderer: 'pdfkit',
+      message: 'HTML preview is not available in PDFKit mode. Use /api/prescription/generate for PDF output.',
+      data: normalizedPreview,
+    });
   } catch (error) {
     console.error('[Prescription API] Error generating preview:', error.message);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate prescription preview',
+      error: 'Failed to generate prescription preview data',
       details: error.message,
     });
   }
@@ -899,35 +871,44 @@ app.get('/api/prescription/sample', (_req, res) => {
   console.log('[Prescription API] Returning sample prescription data');
 
   const sampleData = {
-    patientName: 'Pradeep Awasthi',
-    patientId: 'MED-2026-00032',
-    patientAge: '28',
-    gender: 'Male',
-    doctor: 'Dr. Sharma (MBBS, MD)',
+    clinicName: 'MedTech Clinic',
+    clinicAddress: '21 Health Avenue, Sector 12, New Delhi',
+    clinicContact: '+91-98765-43210 | support@medtechclinic.com',
+    doctor: {
+      name: 'Dr. Sharma',
+      qualification: 'MBBS, MD',
+      registrationNumber: 'DMC-102938',
+    },
+    patient: {
+      name: 'Pradeep Awasthi',
+      age: 28,
+      gender: 'Male',
+    },
+    prescriptionId: 'RX-2026-00032',
     diagnosis: 'Fever and cold with mild cough. Patient experiencing fatigue and body aches for 2-3 days. Temperature recorded at 101.5°F. OPD examination normal. Recommended rest and hydration.',
     date: '2026-04-16',
     medicines: [
       {
         name: 'Paracetamol',
-        dose: '500mg',
+        dosage: '500mg',
         frequency: 'Twice daily (morning & evening)',
         duration: '5 days',
       },
       {
         name: 'Amoxicillin',
-        dose: '250mg',
+        dosage: '250mg',
         frequency: 'Three times daily (with meals)',
         duration: '7 days',
       },
       {
         name: 'Cetirizine HCL',
-        dose: '10mg',
+        dosage: '10mg',
         frequency: 'Once at night',
         duration: '5 days',
       },
       {
         name: 'Linctus Cough Syrup',
-        dose: '2 teaspoons',
+        dosage: '2 teaspoons',
         frequency: 'Three times daily (after meals)',
         duration: '5 days',
       },
