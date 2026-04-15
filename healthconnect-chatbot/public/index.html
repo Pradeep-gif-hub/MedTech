@@ -626,8 +626,29 @@
   }
 
   function goBack() {
-    console.log('[ChatUI] Back button clicked');
+    console.log('[ChatUI] Back button clicked - navigating to previous page...');
+    
+    // Try to notify parent window (if in iframe)
+    try {
+      if (window.parent && window.parent !== window) {
+        console.log('[ChatUI] Sending close message to parent window');
+        window.parent.postMessage({ action: 'closeChatbot' }, '*');
+        // Give parent time to process message
+        setTimeout(() => {
+          // Fallback if postMessage doesn't work
+          if (window.history.length > 1) {
+            window.history.back();
+          }
+        }, 100);
+        return;
+      }
+    } catch (err) {
+      console.warn('[ChatUI] Cannot access parent window:', err.message);
+    }
+    
+    // Fallback: use browser history
     if (window.history.length > 1) {
+      console.log('[ChatUI] Using browser history.back()');
       window.history.back();
     }
   }

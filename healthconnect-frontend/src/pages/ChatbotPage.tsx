@@ -35,6 +35,28 @@ const ChatbotPage: React.FC<ChatbotPageProps> = ({ onClose }) => {
     setChatbotUrl(fullUrl);
   }, [token, user]);
 
+  // Listen for messages from chatbot iframe
+  useEffect(() => {
+    console.log('[ChatbotPage] Setting up message listener for iframe communication');
+    
+    const handleMessage = (event: MessageEvent) => {
+      // Verify message is from our chatbot iframe
+      console.log('[ChatbotPage] Received message from iframe:', event.data);
+      
+      if (event.data && event.data.action === 'closeChatbot') {
+        console.log('[ChatbotPage] Chatbot requested close - calling onClose()');
+        onClose();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    
+    return () => {
+      console.log('[ChatbotPage] Cleaning up message listener');
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [onClose]);
+
   const handleIframeLoad = () => {
     console.log('[ChatbotPage] ✅ Chatbot iframe loaded successfully');
     setIsLoading(false);
