@@ -18,6 +18,7 @@
     "jspdf": "^3.0.2",
     "jsonwebtoken": "^9.1.2",
     "nodemailer": "^6.10.1",
+    "puppeteer": "^21.6.1",
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
