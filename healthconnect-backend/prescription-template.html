@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Prescription</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    body {
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Watermark background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(20, 184, 166, 0.03) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .prescription-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .prescription-document {
+      width: 210mm;
+      height: 297mm;
+      background: white;
+      margin: 0 auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Header Section */
+    .header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0369a1 100%);
+      color: white;
+      padding: 35px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      border-bottom: 5px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo-container {
+      width: 70px;
+      height: 70px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 700;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(10px);
+    }
+
+    .header-text h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.5px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .header-text p {
+      font-size: 13px;
+      margin: 4px 0 0 0;
+      opacity: 0.9;
+      font-weight: 300;
+      letter-spacing: 0.5px;
+    }
+
+    .header-right {
+      text-align: right;
+      font-size: 12px;
+    }
+
+    .header-right-item {
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .header-right-label {
+      opacity: 0.8;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .header-right-value {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Main Content */
+    .content {
+      padding: 35px 40px;
+      height: calc(297mm - 160px);
+      overflow-y: auto;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    }
+
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .info-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      border: 2px solid transparent;
+      border-left: 5px solid #0369a1;
+      transition: all 0.3s ease;
+    }
+
+    .info-card:hover {
+      box-shadow: 0 8px 25px rgba(3, 105, 161, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .info-card.doctor {
+      border-left-color: #06b6d4;
+    }
+
+    .info-card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #0f172a;
+      margin-bottom: 14px;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-card h3::before {
+      content: '';
+      width: 3px;
+      height: 16px;
+      background: linear-gradient(to bottom, #0369a1, #06b6d4);
+      border-radius: 2px;
+    }
+
+    .info-field {
+      margin-bottom: 12px;
+    }
+
+    .info-field-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .info-field-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a202c;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Diagnosis Section */
+    .diagnosis-section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 18px;
+      background: linear-gradient(to bottom, #0369a1, #06b6d4);
+      border-radius: 2px;
+    }
+
+    .diagnosis-box {
+      background: linear-gradient(135deg, rgba(3, 105, 161, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+      border: 2px solid #cffafe;
+      border-radius: 10px;
+      padding: 18px;
+      color: #164e63;
+      font-size: 13px;
+      line-height: 1.7;
+      min-height: 60px;
+      font-weight: 400;
+    }
+
+    /* Medicine Table */
+    .medicines-section {
+      margin-bottom: 30px;
+    }
+
+    .medicine-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .table-thead {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0369a1 100%);
+      color: white;
+    }
+
+    .table-thead th {
+      padding: 16px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: none;
+    }
+
+    .table-thead th:nth-child(1) {
+      width: 35%;
+    }
+
+    .table-thead th:nth-child(2) {
+      width: 20%;
+    }
+
+    .table-thead th:nth-child(3) {
+      width: 22%;
+    }
+
+    .table-thead th:nth-child(4) {
+      width: 23%;
+    }
+
+    .medicine-table tbody tr {
+      border-bottom: 1px solid #e2e8f0;
+      transition: background-color 0.2s ease;
+    }
+
+    .medicine-table tbody tr:hover {
+      background-color: #f0f9ff;
+    }
+
+    .medicine-table tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    .medicine-table tbody tr:nth-child(odd) {
+      background-color: white;
+    }
+
+    .medicine-table tbody tr.even-row {
+      background-color: #f9fafb;
+    }
+
+    .medicine-table tbody tr.even-row:hover {
+      background-color: #f0f9ff;
+    }
+
+    .medicine-table tbody tr.odd-row {
+      background-color: white;
+    }
+
+    .medicine-table tbody tr.odd-row:hover {
+      background-color: #f0f9ff;
+    }
+
+    .table-cell {
+      padding: 14px 12px;
+      font-size: 12px;
+      color: #334155;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .table-cell.empty {
+      text-align: center;
+      color: #94a3b8;
+      font-style: italic;
+      padding: 20px 12px;
+    }
+
+    .medicine-name {
+      font-weight: 600;
+      color: #1a202c;
+    }
+
+    /* Authorization Section */
+    .authorization-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 25px;
+      gap: 40px;
+    }
+
+    .signature-block {
+      flex: 1;
+      text-align: center;
+    }
+
+    .signature-line {
+      border-top: 2px solid #334155;
+      height: 50px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .signature-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stamp-container {
+      flex: 0 0 auto;
+      position: relative;
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stamp {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      border: 3px solid #dc2626;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 800;
+      color: #dc2626;
+      text-align: center;
+      opacity: 0.35;
+      transform: rotate(-25deg);
+      padding: 10px;
+      line-height: 1.2;
+      letter-spacing: 1px;
+    }
+
+    .stamp-text {
+      display: block;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 20px 40px;
+      border-top: 2px dashed rgba(3, 105, 161, 0.3);
+      background: #f8fafc;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .footer-note {
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .footer-disclaimer {
+      margin-top: 6px;
+      font-size: 10px;
+      font-style: italic;
+      opacity: 0.8;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        padding: 0;
+        background: white;
+      }
+
+      body::before {
+        display: none;
+      }
+
+      .prescription-document {
+        width: 100%;
+        height: 100%;
+        box-shadow: none;
+        margin: 0;
+        page-break-after: always;
+      }
+
+      .content {
+        height: auto;
+      }
+    }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="prescription-wrapper">
+    <div class="prescription-document">
+      <!-- HEADER -->
+      <div class="header">
+        <div class="header-left">
+          <div class="logo-container">⚕️</div>
+          <div class="header-text">
+            <h1>MedTech Clinic</h1>
+            <p>Smart Healthcare System</p>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="header-right-item">
+            <div class="header-right-label">Date</div>
+            <div class="header-right-value">{{dateFormatted}}</div>
+          </div>
+          <div class="header-right-item">
+            <div class="header-right-label">Generated</div>
+            <div class="header-right-value">{{timeFormatted}}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENT -->
+      <div class="content">
+        <!-- Patient & Doctor Info -->
+        <div class="info-grid">
+          <div class="info-card">
+            <h3>Patient Information</h3>
+            <div class="info-field">
+              <span class="info-field-label">Patient Name</span>
+              <div class="info-field-value">{{patientName}}</div>
+            </div>
+            <div class="info-field">
+              <span class="info-field-label">Patient ID</span>
+              <div class="info-field-value">{{patientId}}</div>
+            </div>
+            <div class="info-field">
+              <span class="info-field-label">Age / Gender</span>
+              <div class="info-field-value">{{patientAge}} / {{gender}}</div>
+            </div>
+          </div>
+
+          <div class="info-card doctor">
+            <h3>Doctor Information</h3>
+            <div class="info-field">
+              <span class="info-field-label">Consulting Doctor</span>
+              <div class="info-field-value">{{doctor}}</div>
+            </div>
+            <div class="info-field">
+              <span class="info-field-label">Prescription Date</span>
+              <div class="info-field-value">{{dateFormatted}}</div>
+            </div>
+            <div class="info-field">
+              <span class="info-field-label">Status</span>
+              <div class="info-field-value" style="color: #059669;">Active & Approved</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diagnosis -->
+        <div class="diagnosis-section">
+          <h2 class="section-title">Diagnosis / Clinical Notes</h2>
+          <div class="diagnosis-box">{{diagnosis}}</div>
+        </div>
+
+        <!-- Medicines Table -->
+        <div class="medicines-section">
+          <h2 class="section-title">Prescribed Medicines</h2>
+          <table class="medicine-table">
+            <thead class="table-thead">
+              <tr>
+                <th>Medicine Name</th>
+                <th>Dose / Strength</th>
+                <th>Frequency</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{medicinesRows}}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Authorization -->
+        <div class="authorization-section">
+          <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-label">Doctor Signature</div>
+          </div>
+          <div class="stamp-container">
+            <div class="stamp">
+              <span class="stamp-text">AUTHORIZED</span>
+              <span class="stamp-text">MedTech Clinic</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="footer">
+        <p class="footer-note">This is a digitally generated prescription from MedTech Clinic</p>
+        <p class="footer-disclaimer">Valid for use at registered healthcare partners only. Please retain for your records.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

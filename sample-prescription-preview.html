@@ -1,117 +1,9 @@
-/**
- * MedTech Prescription PDF Generator
- * Professional hospital-grade prescription PDFs using Puppeteer + HTML + CSS
- * 
- * Features:
- * - Dynamic patient/doctor/medicine data
- * - Professional medical branding
- * - Responsive table layout
- * - Print-friendly A4 format
- * - Authorized stamp and signature placeholder
- */
-
-const puppeteer = require('puppeteer');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-
-/**
- * Generate HTML prescription template with dynamic data
- * @param {Object} data - Prescription data
- * @returns {string} - HTML string ready for PDF conversion
- */
-function generatePrescriptionHTML(data) {
-  // Validate and sanitize data
-  const {
-    patientName = 'N/A',
-    patientId = 'N/A',
-    patientAge = 'N/A',
-    gender = 'N/A',
-    doctor = 'N/A',
-    diagnosis = 'N/A',
-    date = new Date().toISOString().split('T')[0],
-    medicines = [],
-  } = data;
-
-  // Escape HTML to prevent injection
-  const escapeHtml = (str) => {
-    if (!str) return 'N/A';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
-
-  // Format date to readable format
-  const formatDate = (dateStr) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return dateStr || 'N/A';
-    }
-  };
-
-  // Get current time
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
-
-  // Build medicine table rows
-  const medicinesRows = medicines.length > 0
-    ? medicines
-        .map(
-          (med, idx) => `
-            <tr style="background-color: ${idx % 2 === 0 ? '#f8fafb' : 'white'};">
-              <td class="table-cell medicine-name">${escapeHtml(med.name || 'N/A')}</td>
-              <td class="table-cell">${escapeHtml(med.dose || 'N/A')}</td>
-              <td class="table-cell">${escapeHtml(med.frequency || 'N/A')}</td>
-              <td class="table-cell">${escapeHtml(med.duration || 'N/A')}</td>
-            </tr>
-          `
-        )
-        .join('')
-    : '<tr><td colspan="4" class="table-cell empty">No medicines prescribed</td></tr>';
-
-  // Beautiful HTML Template
-  const templateHtml = beautifulPrescriptionTemplate(
-    patientName,
-    patientId,
-    patientAge,
-    gender,
-    doctor,
-    diagnosis,
-    formatDate(date),
-    getCurrentTime(),
-    medicinesRows
-  );
-
-  return templateHtml;
-}
-
-/**
- * Beautiful Prescription Template
- * Premium hospital-grade design with inline CSS
- */
-function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gender, doctor, diagnosis, dateFormatted, timeFormatted, medicinesRows) {
-  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prescription - ${escapeHtml(patientName)}</title>
+  <title>Sample Prescription - Beautiful Template Preview</title>
   <style>
     * {
       margin: 0;
@@ -438,25 +330,10 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
       font-size: 10px;
     }
 
-    /* ===== PRINT STYLES ===== */
-    @media print {
+    @media (prefers-color-scheme: light) {
       body {
-        background: white;
-        padding: 0;
+        background: #f5f5f5;
       }
-
-      .prescription-container {
-        width: 100%;
-        height: auto;
-        box-shadow: none;
-        margin: 0;
-        padding: 0;
-      }
-    }
-
-    @page {
-      size: A4;
-      margin: 0;
     }
   </style>
 </head>
@@ -473,7 +350,7 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
       </div>
       <div class="header-right">
         <p><span class="label">Date:</span></p>
-        <p style="font-weight: 600; font-size: 13px;">${dateFormatted}</p>
+        <p style="font-weight: 600; font-size: 13px;">April 16, 2026</p>
         <p style="margin-top: 8px; opacity: 0.8; font-size: 10px;">Digital Prescription</p>
       </div>
     </div>
@@ -484,15 +361,15 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
         <h3>Patient Information</h3>
         <div class="info-field">
           <div class="info-label">Patient Name</div>
-          <div class="info-value">${patientName}</div>
+          <div class="info-value">Pradeep Awasthi</div>
         </div>
         <div class="info-field">
           <div class="info-label">Patient ID</div>
-          <div class="info-value">${patientId}</div>
+          <div class="info-value">PAT-2026-001</div>
         </div>
         <div class="info-field">
           <div class="info-label">Age / Gender</div>
-          <div class="info-value">${patientAge} / ${gender}</div>
+          <div class="info-value">35 / Male</div>
         </div>
       </div>
 
@@ -500,11 +377,11 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
         <h3>Doctor Information</h3>
         <div class="info-field">
           <div class="info-label">Consulting Doctor</div>
-          <div class="info-value">${doctor}</div>
+          <div class="info-value">Dr. Rajesh Kumar</div>
         </div>
         <div class="info-field">
           <div class="info-label">Prescription Date</div>
-          <div class="info-value">${dateFormatted}</div>
+          <div class="info-value">April 16, 2026</div>
         </div>
         <div class="info-field">
           <div class="info-label">Status</div>
@@ -517,7 +394,7 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
     <div class="diagnosis-section">
       <div class="section-title">Diagnosis / Clinical Notes</div>
       <div class="diagnosis-box">
-        ${diagnosis}
+        Hypertension and Type 2 Diabetes Mellitus with associated complications. Patient presents with elevated blood pressure readings and irregular glucose levels. Recommend lifestyle modifications including diet and exercise alongside pharmacological intervention.
       </div>
     </div>
 
@@ -534,7 +411,26 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
           </tr>
         </thead>
         <tbody>
-          ${medicinesRows}
+          <tr style="background-color: #f8fafb;">
+            <td class="table-cell medicine-name">Lisinopril</td>
+            <td class="table-cell">10mg</td>
+            <td class="table-cell">Once daily</td>
+            <td class="table-cell">30 days</td>
+          </tr>
+          
+          <tr style="background-color: white;">
+            <td class="table-cell medicine-name">Metformin</td>
+            <td class="table-cell">500mg</td>
+            <td class="table-cell">Twice daily</td>
+            <td class="table-cell">30 days</td>
+          </tr>
+          
+          <tr style="background-color: #f8fafb;">
+            <td class="table-cell medicine-name">Atorvastatin</td>
+            <td class="table-cell">20mg</td>
+            <td class="table-cell">Once daily</td>
+            <td class="table-cell">30 days</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -560,152 +456,3 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
   </div>
 </body>
 </html>
-  `;
-}
-
-/**
- * Generate PDF from prescription data
- * @param {Object} data - Prescription data object
- * @param {string} outputPath - Path where PDF should be saved (optional)
- * @returns {Promise<Buffer|string>} - PDF buffer or file path
- */
-async function generatePrescriptionPDF(data, outputPath = null) {
-  let browser = null;
-  try {
-    console.log('[PrescriptionPDF] Starting PDF generation...');
-
-    // Validate data
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid data: must be an object');
-    }
-
-    // Generate HTML
-    const htmlContent = generatePrescriptionHTML(data);
-
-    // Launch Puppeteer browser
-    console.log('[PrescriptionPDF] Launching browser...');
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-    });
-
-    const page = await browser.newPage();
-
-    // Set viewport and content
-    await page.setViewport({ width: 1024, height: 1440 });
-    await page.setContent(htmlContent, {
-      waitUntil: 'networkidle2',
-    });
-
-    console.log('[PrescriptionPDF] Generating PDF...');
-
-    // If output path provided, save to file
-    if (outputPath) {
-      await page.pdf({
-        path: outputPath,
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0px',
-          right: '0px',
-          bottom: '0px',
-          left: '0px',
-        },
-      });
-      console.log(`[PrescriptionPDF] PDF saved to: ${outputPath}`);
-      await browser.close();
-      return outputPath;
-    }
-
-    // Otherwise return buffer
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '0px',
-        right: '0px',
-        bottom: '0px',
-        left: '0px',
-      },
-    });
-
-    await browser.close();
-    console.log('[PrescriptionPDF] PDF generated successfully');
-    return pdfBuffer;
-  } catch (error) {
-    console.error('[PrescriptionPDF] Error generating PDF:', error.message);
-    if (browser) {
-      await browser.close();
-    }
-    throw error;
-  }
-}
-
-/**
- * Generate filename for prescription
- * @param {string} patientName - Patient name
- * @returns {string} - Formatted filename
- */
-function generatePrescriptionFilename(patientName = 'prescription') {
-  const sanitizedName = String(patientName)
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_-]/g, '');
-  const timestamp = new Date().toISOString().split('T')[0];
-  return `prescription_${sanitizedName}_${timestamp}.pdf`;
-}
-
-/**
- * Generate prescription and save to temp directory
- * @param {Object} data - Prescription data
- * @returns {Promise<{filename: string, filepath: string, buffer: Buffer}>}
- */
-async function generateAndSavePrescription(data) {
-  try {
-    const filename = generatePrescriptionFilename(data.patientName);
-    const tempDir = path.join(os.tmpdir(), 'medtech-prescriptions');
-
-    // Create temp directory if it doesn't exist
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    const filepath = path.join(tempDir, filename);
-
-    console.log('[PrescriptionPDF] Generating prescription:', filename);
-    await generatePrescriptionPDF(data, filepath);
-
-    // Read file to get buffer
-    const buffer = fs.readFileSync(filepath);
-
-    return {
-      filename,
-      filepath,
-      buffer,
-    };
-  } catch (error) {
-    console.error('[PrescriptionPDF] Error in generateAndSavePrescription:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Generate prescription as buffer only (for streaming)
- * @param {Object} data - Prescription data
- * @returns {Promise<Buffer>} - PDF buffer
- */
-async function generatePrescriptionBuffer(data) {
-  return generatePrescriptionPDF(data, null);
-}
-
-module.exports = {
-  generatePrescriptionPDF,
-  generatePrescriptionBuffer,
-  generateAndSavePrescription,
-  generatePrescriptionFilename,
-  generatePrescriptionHTML,
-};
