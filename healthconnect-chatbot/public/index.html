@@ -66,10 +66,29 @@
     opacity: 0.4;
   }
 
+  .back-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 8px 12px;
+    margin-right: 4px;
+    color: white;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .back-btn:hover {
+    opacity: 0.8;
+  }
+
   .logo {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex: 1;
   }
 
   .logo-icon {
@@ -103,19 +122,19 @@
     color: rgba(255, 255, 255, 0.8);
   }
 
-  .header-status {
+  .header-right {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    color: white;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.8);
   }
 
-  .status-dot {
+  .online-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
     background: #31a24c;
+    border-radius: 50%;
     box-shadow: 0 0 4px #31a24c;
     animation: pulse 2s ease-in-out infinite;
   }
@@ -126,12 +145,25 @@
   }
 
   .header-menu {
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
     background: none;
     border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
     padding: 8px;
+    transition: all 0.2s;
+  }
+
+  .header-menu:hover {
+    opacity: 0.8;
+  }
+
+  .header-status {
+    display: none;
+  }
+
+  .status-dot {
+    display: none;
   }
 
   /* Chat area */
@@ -283,34 +315,21 @@
     font-size: 11px;
   }
 
-  /* Empty state */
+  /* Empty state - hidden */
   .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    color: var(--secondary-text);
-    text-align: center;
-    padding: 40px 20px;
+    display: none;
   }
 
   .empty-icon {
-    font-size: 60px;
-    margin-bottom: 8px;
+    display: none;
   }
 
   .empty-title {
-    font-size: 20px;
-    color: var(--primary-text);
-    font-weight: 500;
+    display: none;
   }
 
   .empty-subtitle {
-    font-size: 14px;
-    max-width: 300px;
-    line-height: 1.5;
+    display: none;
   }
 
   /* Suggestions */
@@ -502,6 +521,7 @@
 <body>
 
 <header>
+  <button class="back-btn" onclick="goBack()" title="Back">←</button>
   <div class="logo">
     <div class="logo-icon">P</div>
     <div class="logo-info">
@@ -509,7 +529,11 @@
       <div class="logo-subtitle">Your AI Health Assistant</div>
     </div>
   </div>
-  <button class="header-menu">Online</button>
+  <div class="header-right">
+    <div class="online-dot"></div>
+    <span>Online</span>
+  </div>
+  <button class="header-menu" title="Menu">⋮</button>
 </header>
 
 <div id="chat"></div>
@@ -593,6 +617,39 @@
     inputEl.value = text;
     autoResize(inputEl);
     sendMessage();
+  }
+
+  function goBack() {
+    console.log('[ChatUI] Back button clicked');
+    if (window.history.length > 1) {
+      window.history.back();
+    }
+  }
+
+  function initializeChat() {
+    console.log('[ChatUI] Initializing chat with greeting message...');
+    // Clear any existing content
+    chatEl.innerHTML = '';
+    
+    // Add "Today" separator
+    const separator = document.createElement("div");
+    separator.className = "date-separator";
+    separator.textContent = "Today";
+    chatEl.appendChild(separator);
+
+    // Add greeting message from AI
+    const greetingMsg = document.createElement("div");
+    greetingMsg.className = "message ai";
+    const timeStr = getTimeString();
+    greetingMsg.innerHTML = `
+      <div class="msg-content">
+        <div class="msg-text"><p>Hello! 👋 I'm Prasthi-AI, your personal AI health assistant. How can I help you today?</p></div>
+        <div class="msg-timestamp">${timeStr}</div>
+      </div>
+    `;
+    chatEl.appendChild(greetingMsg);
+    hasSentMessage = true;
+    chatEl.scrollTop = chatEl.scrollHeight;
   }
 
   function appendMessage(role, content) {
@@ -708,7 +765,7 @@
   }
 
   console.log('[ChatUI] Ready for input');
-  showEmptyState();
+  initializeChat();
   inputEl.focus();
 </script>
 </body>
