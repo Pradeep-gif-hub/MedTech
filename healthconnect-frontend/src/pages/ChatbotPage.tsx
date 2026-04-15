@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, AlertCircle, Loader, RotateCcw } from 'lucide-react';
+import { AlertCircle, Loader } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ChatbotPageProps {
@@ -83,76 +83,31 @@ const ChatbotPage: React.FC<ChatbotPageProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-[#1F8A78] text-white p-4 shadow-md flex items-center gap-4">
-        <button
-          onClick={() => {
-            console.log('[ChatbotPage] Back button clicked');
-            onClose();
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors font-medium"
-          aria-label="Close chatbot"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span className="text-sm">Back </span>
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">Welcome to Prasthi-AI</h1>
-          <p className="text-sm text-purple-100">Medical advice powered by Prasthi AI</p>
-        </div>
-      </div>
+    <div className="fixed inset-0 bg-[#efeae2] z-50 flex flex-col">{/* Chatbot handles its own header and UI */}
 
-      {/* Loading State */}
+      {/* Loading State - Minimal overlay */}
       {isLoading && (
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-          <div className="text-center space-y-6 px-6">
-            <div className="flex justify-center">
-              <Loader className="h-16 w-16 text-[#8b5cf6] animate-spin" />
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-gray-800">Loading Health Assistant...</p>
-              <p className="text-sm text-gray-600 mt-2">Connecting to medical AI service</p>
-            </div>
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Connected to Groq AI</span>
-            </div>
+        <div className="absolute inset-0 bg-[#efeae2] z-40 flex items-center justify-center">
+          <div className="text-center">
+            <Loader className="h-12 w-12 text-[#128c7e] animate-spin mx-auto mb-3" />
+            <p className="text-sm text-gray-600">Loading Health Assistant...</p>
           </div>
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error State - Minimal alert */}
       {error && (
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-          <div className="bg-white border-2 border-red-200 rounded-2xl p-8 max-w-2xl text-center shadow-lg max-h-[85vh] overflow-y-auto">
-            <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-4">⚠️ Service Configuration Needed</h2>
-            
-            {/* Display error message with proper line formatting */}
-            <div className="text-left bg-gray-50 rounded-lg p-4 mb-6 text-sm text-gray-700 whitespace-pre-wrap font-mono">
-              {error}
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleRetry}
-                className="w-full px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-colors font-semibold flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Try Again
-              </button>
-              
-              <button
-                onClick={() => {
-                  console.log('[ChatbotPage] Error page back button clicked');
-                  onClose();
-                }}
-                className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
-              >
-                Return to Dashboard
-              </button>
-            </div>
+        <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm text-center">
+            <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-3" />
+            <h2 className="font-bold text-gray-900 mb-2">Connection Error</h2>
+            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="px-4 py-2 bg-[#128c7e] text-white rounded-lg hover:bg-[#0d6d5f] transition-colors font-medium"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       )}

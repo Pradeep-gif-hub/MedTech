@@ -21,7 +21,7 @@
     --border-color: #e5ddd5;
   }
 
-  html, body { height: 100%; }
+  html, body { height: 100%; margin: 0; padding: 0; }
 
   body {
     background: var(--chat-bg);
@@ -31,6 +31,9 @@
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    margin: 0;
+    padding: 0;
+    width: 100%;
   }
 
   /* WhatsApp Cross-hatch background pattern */
@@ -55,6 +58,9 @@
     flex-shrink: 0;
     position: relative;
     z-index: 100;
+    margin: 0;
+    width: 100%;
+    top: 0;
   }
 
   header::after {
