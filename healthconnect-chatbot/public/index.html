@@ -51,40 +51,32 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    background: transparent;
+    background: var(--header-bg);
     flex-shrink: 0;
     position: relative;
     z-index: 100;
-    border-bottom: 1px solid var(--border-color);
   }
 
-  .back-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 8px;
-    margin-right: 8px;
-    color: var(--primary-text);
-    transition: all 0.2s;
-  }
-
-  .back-btn:hover {
-    transform: scale(1.1);
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--send-btn), transparent);
+    opacity: 0.4;
   }
 
   .logo {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex: 1;
   }
 
   .logo-icon {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: var(--send-btn);
+    background: rgba(255, 255, 255, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -102,7 +94,7 @@
 
   .logo-text {
     font-size: 15px;
-    color: var(--primary-text);
+    color: white;
     font-weight: 500;
   }
 
@@ -111,106 +103,35 @@
     color: rgba(255, 255, 255, 0.8);
   }
 
-  /* Emoji Picker */
-  .emoji-picker {
-    position: absolute;
-    bottom: 100%;
-    left: 8px;
-    background: white;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 8px;
-    display: none;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 4px;
-    z-index: 200;
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
-    max-height: 300px;
-    overflow-y: auto;
-  }
-  }
-
-  .emoji-picker.active {
-    display: grid;
-  }
-
-  .emoji-picker .emoji {
-    width: 32px;
-    height: 32px;
+  .header-status {
     display: flex;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.2s;
-    font-size: 18px;
-  }
-
-  .emoji-picker .emoji:hover {
-    background: var(--outgoing-msg);
-    transform: scale(1.1);
-  }
-
-  /* Voice Recorder */
-  .voice-recorder {
-    position: absolute;
-    bottom: 100%;
-    right: 8px;
-    background: white;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 12px 16px;
-    z-index: 200;
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
-    display: none;
-    text-align: center;
-    min-width: 150px;
-  }
-
-  .voice-recorder.active {
-    display: block;
-  }
-
-  .voice-timer {
+    gap: 6px;
     font-size: 12px;
-    color: var(--secondary-text);
-    margin-bottom: 8px;
-    font-family: 'Courier New', monospace;
+    color: rgba(255, 255, 255, 0.8);
   }
 
-  .voice-buttons {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #31a24c;
+    box-shadow: 0 0 4px #31a24c;
+    animation: pulse 2s ease-in-out infinite;
   }
 
-  .voice-btn {
-    padding: 8px 12px;
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .header-menu {
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    background: none;
     border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-
-  .voice-btn.record {
-    background: var(--send-btn);
-    color: white;
-  }
-
-  .voice-btn.record:hover {
-    opacity: 0.9;
-  }
-
-  .voice-btn.stop {
-    background: #ff4757;
-    color: white;
-  }
-
-  .voice-btn.cancel {
-    background: var(--input-bg);
-    color: var(--primary-text);
+    padding: 8px;
   }
 
   /* Chat area */
@@ -508,7 +429,7 @@
     align-items: center;
     justify-content: center;
     font-size: 18px;
-    color: var(--primary-text);
+    color: var(--header-bg);
     transition: all 0.2s;
     flex-shrink: 0;
   }
@@ -581,13 +502,18 @@
 <body>
 
 <header>
-  <button class="back-btn" title="Back" onclick="goBack()">←</button>
   <div class="logo">
     <div class="logo-icon">P</div>
     <div class="logo-info">
       <div class="logo-text">Prasthi-AI</div>
+      <div class="logo-subtitle">Your AI Health Assistant</div>
     </div>
   </div>
+  <div class="header-status">
+    <div class="status-dot"></div>
+    <span>Online</span>
+  </div>
+  <button class="header-menu">⋮</button>
 </header>
 
 <div id="chat"></div>
@@ -601,22 +527,11 @@
   </div>
 
   <div class="input-row">
-    <button class="input-icon" id="emojiBtn" title="Emoji" onclick="toggleEmojiPicker()">😊</button>
-    <div class="emoji-picker" id="emojiPicker"></div>
+    <button class="input-icon" title="Emoji" onclick="alert('Emoji feature coming soon')">😊</button>
     <div class="input-wrap">
       <textarea id="input" placeholder="Message" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
     </div>
-    <div style="position: relative;">
-      <button class="input-icon" id="voiceBtn" title="Voice message" onclick="toggleVoiceRecorder()">🎤</button>
-      <div class="voice-recorder" id="voiceRecorder">
-        <div class="voice-timer" id="voiceTimer">00:00</div>
-        <div class="voice-buttons">
-          <button class="voice-btn record" onclick="startRecording()" id="startBtn">REC</button>
-          <button class="voice-btn stop" onclick="stopRecording()" id="stopBtn" style="display:none;">STOP</button>
-          <button class="voice-btn cancel" onclick="cancelRecording()">✕</button>
-        </div>
-      </div>
-    </div>
+    <button class="input-icon" title="Voice message" onclick="alert('Voice feature coming soon')">🎤</button>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">✓</button>
   </div>
 </div>
@@ -627,142 +542,8 @@
   const inputEl = document.getElementById("input");
   const sendBtn = document.getElementById("sendBtn");
   const suggestionsRow = document.getElementById("suggestionsRow");
-  const emojiPicker = document.getElementById("emojiPicker");
-  const voiceRecorder = document.getElementById("voiceRecorder");
   let isLoading = false;
   let hasSentMessage = false;
-
-  // Emoji data
-  const emojis = ['😀', '😂', '😍', '😍', '😎', '🤔', '😢', '😡', '👍', '👎', '✋', '👋', '❤️', '💪', '🎉', '🙏', '💊', '💉', '🏥', '⚕️', '😴', '🛌', '😷', '🌡️', '🍎', '🥗', '🥤', '🍵', '🧘', '🏃', '🤸', '💆'];
-
-  // Initialize emoji picker
-  function initEmojiPicker() {
-    emojis.forEach(emoji => {
-      const span = document.createElement('span');
-      span.className = 'emoji';
-      span.textContent = emoji;
-      span.onclick = () => {
-        inputEl.value += emoji;
-        autoResize(inputEl);
-        toggleEmojiPicker();
-      };
-      emojiPicker.appendChild(span);
-    });
-  }
-
-  function toggleEmojiPicker() {
-    emojiPicker.classList.toggle('active');
-    if (voiceRecorder.classList.contains('active')) {
-      voiceRecorder.classList.remove('active');
-    }
-  }
-
-  // Voice Recording Variables
-  let mediaRecorder;
-  let audioChunks = [];
-  let recordingTimer;
-  let recordingTime = 0;
-
-  function toggleVoiceRecorder() {
-    voiceRecorder.classList.toggle('active');
-    if (emojiPicker.classList.contains('active')) {
-      emojiPicker.classList.remove('active');
-    }
-  }
-
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      recordingTime = 0;
-
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        await sendVoiceMessage(audioBlob);
-      };
-
-      mediaRecorder.start();
-      document.getElementById('startBtn').style.display = 'none';
-      document.getElementById('stopBtn').style.display = 'block';
-
-      // Timer
-      recordingTimer = setInterval(() => {
-        recordingTime++;
-        const mins = Math.floor(recordingTime / 60);
-        const secs = recordingTime % 60;
-        document.getElementById('voiceTimer').textContent = 
-          String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
-      }, 1000);
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      alert('Unable to access microphone. Please check permissions.');
-    }
-  }
-
-  function stopRecording() {
-    if (mediaRecorder) {
-      mediaRecorder.stop();
-      clearInterval(recordingTimer);
-      document.getElementById('startBtn').style.display = 'block';
-      document.getElementById('stopBtn').style.display = 'none';
-    }
-  }
-
-  function cancelRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      if (mediaRecorder.stream) {
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      }
-    }
-    clearInterval(recordingTimer);
-    recordingTime = 0;
-    document.getElementById('voiceTimer').textContent = '00:00';
-    document.getElementById('startBtn').style.display = 'block';
-    document.getElementById('stopBtn').style.display = 'none';
-    voiceRecorder.classList.remove('active');
-  }
-
-  async function sendVoiceMessage(audioBlob) {
-    console.log('[ChatUI] Sending voice message...');
-    voiceRecorder.classList.remove('active');
-    
-    // Append message showing voice was sent
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    const msg = document.createElement("div");
-    msg.className = "message user";
-    msg.innerHTML = `
-      <div class="msg-content">
-        <div class="msg-text"><p>🎙️ Voice message (${Math.round(recordingTime)}s)</p></div>
-        <div class="msg-timestamp">${timeStr} <span class="double-tick">✓✓</span></div>
-      </div>
-    `;
-    
-    chatEl.appendChild(msg);
-    chatEl.scrollTop = chatEl.scrollHeight;
-    
-    // Reset voice recorder UI
-    recordingTime = 0;
-    document.getElementById('voiceTimer').textContent = '00:00';
-    document.getElementById('startBtn').style.display = 'block';
-    document.getElementById('stopBtn').style.display = 'none';
-  }
-
-  function goBack() {
-    console.log('[ChatUI] Back button clicked');
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      alert('No page to go back to');
-    }
-  }
 
   function autoResize(el) {
     el.style.height = "auto";
@@ -929,9 +710,6 @@
       console.log('[ChatUI] Message processing complete');
     }
   }
-
-  // Initialize emoji picker
-  initEmojiPicker();
 
   console.log('[ChatUI] Ready for input');
   showEmptyState();
