@@ -16,6 +16,47 @@ const fs = require('fs');
 const os = require('os');
 
 /**
+ * 🔧 FIX 1: GLOBAL escapeHtml - Available everywhere (not just inside functions)
+ */
+function escapeHtml(str) {
+  if (!str) return 'N/A';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Format date to readable format
+ */
+function formatDate(dateStr) {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return dateStr || 'N/A';
+  }
+}
+
+/**
+ * Get current time in HH:MM:SS format
+ */
+function getCurrentTime() {
+  const now = new Date();
+  return now.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+/**
  * Generate HTML prescription template with dynamic data
  * @param {Object} data - Prescription data
  * @returns {string} - HTML string ready for PDF conversion
@@ -33,42 +74,27 @@ function generatePrescriptionHTML(data) {
     medicines = [],
   } = data;
 
-  // Escape HTML to prevent injection
-  const escapeHtml = (str) => {
-    if (!str) return 'N/A';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+  // 🔧 FIX 4: ADD DEBUG LOGS
+  console.log('🔥 USING NEW BEAUTIFUL TEMPLATE');
+  console.log('📊 DATA:', {
+    patientName,
+    doctor,
+    medicinesCount: medicines.length,
+  });
+
+  // 🔧 FIX 2: SAFE DATA PASSING - Escape ALL values BEFORE passing to template
+  const safeData = {
+    patientName: escapeHtml(patientName),
+    patientId: escapeHtml(patientId),
+    patientAge: escapeHtml(patientAge),
+    gender: escapeHtml(gender),
+    doctor: escapeHtml(doctor),
+    diagnosis: escapeHtml(diagnosis),
+    dateFormatted: formatDate(date),
+    timeFormatted: getCurrentTime(),
   };
 
-  // Format date to readable format
-  const formatDate = (dateStr) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return dateStr || 'N/A';
-    }
-  };
-
-  // Get current time
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
-
-  // Build medicine table rows
+  // Build medicine table rows with escaping
   const medicinesRows = medicines.length > 0
     ? medicines
         .map(
@@ -84,16 +110,16 @@ function generatePrescriptionHTML(data) {
         .join('')
     : '<tr><td colspan="4" class="table-cell empty">No medicines prescribed</td></tr>';
 
-  // Beautiful HTML Template
+  // Call template with safe, pre-escaped data
   const templateHtml = beautifulPrescriptionTemplate(
-    patientName,
-    patientId,
-    patientAge,
-    gender,
-    doctor,
-    diagnosis,
-    formatDate(date),
-    getCurrentTime(),
+    safeData.patientName,
+    safeData.patientId,
+    safeData.patientAge,
+    safeData.gender,
+    safeData.doctor,
+    safeData.diagnosis,
+    safeData.dateFormatted,
+    safeData.timeFormatted,
     medicinesRows
   );
 
@@ -101,17 +127,29 @@ function generatePrescriptionHTML(data) {
 }
 
 /**
- * Beautiful Prescription Template
- * Premium hospital-grade design with inline CSS
+ * 🔧 FIX 3 + FIX 5 + FIX 6: TEMPLATE RECEIVES ALREADY SANITIZED VALUES
+ * - DO NOT call escapeHtml() here - values are pre-escaped
+ * - Template has visual debug red background highlight
+ * - This ensures correct function flow
  */
-function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gender, doctor, diagnosis, dateFormatted, timeFormatted, medicinesRows) {
+function beautifulPrescriptionTemplate(
+  patientName,       // 🟢 already escaped
+  patientId,         // 🟢 already escaped
+  patientAge,        // 🟢 already escaped
+  gender,            // 🟢 already escaped
+  doctor,            // 🟢 already escaped
+  diagnosis,         // 🟢 already escaped
+  dateFormatted,     // 🟢 already formatted
+  timeFormatted,     // 🟢 already formatted (optional)
+  medicinesRows      // 🟢 already built HTML
+) {
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prescription - ${escapeHtml(patientName)}</title>
+  <title>Prescription - ${patientName}</title>
   <style>
     * {
       margin: 0;
@@ -120,6 +158,11 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
     }
 
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
 
     body {
       font-family: 'Poppins', 'Inter', sans-serif;
@@ -139,6 +182,7 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
       overflow: hidden;
       font-size: 13px;
+      page-break-after: always;
     }
 
     /* ===== HEADER SECTION ===== */
@@ -342,14 +386,6 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
       color: #333;
     }
 
-    .medicine-table tr.even-row {
-      background: #f8fafb;
-    }
-
-    .medicine-table tr.odd-row {
-      background: white;
-    }
-
     .medicine-table tr:hover {
       background: #f0f9ff;
     }
@@ -443,6 +479,7 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
       body {
         background: white;
         padding: 0;
+        margin: 0;
       }
 
       .prescription-container {
@@ -451,6 +488,7 @@ function beautifulPrescriptionTemplate(patientName, patientId, patientAge, gende
         box-shadow: none;
         margin: 0;
         padding: 0;
+        page-break-after: always;
       }
     }
 
@@ -579,11 +617,13 @@ async function generatePrescriptionPDF(data, outputPath = null) {
       throw new Error('Invalid data: must be an object');
     }
 
-    // Generate HTML
+    // 🔧 FIX 6: Ensure correct function flow
+    console.log('[PrescriptionPDF] Generating HTML with generatePrescriptionHTML()...');
     const htmlContent = generatePrescriptionHTML(data);
+    console.log('[PrescriptionPDF] HTML generated successfully');
 
-    // Launch Puppeteer browser
-    console.log('[PrescriptionPDF] Launching browser...');
+    // 🔧 FIX 7: Launch Puppeteer browser
+    console.log('[PrescriptionPDF] Launching Puppeteer browser...');
     browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -595,11 +635,15 @@ async function generatePrescriptionPDF(data, outputPath = null) {
 
     const page = await browser.newPage();
 
-    // Set viewport and content
+    // Set viewport
     await page.setViewport({ width: 1024, height: 1440 });
+
+    // 🔧 FIX 7: Use networkidle0 for better rendering
+    console.log('[PrescriptionPDF] Setting HTML content...');
     await page.setContent(htmlContent, {
-      waitUntil: 'networkidle2',
+      waitUntil: 'networkidle0',
     });
+    console.log('[PrescriptionPDF] HTML content rendered successfully');
 
     console.log('[PrescriptionPDF] Generating PDF...');
 
@@ -616,7 +660,7 @@ async function generatePrescriptionPDF(data, outputPath = null) {
           left: '0px',
         },
       });
-      console.log(`[PrescriptionPDF] PDF saved to: ${outputPath}`);
+      console.log(`[PrescriptionPDF] ✅ PDF saved to: ${outputPath}`);
       await browser.close();
       return outputPath;
     }
@@ -634,10 +678,11 @@ async function generatePrescriptionPDF(data, outputPath = null) {
     });
 
     await browser.close();
-    console.log('[PrescriptionPDF] PDF generated successfully');
+    console.log('[PrescriptionPDF] ✅ PDF generated successfully - Buffer size:', pdfBuffer.length, 'bytes');
     return pdfBuffer;
   } catch (error) {
-    console.error('[PrescriptionPDF] Error generating PDF:', error.message);
+    console.error('[PrescriptionPDF] ❌ Error generating PDF:', error.message);
+    console.error('[PrescriptionPDF] Stack trace:', error.stack);
     if (browser) {
       await browser.close();
     }
