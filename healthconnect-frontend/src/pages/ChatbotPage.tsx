@@ -85,7 +85,7 @@ const ChatbotPage: React.FC<ChatbotPageProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white p-4 shadow-lg flex items-center gap-4">
+      <div className="bg-[#1F8A78] text-white p-4 shadow-md flex items-center gap-4">
         <button
           onClick={() => {
             console.log('[ChatbotPage] Back button clicked');
