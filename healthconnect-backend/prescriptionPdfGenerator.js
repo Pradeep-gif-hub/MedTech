@@ -10,13 +10,33 @@
  * - Authorized stamp and signature placeholder
  */
 
-// 🔥 DEBUG: Log which file is being executed
-console.log("🔥 PDF GENERATOR FILE LOADED:", __filename);
-
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
+const TEMPLATE_PATH = path.join(__dirname, 'prescription-template.html');
+let templateCache = null;
+
+function getPrescriptionTemplateHtml() {
+  if (templateCache === null) {
+    templateCache = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+  }
+
+  return templateCache;
+}
+
+function resolveBrowserExecutablePath() {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  ].filter(Boolean);
+
+  return candidates.find((candidate) => fs.existsSync(candidate));
+}
 
 /**
  * 🔧 FIX 1: GLOBAL escapeHtml - Available everywhere (not just inside functions)
@@ -77,15 +97,7 @@ function generatePrescriptionHTML(data) {
     medicines = [],
   } = data;
 
-  // 🔧 FIX 4: ADD DEBUG LOGS
-  console.log('🔥 USING NEW BEAUTIFUL TEMPLATE');
-  console.log('📊 DATA:', {
-    patientName,
-    doctor,
-    medicinesCount: medicines.length,
-  });
-
-  // 🔧 FIX 2: SAFE DATA PASSING - Escape ALL values BEFORE passing to template
+  // Escape all values before passing to template.
   const safeData = {
     patientName: escapeHtml(patientName),
     patientId: escapeHtml(patientId),
@@ -114,111 +126,45 @@ function generatePrescriptionHTML(data) {
     : '<tr><td colspan="4" class="table-cell empty">No medicines prescribed</td></tr>';
 
   // Call template with safe, pre-escaped data
-  const templateHtml = beautifulPrescriptionTemplate(
-    safeData.patientName,
-    safeData.patientId,
-    safeData.patientAge,
-    safeData.gender,
-    safeData.doctor,
-    safeData.diagnosis,
-    safeData.dateFormatted,
-    safeData.timeFormatted,
-    medicinesRows
-  );
+  const templateHtml = beautifulPrescriptionTemplate({
+    patientName: safeData.patientName,
+    patientId: safeData.patientId,
+    patientAge: safeData.patientAge,
+    gender: safeData.gender,
+    doctor: safeData.doctor,
+    diagnosis: safeData.diagnosis,
+    dateFormatted: safeData.dateFormatted,
+    timeFormatted: safeData.timeFormatted,
+    medicinesRows,
+    medicinesCount: medicines.length,
+  });
 
   return templateHtml;
 }
 
-/**
- * 🔧 FIX 3 + FIX 5 + FIX 6: TEMPLATE RECEIVES ALREADY SANITIZED VALUES
- * - DO NOT call escapeHtml() here - values are pre-escaped
- * - Template has visual debug red background highlight
- * - This ensures correct function flow
- */
-function beautifulPrescriptionTemplate(
-  patientName,       // 🟢 already escaped
-  patientId,         // 🟢 already escaped
-  patientAge,        // 🟢 already escaped
-  gender,            // 🟢 already escaped
-  doctor,            // 🟢 already escaped
-  diagnosis,         // 🟢 already escaped
-  dateFormatted,     // 🟢 already formatted
-  timeFormatted,     // 🟢 already formatted (optional)
-  medicinesRows      // 🟢 already built HTML
-) {
-  // 🔴 DEBUG: Return temporary HTML to verify template is active
-  console.log("✅ beautifulPrescriptionTemplate() called - USING NEW TEMPLATE");
-  
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NEW TEMPLATE ACTIVE</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: Arial, sans-serif;
-      background: #ff0000;
-      color: white;
-    }
-    .debug-container {
-      background: #ff0000;
-      padding: 40px;
-      border: 5px solid #ffff00;
-      border-radius: 10px;
-      text-align: center;
-    }
-    h1 {
-      color: #ffff00;
-      font-size: 48px;
-      margin: 0;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    }
-    .info {
-      background: rgba(0,0,0,0.3);
-      padding: 20px;
-      margin-top: 20px;
-      border-radius: 5px;
-      font-size: 18px;
-    }
-    .data {
-      background: rgba(0,0,0,0.5);
-      padding: 15px;
-      margin: 10px 0;
-      border-radius: 5px;
-      font-family: monospace;
-      text-align: left;
-      word-break: break-all;
-    }
-  </style>
-</head>
-<body>
-  <div class="debug-container">
-    <h1>🔥 NEW TEMPLATE ACTIVE 🔥</h1>
-    
-    <div class="info">
-      <p>✅ The updated prescriptionPdfGenerator.js is being used!</p>
-      <p>📊 Received Data:</p>
-      
-      <div class="data">
-        <strong>Patient Name:</strong> ${patientName}<br>
-        <strong>Patient ID:</strong> ${patientId}<br>
-        <strong>Age/Gender:</strong> ${patientAge} / ${gender}<br>
-        <strong>Doctor:</strong> ${doctor}<br>
-        <strong>Diagnosis:</strong> ${diagnosis}<br>
-        <strong>Date:</strong> ${dateFormatted}<br>
-        <strong>Medicines Count:</strong> ${medicinesRows ? '1+' : '0'}<br>
-      </div>
-      
-      <p>🎉 If you see this red page, the new template system is working!</p>
-    </div>
-  </div>
-</body>
-</html>
-  `;
+function beautifulPrescriptionTemplate(data) {
+  const safeData = data && typeof data === 'object'
+    ? data
+    : {};
+
+  const replacements = {
+    patientName: safeData.patientName || 'N/A',
+    patientId: safeData.patientId || 'N/A',
+    patientAge: safeData.patientAge || 'N/A',
+    gender: safeData.gender || 'N/A',
+    doctor: safeData.doctor || 'N/A',
+    diagnosis: safeData.diagnosis || 'N/A',
+    dateFormatted: safeData.dateFormatted || formatDate(new Date().toISOString().split('T')[0]),
+    timeFormatted: safeData.timeFormatted || getCurrentTime(),
+    medicinesRows: safeData.medicinesRows || '<tr><td colspan="4" class="table-cell empty">No medicines prescribed</td></tr>',
+  };
+
+  let template = getPrescriptionTemplateHtml();
+  for (const [key, value] of Object.entries(replacements)) {
+    template = template.split(`{{${key}}}`).join(value);
+  }
+
+  return template;
 }
 
 /**
@@ -244,12 +190,22 @@ async function generatePrescriptionPDF(data, outputPath = null) {
 
     // 🔧 FIX 7: Launch Puppeteer browser
     console.log('[PrescriptionPDF] Launching Puppeteer browser...');
+    const executablePath = resolveBrowserExecutablePath();
+    console.log('[PrescriptionPDF] Browser executable path:', executablePath || 'default Puppeteer browser');
+
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'medtech-puppeteer-profile-'));
+
     browser = await puppeteer.launch({
-      headless: 'new',
+      headless: true,
+      executablePath,
+      pipe: true,
+      timeout: 120000,
+      userDataDir,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--disable-gpu',
       ],
     });
 
@@ -373,4 +329,5 @@ module.exports = {
   generateAndSavePrescription,
   generatePrescriptionFilename,
   generatePrescriptionHTML,
+  beautifulPrescriptionTemplate,
 };

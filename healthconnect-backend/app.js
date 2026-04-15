@@ -13,15 +13,38 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 
 // Database imports
-const {
-  db,
-  initializeDatabase,
-  getUserByEmail,
-  getUserById,
-  getUserByGoogleId,
-  createUser,
-  updateUser,
-} = require('./database');
+let db = null;
+let initializeDatabase = async () => {
+  console.warn('[DB] initializeDatabase skipped (database module unavailable)');
+};
+let getUserByEmail = async () => null;
+let getUserById = async () => null;
+let getUserByGoogleId = async () => null;
+let createUser = async () => {
+  throw new Error('Database module unavailable');
+};
+let updateUser = async () => {
+  throw new Error('Database module unavailable');
+};
+
+try {
+  ({
+    db,
+    initializeDatabase,
+    getUserByEmail,
+    getUserById,
+    getUserByGoogleId,
+    createUser,
+    updateUser,
+  } = require('./database'));
+  console.log('[DB] Database module loaded successfully');
+} catch (dbLoadError) {
+  console.error('[DB] Database module failed to load:', dbLoadError.message);
+  console.warn('[DB] Running in no-database debug mode. Auth/profile routes may fail.');
+}
+
+// Force fresh load - bypass require cache
+delete require.cache[require.resolve('./prescriptionPdfGenerator')];
 
 // Prescription PDF Generator
 const {
@@ -30,9 +53,6 @@ const {
   generateAndSavePrescription,
   generatePrescriptionFilename,
 } = require('./prescriptionPdfGenerator');
-
-// 📦 DEBUG: Log import path to verify correct module is loaded
-console.log("📦 IMPORT PATH:", require.resolve('./prescriptionPdfGenerator'));
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT || '8000', 10);
@@ -850,7 +870,8 @@ app.post('/api/prescription/preview', (req, res) => {
       medicines: Array.isArray(medicines) ? medicines : [],
     };
 
-    // Generate HTML
+    // Force fresh load for debugging route-level cache issues
+    delete require.cache[require.resolve('./prescriptionPdfGenerator')];
     const { generatePrescriptionHTML } = require('./prescriptionPdfGenerator');
     const htmlContent = generatePrescriptionHTML(prescriptionData);
 
