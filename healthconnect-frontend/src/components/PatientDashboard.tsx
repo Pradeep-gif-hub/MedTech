@@ -1121,12 +1121,6 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
                 >
                   View Profile
                 </button>
-                <button
-                  onClick={() => window.open('https://chatgpt.com/g/g-PFQijmS57-medical-ai', '_blank')}
-                  className="px-4 py-2 bg-white text-emerald-700 rounded-lg font-semibold border border-emerald-300 shadow hover:bg-gray-50 transform hover:-translate-y-0.5 transition-all"
-                >
-                  Chat
-                </button>
 
               </div>
 
@@ -1911,7 +1905,7 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
               </div>
             </div>
             <button onClick={onNavigateToChatbot} className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition flex items-center gap-2">
-              💬 Chat
+              Prasthi-AI
             </button>
             <button onClick={handleLocalLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
           </div>
