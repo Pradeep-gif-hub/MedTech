@@ -95,11 +95,11 @@ const ChatbotPage: React.FC<ChatbotPageProps> = ({ onClose }) => {
           aria-label="Close chatbot"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span className="text-sm">Back to Dashboard</span>
+          <span className="text-sm">Back </span>
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">🏥 MedTech AI Health Assistant</h1>
-          <p className="text-sm text-purple-100">Medical advice powered by Groq AI</p>
+          <h1 className="text-2xl font-bold">Welcome to Prasthi-AI</h1>
+          <p className="text-sm text-purple-100">Medical advice powered by Prasthi AI</p>
         </div>
       </div>
 
