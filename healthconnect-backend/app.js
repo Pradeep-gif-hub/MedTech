@@ -846,6 +846,8 @@ app.post('/api/prescription/generate', async (req, res) => {
  */
 app.post('/api/prescription/preview', (req, res) => {
   try {
+    console.log('🚀 PREVIEW ROUTE HIT');
+    console.log('📦 FUNCTION USED:', generatePrescriptionPDF.name);
     console.log('[Prescription API] Received preview request');
 
     const { patientName, patientId, patientAge, gender, doctor, diagnosis, date, medicines } = req.body;

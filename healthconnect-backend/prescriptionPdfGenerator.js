@@ -17,10 +17,23 @@ const os = require('os');
 
 const TEMPLATE_PATH = path.join(__dirname, 'prescription-template.html');
 let templateCache = null;
+let templateMtimeMs = 0;
 
 function getPrescriptionTemplateHtml() {
-  if (templateCache === null) {
+  console.log('[PrescriptionPDF] 📂 TEMPLATE FILE USED:', TEMPLATE_PATH);
+  const templateStat = fs.statSync(TEMPLATE_PATH);
+  const disableCache = process.env.DISABLE_TEMPLATE_CACHE === '1';
+  const needsReload = disableCache || templateCache === null || templateMtimeMs !== templateStat.mtimeMs;
+
+  if (needsReload) {
+    templateMtimeMs = templateStat.mtimeMs;
     templateCache = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+    if (disableCache) {
+      console.log('[PrescriptionPDF] Template cache disabled by DISABLE_TEMPLATE_CACHE=1.');
+    } else {
+      console.log('[PrescriptionPDF] Template cache refreshed from disk.');
+    }
+    console.log('[PrescriptionPDF] 📄 RAW TEMPLATE CONTENT:\n', templateCache.slice(0, 500));
   }
 
   return templateCache;
@@ -164,6 +177,8 @@ function beautifulPrescriptionTemplate(data) {
     template = template.split(`{{${key}}}`).join(value);
   }
 
+  console.log('[PrescriptionPDF] 🧪 FINAL HTML AFTER REPLACEMENT:\n', template.slice(0, 500));
+
   return template;
 }
 
@@ -185,8 +200,15 @@ async function generatePrescriptionPDF(data, outputPath = null) {
 
     // 🔧 FIX 6: Ensure correct function flow
     console.log('[PrescriptionPDF] Generating HTML with generatePrescriptionHTML()...');
-    const htmlContent = generatePrescriptionHTML(data);
+    let html = generatePrescriptionHTML(data);
     console.log('[PrescriptionPDF] HTML generated successfully');
+
+    if (process.env.FORCE_PDF_TEMPLATE_TEST === '1') {
+      html = "<h1 style='color:red;'>FORCE TEST TEMPLATE</h1>";
+      console.log('[PrescriptionPDF] ⚠️ FORCE_PDF_TEMPLATE_TEST is enabled. Overriding html with FORCE TEST TEMPLATE.');
+    }
+
+    console.log('🚨 FINAL HTML SENT TO PUPPETEER:\n', html);
 
     // 🔧 FIX 7: Launch Puppeteer browser
     console.log('[PrescriptionPDF] Launching Puppeteer browser...');
@@ -216,7 +238,7 @@ async function generatePrescriptionPDF(data, outputPath = null) {
 
     // 🔧 FIX 7: Use networkidle0 for better rendering
     console.log('[PrescriptionPDF] Setting HTML content...');
-    await page.setContent(htmlContent, {
+    await page.setContent(html, {
       waitUntil: 'networkidle0',
     });
     console.log('[PrescriptionPDF] HTML content rendered successfully');
