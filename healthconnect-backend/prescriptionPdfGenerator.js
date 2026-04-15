@@ -10,6 +10,9 @@
  * - Authorized stamp and signature placeholder
  */
 
+// 🔥 DEBUG: Log which file is being executed
+console.log("🔥 PDF GENERATOR FILE LOADED:", __filename);
+
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
@@ -143,457 +146,74 @@ function beautifulPrescriptionTemplate(
   timeFormatted,     // 🟢 already formatted (optional)
   medicinesRows      // 🟢 already built HTML
 ) {
+  // 🔴 DEBUG: Return temporary HTML to verify template is active
+  console.log("✅ beautifulPrescriptionTemplate() called - USING NEW TEMPLATE");
+  
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prescription - ${patientName}</title>
+  <title>NEW TEMPLATE ACTIVE</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
-
-    html, body {
-      width: 100%;
-      height: 100%;
-    }
-
     body {
-      font-family: 'Poppins', 'Inter', sans-serif;
-      background: #f5f5f5;
-      padding: 0;
       margin: 0;
-      color: #333;
-      line-height: 1.6;
-    }
-
-    .prescription-container {
-      width: 210mm;
-      height: 297mm;
-      background: white;
-      margin: 0 auto;
-      padding: 0;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      font-size: 13px;
-      page-break-after: always;
-    }
-
-    /* ===== HEADER SECTION ===== */
-    .header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%);
-      color: white;
-      padding: 25px 30px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 3px solid #0ea5e9;
-      position: relative;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .logo-icon {
-      width: 60px;
-      height: 60px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      font-weight: bold;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-    }
-
-    .header-text h1 {
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0;
-      letter-spacing: -0.5px;
-    }
-
-    .header-text p {
-      font-size: 12px;
-      margin: 4px 0 0 0;
-      opacity: 0.95;
-      font-weight: 300;
-    }
-
-    .header-right {
-      text-align: right;
-      font-size: 12px;
-    }
-
-    .header-right p {
-      margin: 6px 0;
-      opacity: 0.9;
-    }
-
-    .header-right .label {
-      opacity: 0.8;
-      font-size: 11px;
-    }
-
-    /* ===== PATIENT & DOCTOR INFO CARDS ===== */
-    .info-section {
-      display: flex;
-      gap: 20px;
-      padding: 20px 30px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e0e0e0;
-    }
-
-    .info-card {
-      flex: 1;
-      background: white;
-      border-radius: 8px;
-      padding: 16px;
-      border-left: 4px solid #0369a1;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    .info-card.patient {
-      border-left-color: #0369a1;
-    }
-
-    .info-card.doctor {
-      border-left-color: #059669;
-    }
-
-    .info-card h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: #666;
-      margin-bottom: 10px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-
-    .info-field {
-      margin-bottom: 8px;
-    }
-
-    .info-label {
-      font-size: 10px;
-      color: #999;
-      text-transform: uppercase;
-      font-weight: 500;
-      letter-spacing: 0.3px;
-    }
-
-    .info-value {
-      font-size: 13px;
-      color: #1a1a1a;
-      font-weight: 600;
-      margin-top: 2px;
-    }
-
-    /* ===== DIAGNOSIS SECTION ===== */
-    .diagnosis-section {
-      padding: 20px 30px;
-      border-bottom: 1px solid #e0e0e0;
-    }
-
-    .section-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #1e3a8a;
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .section-title::before {
-      content: '';
-      width: 4px;
-      height: 16px;
-      background: linear-gradient(to bottom, #0369a1, #06b6d4);
-      border-radius: 2px;
-    }
-
-    .diagnosis-box {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: 6px;
-      padding: 14px;
-      color: #164e63;
-      font-size: 13px;
-      line-height: 1.6;
-      min-height: 40px;
-    }
-
-    /* ===== MEDICINE TABLE ===== */
-    .medicines-section {
-      padding: 20px 30px;
-      border-bottom: 1px solid #e0e0e0;
-    }
-
-    .medicine-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    .table-header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%);
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #ff0000;
       color: white;
     }
-
-    .table-header th {
-      padding: 12px 10px;
+    .debug-container {
+      background: #ff0000;
+      padding: 40px;
+      border: 5px solid #ffff00;
+      border-radius: 10px;
+      text-align: center;
+    }
+    h1 {
+      color: #ffff00;
+      font-size: 48px;
+      margin: 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    .info {
+      background: rgba(0,0,0,0.3);
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 5px;
+      font-size: 18px;
+    }
+    .data {
+      background: rgba(0,0,0,0.5);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+      font-family: monospace;
       text-align: left;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      border: none;
-    }
-
-    .table-header th:nth-child(1) {
-      width: 40%;
-    }
-
-    .table-header th:nth-child(2) {
-      width: 20%;
-    }
-
-    .table-header th:nth-child(3) {
-      width: 20%;
-    }
-
-    .table-header th:nth-child(4) {
-      width: 20%;
-    }
-
-    .table-cell {
-      padding: 11px 10px;
-      border-bottom: 1px solid #e0e0e0;
-      font-size: 12px;
-      color: #333;
-    }
-
-    .medicine-table tr:hover {
-      background: #f0f9ff;
-    }
-
-    .text-center {
-      text-align: center;
-      font-style: italic;
-      color: #999;
-    }
-
-    /* ===== AUTHORIZATION SECTION ===== */
-    .authorization-section {
-      padding: 20px 30px;
-      border-bottom: 1px solid #e0e0e0;
-      display: flex;
-      justify-content: flex-end;
-      align-items: flex-end;
-      gap: 40px;
-    }
-
-    .signature-block {
-      text-align: center;
-      min-width: 140px;
-    }
-
-    .signature-line {
-      border-top: 1px solid #333;
-      height: 0;
-      margin-bottom: 4px;
-      width: 100%;
-    }
-
-    .signature-label {
-      font-size: 11px;
-      color: #666;
-      font-weight: 500;
-    }
-
-    .stamp {
-      position: relative;
-      width: 120px;
-      height: 120px;
-    }
-
-    .stamp-circle {
-      width: 100%;
-      height: 100%;
-      border: 2px solid #dc2626;
-      border-radius: 50%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: #dc2626;
-      text-align: center;
-      opacity: 0.3;
-      transform: rotate(-25deg);
-      padding: 8px;
-    }
-
-    .stamp-circle span {
-      line-height: 1.2;
-      letter-spacing: 1px;
-    }
-
-    /* ===== FOOTER ===== */
-    .footer {
-      padding: 15px 30px;
-      text-align: center;
-      border-top: 2px dashed #0369a1;
-      background: #fafafa;
-      font-size: 11px;
-      color: #666;
-      line-height: 1.6;
-    }
-
-    .footer p {
-      margin: 4px 0;
-    }
-
-    .footer-note {
-      font-style: italic;
-      color: #999;
-      font-size: 10px;
-    }
-
-    /* ===== PRINT STYLES ===== */
-    @media print {
-      body {
-        background: white;
-        padding: 0;
-        margin: 0;
-      }
-
-      .prescription-container {
-        width: 100%;
-        height: auto;
-        box-shadow: none;
-        margin: 0;
-        padding: 0;
-        page-break-after: always;
-      }
-    }
-
-    @page {
-      size: A4;
-      margin: 0;
+      word-break: break-all;
     }
   </style>
 </head>
 <body>
-  <div class="prescription-container">
-    <!-- HEADER -->
-    <div class="header">
-      <div class="header-left">
-        <div class="logo-icon">⚕️</div>
-        <div class="header-text">
-          <h1>MedTech Clinic</h1>
-          <p>Smart Healthcare System</p>
-        </div>
+  <div class="debug-container">
+    <h1>🔥 NEW TEMPLATE ACTIVE 🔥</h1>
+    
+    <div class="info">
+      <p>✅ The updated prescriptionPdfGenerator.js is being used!</p>
+      <p>📊 Received Data:</p>
+      
+      <div class="data">
+        <strong>Patient Name:</strong> ${patientName}<br>
+        <strong>Patient ID:</strong> ${patientId}<br>
+        <strong>Age/Gender:</strong> ${patientAge} / ${gender}<br>
+        <strong>Doctor:</strong> ${doctor}<br>
+        <strong>Diagnosis:</strong> ${diagnosis}<br>
+        <strong>Date:</strong> ${dateFormatted}<br>
+        <strong>Medicines Count:</strong> ${medicinesRows ? '1+' : '0'}<br>
       </div>
-      <div class="header-right">
-        <p><span class="label">Date:</span></p>
-        <p style="font-weight: 600; font-size: 13px;">${dateFormatted}</p>
-        <p style="margin-top: 8px; opacity: 0.8; font-size: 10px;">Digital Prescription</p>
-      </div>
-    </div>
-
-    <!-- PATIENT & DOCTOR INFO -->
-    <div class="info-section">
-      <div class="info-card patient">
-        <h3>Patient Information</h3>
-        <div class="info-field">
-          <div class="info-label">Patient Name</div>
-          <div class="info-value">${patientName}</div>
-        </div>
-        <div class="info-field">
-          <div class="info-label">Patient ID</div>
-          <div class="info-value">${patientId}</div>
-        </div>
-        <div class="info-field">
-          <div class="info-label">Age / Gender</div>
-          <div class="info-value">${patientAge} / ${gender}</div>
-        </div>
-      </div>
-
-      <div class="info-card doctor">
-        <h3>Doctor Information</h3>
-        <div class="info-field">
-          <div class="info-label">Consulting Doctor</div>
-          <div class="info-value">${doctor}</div>
-        </div>
-        <div class="info-field">
-          <div class="info-label">Prescription Date</div>
-          <div class="info-value">${dateFormatted}</div>
-        </div>
-        <div class="info-field">
-          <div class="info-label">Status</div>
-          <div class="info-value" style="color: #059669;">Active</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DIAGNOSIS SECTION -->
-    <div class="diagnosis-section">
-      <div class="section-title">Diagnosis / Clinical Notes</div>
-      <div class="diagnosis-box">
-        ${diagnosis}
-      </div>
-    </div>
-
-    <!-- MEDICINES TABLE -->
-    <div class="medicines-section">
-      <div class="section-title">Prescribed Medicines</div>
-      <table class="medicine-table">
-        <thead class="table-header">
-          <tr>
-            <th>Medicine Name</th>
-            <th>Dose / Strength</th>
-            <th>Frequency</th>
-            <th>Duration</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${medicinesRows}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- AUTHORIZATION SECTION -->
-    <div class="authorization-section">
-      <div class="signature-block">
-        <div class="signature-line"></div>
-        <div class="signature-label">Doctor Signature</div>
-      </div>
-      <div class="stamp">
-        <div class="stamp-circle">
-          <span>AUTHORIZED<br/>MedTech Clinic</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- FOOTER -->
-    <div class="footer">
-      <p>This is a digitally generated prescription from MedTech Clinic</p>
-      <p class="footer-note">Valid for use at registered healthcare partners only</p>
+      
+      <p>🎉 If you see this red page, the new template system is working!</p>
     </div>
   </div>
 </body>

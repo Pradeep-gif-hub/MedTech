@@ -31,6 +31,9 @@ const {
   generatePrescriptionFilename,
 } = require('./prescriptionPdfGenerator');
 
+// 📦 DEBUG: Log import path to verify correct module is loaded
+console.log("📦 IMPORT PATH:", require.resolve('./prescriptionPdfGenerator'));
+
 const app = express();
 const PORT = Number.parseInt(process.env.PORT || '8000', 10);
 
