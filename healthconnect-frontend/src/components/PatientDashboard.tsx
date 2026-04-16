@@ -7,9 +7,6 @@ import { useStoredUser } from '../hooks/useStoredUser';
 import { buildApiUrl } from '../config/api';
 import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
 
-const API_BASE = 'https://medtech-prescription-api.onrender.com';
-const buildPrescriptionApiUrl = (endpoint: string) => `${API_BASE}${endpoint}`;
-
 interface PatientDashboardProps { 
   onLogout: () => void;
   onNavigateToChatbot: () => void;
@@ -867,7 +864,7 @@ const headerHTML = `
         queryParts.push(`search=${encodeURIComponent(escapedSearch)}`);
       }
 
-      const response = await fetch(buildPrescriptionApiUrl(`/api/prescriptions?${queryParts.join('&')}`), {
+      const response = await fetch(buildApiUrl(`/api/prescriptions?${queryParts.join('&')}`), {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
