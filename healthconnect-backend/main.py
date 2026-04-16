@@ -1,8 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import settings
 import datetime
+import json
+
+from database import SessionLocal
+from models import Prescription, User
 
 # Backend deployment fix - reverted to stable version
 # required routers
@@ -52,6 +56,50 @@ except Exception as e:
 
 app = FastAPI(title="HealthConnect")
 
+
+def _safe_str(value, fallback: str = "N/A") -> str:
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text if text else fallback
+
+
+def _normalize_medicines(raw_medicines) -> list[dict]:
+    medicines_data = raw_medicines
+
+    if isinstance(medicines_data, str):
+        try:
+            medicines_data = json.loads(medicines_data)
+        except Exception:
+            medicines_data = [line.strip() for line in medicines_data.split("\n") if line.strip()]
+
+    if not isinstance(medicines_data, list):
+        medicines_data = [medicines_data] if medicines_data else []
+
+    normalized: list[dict] = []
+    for item in medicines_data:
+        if isinstance(item, dict):
+            normalized.append({
+                "name": _safe_str(item.get("name") or item.get("medicine"), ""),
+                "dose": _safe_str(item.get("dose") or item.get("dosage"), ""),
+                "frequency": _safe_str(item.get("frequency"), ""),
+                "duration": _safe_str(item.get("duration") or item.get("days"), ""),
+            })
+            continue
+
+        raw_text = _safe_str(item, "")
+        if not raw_text:
+            continue
+        parts = [p.strip() for p in raw_text.split("|")]
+        normalized.append({
+            "name": parts[0] if len(parts) > 0 else raw_text,
+            "dose": parts[1] if len(parts) > 1 else "",
+            "frequency": parts[2] if len(parts) > 2 else "",
+            "duration": parts[3] if len(parts) > 3 else "",
+        })
+
+    return normalized
+
 # CORS configuration - CRITICAL: Must be first middleware
 # Allow all origins in development, restrict in production
 cors_origins = [
@@ -85,6 +133,50 @@ async def health_check():
         "cors_enabled": True,
         "timestamp": str(datetime.datetime.now(datetime.timezone.utc))
     }
+
+
+@app.get("/api/prescription/{prescription_id}")
+async def get_prescription_payload(prescription_id: int):
+    db = SessionLocal()
+    try:
+        prescription = db.query(Prescription).filter(Prescription.id == prescription_id).first()
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+
+        patient = db.query(User).filter(User.id == prescription.patient_id).first() if prescription.patient_id else None
+        doctor = db.query(User).filter(User.id == prescription.doctor_id).first() if prescription.doctor_id else None
+
+        prescription_date = None
+        if prescription.created_at:
+            prescription_date = prescription.created_at.isoformat()
+        elif prescription.date:
+            prescription_date = str(prescription.date)
+
+        response = {
+            "patient": {
+                "id": _safe_str(patient.id if patient else prescription.patient_id, "N/A"),
+                "name": _safe_str((patient.full_name if patient and patient.full_name else None) or (patient.name if patient else None), "N/A"),
+                "age": patient.age if patient and patient.age is not None else None,
+                "gender": _safe_str(patient.gender if patient else None, ""),
+            },
+            "doctor": {
+                "name": _safe_str((doctor.full_name if doctor and doctor.full_name else None) or (doctor.name if doctor else None), "N/A"),
+                "specialization": _safe_str(doctor.specialization if doctor else None, ""),
+                "hospital": _safe_str(doctor.hospital_name if doctor else None, ""),
+            },
+            "prescription": {
+                "id": prescription.id,
+                "reportId": f"RX-{prescription.id}",
+                "diagnosis": _safe_str(prescription.diagnosis, ""),
+                "notes": _safe_str(prescription.instruction, ""),
+                "date": prescription_date,
+            },
+            "medicines": _normalize_medicines(prescription.medications),
+        }
+
+        return response
+    finally:
+        db.close()
 
 # mount users router at both common prefixes to handle frontend path differences
 app.include_router(users.router, prefix="/api/users", tags=["Users"])

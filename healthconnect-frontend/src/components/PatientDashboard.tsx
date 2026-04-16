@@ -37,6 +37,7 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
   const [doctorLoading, setDoctorLoading] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState(null as any);
+  const [loadingPrescriptionDetails, setLoadingPrescriptionDetails] = useState(false);
   const [hrHistory, setHrHistory] = useState([vitalSigns.heartRate] as number[]);
 
 
@@ -107,6 +108,100 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
 
   const escapeHtml = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
+  const normalizeMedicines = (rawMedicines: any): Array<{ name: string; dose: string; frequency: string; duration: string }> => {
+    let list = rawMedicines;
+
+    if (typeof list === 'string') {
+      try {
+        const parsed = JSON.parse(list);
+        list = parsed;
+      } catch {
+        list = list
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter(Boolean);
+      }
+    }
+
+    if (!Array.isArray(list)) {
+      list = list ? [list] : [];
+    }
+
+    return list
+      .map((item: any) => {
+        if (typeof item === 'string') {
+          const parts = item.split('|').map((s: string) => s.trim());
+          return {
+            name: parts[0] || item,
+            dose: parts[1] || '',
+            frequency: parts[2] || '',
+            duration: parts[3] || '',
+          };
+        }
+
+        return {
+          name: item?.name || item?.medicine || '',
+          dose: item?.dose || item?.dosage || '',
+          frequency: item?.frequency || '',
+          duration: item?.duration || item?.days || '',
+        };
+      })
+      .filter((med: any) => med.name);
+  };
+
+  const normalizePrescriptionApiPayload = (apiData: any, fallbackPrescription: any) => {
+    const fallback = fallbackPrescription || {};
+    const patient = apiData?.patient || {};
+    const doctor = apiData?.doctor || {};
+    const prescription = apiData?.prescription || {};
+
+    const medicines = normalizeMedicines(apiData?.medicines ?? fallback.medicines ?? fallback.medications);
+
+    return {
+      ...fallback,
+      id: prescription.id || fallback.id,
+      fullname: patient.name || fallback.fullname || fallback.patient_name || '',
+      patient: {
+        id: patient.id || fallback.patient_id || userId || 'N/A',
+        name: patient.name || fallback.fullname || fallback.patient_name || '',
+        age: patient.age ?? fallback.patient_age ?? null,
+        gender: patient.gender || fallback.patient_gender || '',
+      },
+      doctor_name: doctor.name || fallback.doctor_name || fallback.doctor?.name || fallback.doctor || '',
+      doctor: {
+        name: doctor.name || fallback.doctor_name || fallback.doctor?.name || fallback.doctor || '',
+        specialization: doctor.specialization || fallback.doctor_specialization || '',
+        hospital: doctor.hospital || doctor.hospital_name || fallback.hospital_name || '',
+      },
+      diagnosis: prescription.diagnosis || fallback.diagnosis || fallback.reason || '',
+      reason: prescription.notes || prescription.diagnosis || fallback.reason || fallback.diagnosis || '',
+      reportId: prescription.reportId || fallback.reportId || (prescription.id ? `RX-${prescription.id}` : ''),
+      date: prescription.date || fallback.date || fallback.created_at || null,
+      created_at: fallback.created_at || prescription.date || null,
+      medicines,
+      medications: medicines,
+    };
+  };
+
+  const fetchPrescriptionById = async (prescriptionId: number | string, fallbackPrescription?: any, showErrorAlert = true) => {
+    const response = await fetch(buildApiUrl(`/api/prescription/${encodeURIComponent(String(prescriptionId))}`), {
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Prescription fetch failed (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const normalized = normalizePrescriptionApiPayload(payload, fallbackPrescription);
+
+    if (!normalized.medicines.length && showErrorAlert) {
+      alert('Prescription has no medicines in the latest data.');
+    }
+
+    return normalized;
+  };
+
   // JSON export helper
   const generatePrescriptionJsonPdf = async (prescription: any) => {
     if (!prescription) { alert('No prescription'); return }
@@ -127,7 +222,7 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
    
 
 
-  const formatIST = (date) => {
+  const formatIST = (date: any) => {
   if (!date) return "";
   console.log('[formatIST] Input date:', date);
   const utcDate = new Date(date);
@@ -151,20 +246,30 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
   // Styled multi-page-aware PDF
   const handleDownloadPDF = async (prescription: any) => {
     if (!prescription) { alert('No prescription'); return }
-    const utcDate = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(utcDate.getTime() + istOffset);
-    const downloadDate = istDate.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-    const patientId = userId || 'N/A';
-    const medicines = Array.isArray(prescription.medicines) ? prescription.medicines : (prescription.medicines ? [prescription.medicines] : []);
+    let livePrescription = prescription;
+    if (prescription.id) {
+      setLoadingPrescriptionDetails(true);
+      try {
+        livePrescription = await fetchPrescriptionById(prescription.id, prescription, false);
+        setSelectedPrescription((prev: any) => (prev && prev.id === prescription.id ? livePrescription : prev));
+      } catch (error) {
+        console.error('Failed to fetch latest prescription for PDF', error);
+        alert('Failed to fetch latest prescription data. Downloading last available data.');
+      } finally {
+        setLoadingPrescriptionDetails(false);
+      }
+    }
+
+    const patientId = livePrescription?.patient?.id || livePrescription?.patient_id || userId || 'N/A';
+    const patientName = livePrescription?.patient?.name || livePrescription?.fullname || '';
+    const patientAge = livePrescription?.patient?.age;
+    const patientGender = livePrescription?.patient?.gender || '';
+    const doctorName = livePrescription?.doctor?.name || livePrescription?.doctor_name || livePrescription?.doctor || 'N/A';
+    const doctorSpecialization = livePrescription?.doctor?.specialization || livePrescription?.doctor_specialization || 'N/A';
+    const clinicName = livePrescription?.doctor?.hospital || livePrescription?.hospital_name || 'N/A';
+    const reportId = livePrescription?.reportId || (livePrescription?.id ? `RX-${livePrescription.id}` : `RX-${patientId}-${Date.now().toString().slice(-4)}`);
+    const diagnosisText = livePrescription?.diagnosis || livePrescription?.reason || 'No notes provided';
+    const medicines = normalizeMedicines(livePrescription?.medicines ?? livePrescription?.medications);
 
 const headerHTML = `
 <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif; padding:30px; width:760px; background:linear-gradient(to bottom,#f0f9ff,#ffffff); color:#0f172a; position:relative;">
@@ -206,26 +311,34 @@ const headerHTML = `
 
         <tr>
           <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569; width:25%;">Patient ID</td>
-          <td style="padding:12px; border:1px solid #e2e8f0; width:25%;">${patientId}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; width:25%;">${escapeHtml(patientId)}</td>
 
           <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569; width:25%;">Doctor</td>
-          <td style="padding:12px; border:1px solid #e2e8f0; width:25%;">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; width:25%;">${escapeHtml(doctorName)}</td>
         </tr>
 
         <tr style="background:#f8fafc;">
           <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Patient Name</td>
-          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(prescription.fullname || '')}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(patientName || 'N/A')}</td>
 
           <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Date</td>
-          <td style="padding:12px; border:1px solid #e2e8f0;">${formatIST(prescription.created_at || prescription.date || Date.now())}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(formatIST(livePrescription.created_at || livePrescription.date || Date.now()) || 'N/A')}</td>
         </tr>
 
         <tr>
           <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Report ID</td>
-          <td style="padding:12px; border:1px solid #e2e8f0;">RX-${patientId}-${Date.now().toString().slice(-4)}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(reportId)}</td>
 
-          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Department</td>
-          <td style="padding:12px; border:1px solid #e2e8f0;">General Medicine</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Department / Specialization</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(doctorSpecialization)}</td>
+        </tr>
+
+        <tr style="background:#f8fafc;">
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Patient Age / Gender</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(`${patientAge ?? 'N/A'} / ${patientGender || 'N/A'}`)}</td>
+
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Hospital / Clinic</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(clinicName)}</td>
         </tr>
 
       </tbody>
@@ -238,7 +351,7 @@ const headerHTML = `
   <div style="margin-top:18px;background:white;padding:16px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
     <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Diagnosis / Notes</div>
     <div style="font-size:13px;line-height:1.5;color:#334155;">
-      ${escapeHtml((prescription.diagnosis || prescription.reason || 'No notes provided').toString())}
+      ${escapeHtml((diagnosisText || 'No notes provided').toString())}
     </div>
   </div>
 
@@ -263,23 +376,13 @@ const headerHTML = `
         ${medicines.map(function(m, i){
           var bg = (i % 2 === 0) ? '#f8fafc' : '#ffffff';
 
-          if(typeof m === 'string'){
-            var p = m.split('|').map(function(s){ return s.trim(); });
-            return '<tr style="background:'+bg+';">' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;font-weight:500;">'+escapeHtml(p[0] || m)+'</td>' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(p[1] || '')+'</td>' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(p[2] || '')+'</td>' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(p[3] || '')+'</td>' +
-            '</tr>';
-          } else {
-            return '<tr style="background:'+bg+';">' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;font-weight:500;">'+escapeHtml(m.name || '')+'</td>' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.dose || '')+'</td>' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.frequency || '')+'</td>' +
-              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.duration || '')+'</td>' +
-            '</tr>';
-          }
-        }).join('')}
+          return '<tr style="background:'+bg+';">' +
+            '<td style="padding:10px;border:1px solid #e2e8f0;font-weight:500;">'+escapeHtml(m.name || '')+'</td>' +
+            '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.dose || '')+'</td>' +
+            '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.frequency || '')+'</td>' +
+            '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.duration || '')+'</td>' +
+          '</tr>';
+        }).join('') || '<tr><td colspan="4" style="padding:10px;border:1px solid #e2e8f0;text-align:center;">No medicines available</td></tr>'}
       </tbody>
 
     </table>
@@ -318,7 +421,7 @@ const headerHTML = `
       const imgW = canvas.width; const imgH = canvas.height; const pageCanvasHeight = Math.floor(imgW * (pdfH / pdfW));
       if (imgH <= pageCanvasHeight) { pdf.addImage(img, 'PNG', 0, 0, pdfW, pdfH); }
       else { let y = 0; while (y < imgH) { const slice = Math.min(pageCanvasHeight, imgH - y); const pageCanvas = document.createElement('canvas'); pageCanvas.width = imgW; pageCanvas.height = slice; const ctx = pageCanvas.getContext('2d')!; ctx.drawImage(canvas, 0, y, imgW, slice, 0, 0, imgW, slice); const pageData = pageCanvas.toDataURL('image/png'); pdf.addImage(pageData, 'PNG', 0, 0, pdfW, pdfH); y += slice; if (y < imgH) pdf.addPage(); } }
-      const safeDate = (prescription.date || new Date().toISOString()).toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
+      const safeDate = (livePrescription.date || new Date().toISOString()).toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
       pdf.save(`prescription_${safeDate}.pdf`);
     } catch (e) { console.error(e); alert('Failed to create PDF'); } finally { temp.remove(); }
   };
@@ -835,6 +938,16 @@ const headerHTML = `
     if (match) {
       setSelectedPrescription(match);
       setShowPrescriptionModal(true);
+      if (match.id) {
+        setLoadingPrescriptionDetails(true);
+        fetchPrescriptionById(match.id, match)
+          .then((latest) => setSelectedPrescription(latest))
+          .catch((error) => {
+            console.error('Failed to fetch prescription details', error);
+            alert('Failed to fetch latest prescription details.');
+          })
+          .finally(() => setLoadingPrescriptionDetails(false));
+      }
     }
   };
 
@@ -1780,7 +1893,20 @@ const headerHTML = `
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => { setSelectedPrescription(prescription); setShowPrescriptionModal(true); }}
+                    onClick={() => {
+                      setSelectedPrescription(prescription);
+                      setShowPrescriptionModal(true);
+                      if (prescription.id) {
+                        setLoadingPrescriptionDetails(true);
+                        fetchPrescriptionById(prescription.id, prescription)
+                          .then((latest) => setSelectedPrescription(latest))
+                          .catch((error) => {
+                            console.error('Failed to fetch prescription details', error);
+                            alert('Failed to fetch latest prescription details.');
+                          })
+                          .finally(() => setLoadingPrescriptionDetails(false));
+                      }
+                    }}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
                   >
                     View Details
@@ -2054,16 +2180,22 @@ const headerHTML = `
               </div>
             </div>
             <div className="text-gray-900 space-y-3">
-              <div className="text-sm">
-                <span className="font-semibold">Prescribed by:  Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'Dr. Unknown'}</span>
-              </div>
-              <div className="text-sm">
-                <span className="font-semibold">Date:</span> <span className="text-gray-800">{formatIST(selectedPrescription.created_at || selectedPrescription.date || Date.now())}</span>
-              </div>
-              <div className="text-sm">
-                <span className="font-semibold">Diagnosis / Notes:</span>
-                <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 text-gray-800 whitespace-pre-wrap">{selectedPrescription.diagnosis || selectedPrescription.reason || 'No notes provided.'}</div>
-              </div>
+              {loadingPrescriptionDetails ? (
+                <div className="text-sm text-gray-600">Loading prescription...</div>
+              ) : (
+                <>
+                  <div className="text-sm">
+                    <span className="font-semibold">Prescribed by:  Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'N/A'}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">Date:</span> <span className="text-gray-800">{formatIST(selectedPrescription.created_at || selectedPrescription.date || Date.now())}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">Diagnosis / Notes:</span>
+                    <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 text-gray-800 whitespace-pre-wrap">{selectedPrescription.diagnosis || selectedPrescription.reason || 'No notes provided.'}</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
