@@ -422,7 +422,10 @@ const headerHTML = `
       if (imgH <= pageCanvasHeight) { pdf.addImage(img, 'PNG', 0, 0, pdfW, pdfH); }
       else { let y = 0; while (y < imgH) { const slice = Math.min(pageCanvasHeight, imgH - y); const pageCanvas = document.createElement('canvas'); pageCanvas.width = imgW; pageCanvas.height = slice; const ctx = pageCanvas.getContext('2d')!; ctx.drawImage(canvas, 0, y, imgW, slice, 0, 0, imgW, slice); const pageData = pageCanvas.toDataURL('image/png'); pdf.addImage(pageData, 'PNG', 0, 0, pdfW, pdfH); y += slice; if (y < imgH) pdf.addPage(); } }
       const safeDate = (livePrescription.date || new Date().toISOString()).toString().replace(/[^a-zA-Z0-9_\-]/g, '_');
-      pdf.save(`prescription_${safeDate}.pdf`);
+      const patientNameSafe = (livePrescription.fullname || 'patient')
+  .toString()
+  .replace(/[^a-zA-Z0-9]/g, '_');
+  pdf.save(`${patientNameSafe}_prescription_${safeDate}.pdf`);
     } catch (e) { console.error(e); alert('Failed to create PDF'); } finally { temp.remove(); }
   };
 
