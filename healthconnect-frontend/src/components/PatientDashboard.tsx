@@ -855,10 +855,10 @@ const headerHTML = `
     try {
       const escapedSearch = escapeHtml((searchKeyword ?? prescriptionSearch).trim());
       const queryParts = [] as string[];
-      if (patientEmail) {
-        queryParts.push(`patientEmail=${encodeURIComponent(patientEmail)}`);
-      } else if (userId) {
+      if (userId) {
         queryParts.push(`patientId=${encodeURIComponent(userId)}`);
+      } else if (patientEmail) {
+        queryParts.push(`patientEmail=${encodeURIComponent(patientEmail)}`);
       }
       if (escapedSearch) {
         queryParts.push(`search=${encodeURIComponent(escapedSearch)}`);

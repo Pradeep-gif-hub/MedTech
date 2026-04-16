@@ -1430,7 +1430,30 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         (patientEmail ? `email-${patientEmail.toLowerCase()}` : '')
       ).trim();
 
+      const parsedPatientId = Number.parseInt(patientId, 10);
+      const parsedDoctorId = Number.parseInt(String(profile?.id || ''), 10);
+
+      const mappedMedications = prescriptionForm.medicines
+        .filter(m => m.name)
+        .map(m => ({
+          name: String(m.name || '').trim(),
+          dosage: String(m.dosage || '').trim(),
+          duration: String(m.duration || '').trim(),
+          dose: String(m.dosage || '').trim(),
+        }));
+
       const payload = {
+        // FastAPI prescription contract
+        patient_id: Number.isFinite(parsedPatientId) ? parsedPatientId : undefined,
+        patient_email: patientEmail,
+        doctor_id: Number.isFinite(parsedDoctorId) ? parsedDoctorId : undefined,
+        doctor_email: String(prescriptionForm.doctorEmail || email || '').trim(),
+        diagnosis: String(prescriptionForm.diagnosis || '').trim(),
+        instruction: String(prescriptionForm.instructions || '').trim(),
+        medications: mappedMedications,
+        date: prescriptionForm.date,
+
+        // Backward compatibility payload shape
         patient: {
           id: patientId,
           name: derivedPatientName,
@@ -1441,14 +1464,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           specialization: String(specialization || 'General Physician').trim(),
         },
         date: prescriptionForm.date,
-        diagnosis: prescriptionForm.diagnosis,
-        medicines: prescriptionForm.medicines
-          .filter(m => m.name)
-          .map(m => ({
-            name: String(m.name || '').trim(),
-            dose: String(m.dosage || '').trim(),
-            duration: String(m.duration || '').trim(),
-          })),
+        diagnosis: String(prescriptionForm.diagnosis || '').trim(),
+        medicines: mappedMedications,
       };
 
       if (!payload.patient.email) {
@@ -1469,7 +1486,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
       console.log('[FRONTEND] Sending prescription:', payload);
 
-      const response = await fetch(buildApiUrl('/api/prescriptions'), {
+      const response = await fetch(buildApiUrl('/api/prescriptions/create'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
