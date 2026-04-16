@@ -166,64 +166,134 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
     const patientId = userId || 'N/A';
     const medicines = Array.isArray(prescription.medicines) ? prescription.medicines : (prescription.medicines ? [prescription.medicines] : []);
 
-    const headerHTML = `
-      <div style="font-family: Arial, Helvetica, sans-serif; color:#111; padding:24px; width:760px; box-sizing:border-box; background:#fff;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0f172a; padding-bottom:12px; margin-bottom:18px;">
-          <div>
-            <h1 style="margin:0;font-size:26px;color:#0b7a44;">MedTech Clinic</h1>
-            <div style="font-size:12px;color:#334155;">Dispensary</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:12px;color:#374151">Download Date</div>
-            <div style="font-size:13px;font-weight:600;color:#111">${downloadDate}</div>
-          </div>
-        </div>
-        <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:12px;">
-          <div style="flex:1">
-            <div style="font-size:12px;color:#64748b">Patient ID</div>
-            <div style="font-size:14px;font-weight:600">${patientId}</div>
-            <div style="font-size:12px;color:#64748b;margin-top:6px">Patient Name</div>
-            <div style="font-size:14px;font-weight:600">${escapeHtml(prescription.fullname || '')}</div>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:12px;color:#64748b">Prescribed By</div>
-            <div style="font-size:14px;font-weight:600">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</div>
-            <div style="font-size:12px;color:#64748b;margin-top:6px">Prescription Date</div>
-            <div style="font-size:14px;font-weight:600">${formatIST(prescription.created_at || prescription.date || Date.now())}</div>
-          </div>
-        </div>
-        <h2 style="font-size:16px;color:#0f172a;margin:8px 0 6px">Diagnosis / Notes</h2>
-        <div style="font-size:13px;color:#1f2937;margin-bottom:14px; line-height:1.4">${escapeHtml((prescription.diagnosis || prescription.reason || 'Null').toString()) || 'No notes provided.'}</div>
-        <div style="margin-top:8px;">
-          <table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead>
-              <tr>
-                <th style="border:1px solid #0c78d7ff; padding:8px; background:#f8fafc; text-align:left">Medicine</th>
-                <th style="border:1px solid #0c78d7ff; padding:8px; background:#f8fafc; text-align:left">Dose / Strength</th>
-                <th style="border:1px solid #0c78d7ff; padding:8px; background:#f8fafc; text-align:left">Frequency</th>
-                <th style="border:1px solid #0c78d7ff; padding:8px; background:#f8fafc; text-align:left">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${medicines.map((m: any) => {
-      if (typeof m === 'string') {
-        const parts = m.split('|').map((s: string) => s.trim());
-        const name = parts[0] || m; const dose = parts[1] || '12'; const freq = parts[2] || ''; const dur = parts[3] || '';
-        return `\n<tr>\n<td style="border:1px solid #368bd6ff; padding:8px;">${escapeHtml(name)}</td>\n<td style="border:1px solid #368bd6ff; padding:8px;">${escapeHtml(dose)}</td>\n<td style="border:1px solid #0c78d7ff; padding:8px;">${escapeHtml(freq)}</td>\n<td style="border:1px solid #0c78d7ff; padding:8px;">${escapeHtml(dur)}</td>\n</tr>`;
-      } else {
-        const name = m.name || m.medicine || JSON.stringify(m);
-        const dose = (m.dose || m.strength || '').toString(); const freq = (m.frequency || m.freq || '').toString(); const dur = (m.duration || m.days || '').toString();
-        return `\n<tr>\n<td style="border:1px solid #368bd6ff; padding:8px;">${escapeHtml(name)}</td>\n<td style="border:1px solid #368bd6ff; padding:8px;">${escapeHtml(dose)}</td>\n<td style="border:1px solid #0c78d7ff; padding:8px;">${escapeHtml(freq)}</td>\n<td style="border:1px solid #0c78d7ff; padding:8px;">${escapeHtml(dur)}</td>\n</tr>`;
-      }
-    }).join('')}
-            </tbody>
-          </table>
-        </div>
-        <div style="margin-top:28px; border-top:1px dashed #c105b1ff; padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
-          <div style="font-size:12px;color:#94a3b8">This is a digitally generated prescription from MedTech Clinic.</div>
-          <div style="text-align:right"><div style="font-size:9px;color:#000">Authorized Signature</div></div>
-        </div>
-      </div>`;
+const headerHTML = `
+<div style="font-family: 'Segoe UI', Roboto, Arial, sans-serif; color:#1e293b; padding:28px; width:760px; box-sizing:border-box; background:#f8fafc; position:relative; overflow:hidden;">
+
+  <!-- WATERMARK -->
+  <div style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) rotate(-25deg); font-size:80px; color:rgba(0,0,0,0.04); font-weight:700; white-space:nowrap;">
+    MEDTECH
+  </div>
+
+  <!-- HEADER -->
+  <div style="display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#0ea5e9,#2563eb); padding:18px 22px; border-radius:12px; color:white; box-shadow:0 6px 20px rgba(0,0,0,0.1);">
+
+    <div style="display:flex; align-items:center; gap:12px;">
+      <!-- LOGO -->
+      <div style="width:48px; height:48px; background:white; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#2563eb;">
+        MT
+      </div>
+      <div>
+        <h1 style="margin:0;font-size:22px;">MedTech Clinic</h1>
+        <div style="font-size:12px; opacity:0.9;">Advanced Digital Healthcare</div>
+      </div>
+    </div>
+
+    <div style="text-align:right">
+      <div style="font-size:12px; opacity:0.9">Download Date</div>
+      <div style="font-size:14px; font-weight:600">${downloadDate}</div>
+    </div>
+  </div>
+
+  <!-- PATIENT INFO -->
+  <div style="display:flex; gap:16px; margin-top:18px;">
+    
+    <div style="flex:1; background:white; padding:14px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+      <div style="font-size:11px;color:#64748b">Patient ID</div>
+      <div style="font-size:15px;font-weight:600">${patientId}</div>
+
+      <div style="font-size:11px;color:#64748b;margin-top:8px">Patient Name</div>
+      <div style="font-size:15px;font-weight:600">${escapeHtml(prescription.fullname || '')}</div>
+    </div>
+
+    <div style="flex:1; background:white; padding:14px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+      <div style="font-size:11px;color:#64748b">Doctor</div>
+      <div style="font-size:15px;font-weight:600">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</div>
+
+      <div style="font-size:11px;color:#64748b;margin-top:8px">Date</div>
+      <div style="font-size:15px;font-weight:600">${formatIST(prescription.created_at || prescription.date || Date.now())}</div>
+    </div>
+
+  </div>
+
+  <!-- DIAGNOSIS -->
+  <div style="margin-top:18px; background:white; padding:16px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+    <h2 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Diagnosis / Notes</h2>
+    <div style="font-size:13px; line-height:1.5; color:#334155;">
+      ${escapeHtml((prescription.diagnosis || prescription.reason || 'No notes provided').toString())}
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div style="margin-top:18px;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+      
+      <thead style="background:#2563eb; color:white;">
+        <tr>
+          <th style="padding:10px; text-align:left;">Medicine</th>
+          <th style="padding:10px; text-align:left;">Dose</th>
+          <th style="padding:10px; text-align:left;">Frequency</th>
+          <th style="padding:10px; text-align:left;">Duration</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        ${medicines.map((m: any, i: number) => {
+          if (typeof m === 'string') {
+            const parts = m.split('|').map((s: string) => s.trim());
+            const name = parts[0] || m;
+            const dose = parts[1] || '';
+            const freq = parts[2] || '';
+            const dur = parts[3] || '';
+
+            return `
+            <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+              <td style="padding:10px;">${escapeHtml(name)}</td>
+              <td style="padding:10px;">${escapeHtml(dose)}</td>
+              <td style="padding:10px;">${escapeHtml(freq)}</td>
+              <td style="padding:10px;">${escapeHtml(dur)}</td>
+            </tr>`;
+          } else {
+            const name = m.name || m.medicine || '';
+            const dose = m.dose || '';
+            const freq = m.frequency || '';
+            const dur = m.duration || '';
+
+            return `
+            <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+              <td style="padding:10px;">${escapeHtml(name)}</td>
+              <td style="padding:10px;">${escapeHtml(dose)}</td>
+              <td style="padding:10px;">${escapeHtml(freq)}</td>
+              <td style="padding:10px;">${escapeHtml(dur)}</td>
+            </tr>`;
+          }
+        }).join('')}
+      </tbody>
+
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="margin-top:28px; display:flex; justify-content:space-between; align-items:center;">
+
+    <div style="font-size:12px;color:#64748b;">
+      This is a digitally generated prescription.
+    </div>
+
+    <!-- SIGN + STAMP -->
+    <div style="text-align:center;">
+      <div style="width:120px; height:50px; border-bottom:1px solid #000; margin-bottom:4px;"></div>
+      <div style="font-size:11px;">Authorized Signature</div>
+    </div>
+
+    <!-- STAMP -->
+    <div style="width:70px; height:70px; border:2px dashed #2563eb; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; color:#2563eb;">
+      VERIFIED
+    </div>
+
+  </div>
+
+</div>
+`;
 
     const temp = document.createElement('div');
     temp.style.position = 'fixed'; temp.style.left = '-9999px'; temp.style.top = '0'; temp.style.width = '760px'; temp.style.background = '#fff'; temp.style.color = '#111'; temp.innerHTML = headerHTML; document.body.appendChild(temp);
@@ -1982,18 +2052,6 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
               <div className="text-sm">
                 <span className="font-semibold">Diagnosis / Notes:</span>
                 <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 text-gray-800 whitespace-pre-wrap">{selectedPrescription.diagnosis || selectedPrescription.reason || 'No notes provided.'}</div>
-              </div>
-              <div className="text-sm">
-                <span className="font-semibold mb-2 block">Medicines</span>
-                <ul className="list-disc list-inside space-y-1 text-gray-800">
-                  {(selectedPrescription.medicines || []).length > 0 ? (
-                    (selectedPrescription.medicines || []).map((m: any, i: number) => (
-                      <li key={i}>{typeof m === 'string' ? m : (m.name || JSON.stringify(m))}</li>
-                    ))
-                  ) : (
-                    <li>No medicines prescribed</li>
-                  )}
-                </ul>
               </div>
             </div>
           </div>
