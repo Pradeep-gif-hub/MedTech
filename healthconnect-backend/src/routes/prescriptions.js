@@ -123,6 +123,7 @@ function buildSearchFilter(searchKeyword) {
 
 router.post('/', async (req, res) => {
   try {
+    console.log('[API] Incoming prescription:', req.body);
     console.log('[API] Saving prescription...');
     await ensureMongoConnected();
 
@@ -142,6 +143,7 @@ router.post('/', async (req, res) => {
     });
 
     const saved = await prescription.save();
+    console.log('[DB] Saved prescription:', saved);
     console.log('[DB] Prescription saved:', saved.prescriptionId);
 
     const pdfBuffer = await generatePrescriptionBuffer({
@@ -169,6 +171,7 @@ router.post('/', async (req, res) => {
     let emailResult = null;
     try {
       if (normalized.patient.email) {
+        console.log('[MAIL] Triggering email...');
         console.log('[INFO] Sending prescription email to:', normalized.patient.email);
         emailResult = await sendPrescriptionEmail(
           normalized.patient.email,

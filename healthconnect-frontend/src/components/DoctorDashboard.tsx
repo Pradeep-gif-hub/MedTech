@@ -1416,28 +1416,60 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     try {
       console.log('Creating prescription...');
 
+      const patientEmail = String(prescriptionForm.patientEmail || '').trim();
+      const derivedPatientName = String(
+        currentPatient?.patient_name ||
+        currentPatient?.name ||
+        (patientEmail.includes('@') ? patientEmail.split('@')[0] : '') ||
+        'Patient'
+      ).trim();
+      const patientId = String(
+        prescriptionForm.patientId ||
+        currentPatient?.patient_id ||
+        currentPatient?.id ||
+        (patientEmail ? `email-${patientEmail.toLowerCase()}` : '')
+      ).trim();
+
       const payload = {
-        patient_id: prescriptionForm.patientId ? Number(prescriptionForm.patientId) : (currentPatient?.patient_id ? Number(currentPatient.patient_id) : undefined),
-        patient_email: prescriptionForm.patientEmail,
-        doctor_id: doctorId ? Number(doctorId) : undefined,
-        doctor_email: prescriptionForm.doctorEmail,
+        patient: {
+          id: patientId,
+          name: derivedPatientName,
+          email: patientEmail,
+        },
+        doctor: {
+          name: String(effectiveDoctorName || doctorName || 'Doctor').trim(),
+          specialization: String(specialization || 'General Physician').trim(),
+        },
         date: prescriptionForm.date,
         diagnosis: prescriptionForm.diagnosis,
-        instruction: prescriptionForm.instructions,
-        medications: prescriptionForm.medicines.filter(m => m.name), // Filter out empty medicines
+        medicines: prescriptionForm.medicines
+          .filter(m => m.name)
+          .map(m => ({
+            name: String(m.name || '').trim(),
+            dose: String(m.dosage || '').trim(),
+            duration: String(m.duration || '').trim(),
+          })),
       };
 
-      if (!payload.patient_email) {
+      if (!payload.patient.email) {
         throw new Error('Patient email is required');
       }
-      if (!payload.doctor_email) {
-        throw new Error('Doctor email is required');
+      if (!payload.patient.name) {
+        throw new Error('Patient name is required');
+      }
+      if (!payload.patient.id) {
+        throw new Error('Patient ID is required');
+      }
+      if (!payload.doctor.name) {
+        throw new Error('Doctor name is required');
       }
       if (!payload.diagnosis) {
         throw new Error('Diagnosis is required');
       }
 
-      const response = await fetch(buildApiUrl('/api/prescriptions/create'), {
+      console.log('[FRONTEND] Sending prescription:', payload);
+
+      const response = await fetch(buildApiUrl('/api/prescriptions'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -1447,8 +1479,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to create prescription');
+        const error = await response.json().catch(() => ({}));
+        const details = Array.isArray(error.errors) ? error.errors.join(', ') : '';
+        throw new Error(error.message || error.detail || details || 'Failed to create prescription');
       }
 
       const result = await response.json();
