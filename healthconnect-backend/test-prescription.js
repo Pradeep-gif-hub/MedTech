@@ -26,6 +26,7 @@ async function run() {
   };
 
   console.log('[TEST] Creating prescription...');
+  console.log('[TEST] Sending:', payload);
   const postRes = await fetch(`${BASE_URL}/api/prescriptions`, {
     method: 'POST',
     headers: {
