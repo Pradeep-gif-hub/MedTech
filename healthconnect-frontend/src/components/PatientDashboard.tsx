@@ -166,7 +166,7 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
     const patientId = userId || 'N/A';
     const medicines = Array.isArray(prescription.medicines) ? prescription.medicines : (prescription.medicines ? [prescription.medicines] : []);
 
-    const headerHTML = `
+const headerHTML = `
 <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif; padding:30px; width:760px; background:linear-gradient(to bottom,#f0f9ff,#ffffff); color:#0f172a; position:relative;">
 
   <!-- WATERMARK -->
@@ -178,46 +178,55 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
   <div style="background:linear-gradient(135deg,#0ea5e9,#2563eb); padding:20px; border-radius:14px; display:flex; justify-content:space-between; align-items:center; color:white; box-shadow:0 8px 25px rgba(0,0,0,0.15);">
     
     <div style="display:flex; align-items:center; gap:14px;">
-      <div style="width:52px;height:52px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#2563eb;">
-        MT
+      
+      <!-- LOGO (UPDATED) -->
+      <div style="width:52px;height:52px;background:white;border-radius:14px;display:flex;align-items:center;justify-content:center;">
+        <div style="width:26px;height:26px;background:#22c55e;border-radius:6px; display:flex;align-items:center;justify-content:center; color:white; font-size:16px;">+</div>
       </div>
+
       <div>
         <div style="font-size:22px;font-weight:700;">MedTech Clinic</div>
         <div style="font-size:12px;opacity:0.9;">Advanced Digital Healthcare Pvt. Ltd.</div>
       </div>
     </div>
 
+    <!-- IST TIME -->
     <div style="text-align:right;">
-      <div style="font-size:12px;opacity:0.8;">Download Date</div>
-      <div style="font-size:14px;font-weight:600;">${downloadDate}</div>
+      <div style="font-size:12px;opacity:0.8;">Download Date (IST)</div>
+      <div style="font-size:14px;font-weight:600;">
+        ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+      </div>
     </div>
 
   </div>
 
-  <!-- INFO CARDS -->
-  <div style="display:flex; gap:14px; margin-top:18px;">
+  <!-- DETAILS TABLE -->
+  <div style="margin-top:18px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
     
-    <div style="flex:1;background:white;padding:14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-      <div style="font-size:11px;color:#64748b;">Patient ID</div>
-      <div style="font-size:15px;font-weight:600;">${patientId}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tbody>
+        <tr style="background:#f8fafc;">
+          <td style="padding:10px;font-weight:600;color:#475569;">Patient ID</td>
+          <td style="padding:10px;">${patientId}</td>
+          <td style="padding:10px;font-weight:600;color:#475569;">Doctor</td>
+          <td style="padding:10px;">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</td>
+        </tr>
 
-      <div style="font-size:11px;color:#64748b;margin-top:6px;">Patient Name</div>
-      <div style="font-size:15px;font-weight:600;">${escapeHtml(prescription.fullname || '')}</div>
+        <tr>
+          <td style="padding:10px;font-weight:600;color:#475569;">Patient Name</td>
+          <td style="padding:10px;">${escapeHtml(prescription.fullname || '')}</td>
+          <td style="padding:10px;font-weight:600;color:#475569;">Date</td>
+          <td style="padding:10px;">${formatIST(prescription.created_at || prescription.date || Date.now())}</td>
+        </tr>
 
-      <div style="font-size:11px;color:#64748b;margin-top:6px;">Report ID</div>
-      <div style="font-size:13px;">RX-${patientId}-${Date.now().toString().slice(-4)}</div>
-    </div>
-
-    <div style="flex:1;background:white;padding:14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-      <div style="font-size:11px;color:#64748b;">Doctor</div>
-      <div style="font-size:15px;font-weight:600;">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</div>
-
-      <div style="font-size:11px;color:#64748b;margin-top:6px;">Date</div>
-      <div style="font-size:15px;font-weight:600;">${formatIST(prescription.created_at || prescription.date || Date.now())}</div>
-
-      <div style="font-size:11px;color:#64748b;margin-top:6px;">Department</div>
-      <div style="font-size:13px;">General Medicine</div>
-    </div>
+        <tr style="background:#f8fafc;">
+          <td style="padding:10px;font-weight:600;color:#475569;">Report ID</td>
+          <td style="padding:10px;">RX-${patientId}-${Date.now().toString().slice(-4)}</td>
+          <td style="padding:10px;font-weight:600;color:#475569;">Department</td>
+          <td style="padding:10px;">General Medicine</td>
+        </tr>
+      </tbody>
+    </table>
 
   </div>
 
@@ -279,14 +288,12 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
       Digitally generated prescription • No physical signature required
     </div>
 
-    <!-- SIGNATURE -->
     <div style="text-align:center;">
       <div style="width:140px;border-bottom:1px solid #000;margin-bottom:4px;"></div>
       <div style="font-size:11px;font-weight:600;">MedTech Pvt. Ltd.</div>
       <div style="font-size:10px;color:#64748b;">Authorized Medical Authority</div>
     </div>
 
-    <!-- VERIFIED STAMP -->
     <div style="width:80px;height:80px;border-radius:50%;border:2px solid #22c55e;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#16a34a;font-size:11px;font-weight:700;">
       ✔ VERIFIED
     </div>
