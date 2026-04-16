@@ -379,7 +379,7 @@ const headerHTML = `
           return '<tr style="background:'+bg+';">' +
             '<td style="padding:10px;border:1px solid #e2e8f0;font-weight:500;">'+escapeHtml(m.name || '')+'</td>' +
             '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.dose || '')+'</td>' +
-            '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.frequency || '')+'</td>' +
+            '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.frequency || 'Every day')+'</td>' +
             '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.duration || '')+'</td>' +
           '</tr>';
         }).join('') || '<tr><td colspan="4" style="padding:10px;border:1px solid #e2e8f0;text-align:center;">No medicines available</td></tr>'}
