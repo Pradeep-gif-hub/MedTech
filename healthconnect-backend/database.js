@@ -75,6 +75,30 @@ function initializeDatabase() {
         }
       );
 
+      db.run(
+        `CREATE TABLE IF NOT EXISTS prescriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          patient_name TEXT NOT NULL,
+          patient_email TEXT NOT NULL,
+          patient_id TEXT,
+          doctor_name TEXT NOT NULL,
+          doctor_specialization TEXT,
+          diagnosis TEXT NOT NULL,
+          medicines TEXT NOT NULL,
+          date TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`,
+        (err) => {
+          if (err) {
+            console.error('[DATABASE] ❌ Error creating prescriptions table:', err.message);
+            reject(err);
+          } else {
+            console.log('[DATABASE] ✅ Prescriptions table initialized');
+          }
+        }
+      );
+
       // Create index on email for faster lookups
       db.run(
         `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
@@ -95,6 +119,17 @@ function initializeDatabase() {
             console.error('[DATABASE] ❌ Error creating google_id index:', err.message);
           } else {
             console.log('[DATABASE] ✅ Google ID index created');
+          }
+        }
+      );
+
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_email ON prescriptions(patient_email)`,
+        (err) => {
+          if (err) {
+            console.error('[DATABASE] ❌ Error creating prescriptions patient email index:', err.message);
+          } else {
+            console.log('[DATABASE] ✅ Prescriptions patient email index created');
             resolve();
           }
         }

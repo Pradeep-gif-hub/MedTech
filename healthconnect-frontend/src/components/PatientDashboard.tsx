@@ -7,6 +7,9 @@ import { useStoredUser } from '../hooks/useStoredUser';
 import { buildApiUrl } from '../config/api';
 import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
 
+const API_BASE = 'https://medtech-prescription-api.onrender.com';
+const buildPrescriptionApiUrl = (endpoint: string) => `${API_BASE}${endpoint}`;
+
 interface PatientDashboardProps { 
   onLogout: () => void;
   onNavigateToChatbot: () => void;
@@ -848,17 +851,23 @@ const headerHTML = `
   const sessionUser = useStoredUser();
 
   const fetchPatientPrescriptions = async (searchKeyword?: string) => {
-    if (!userId) return;
+    const patientEmail = String(profile?.email || sessionUser?.email || email || '').trim();
+    if (!patientEmail && !userId) return;
     setLoadingServerPrescriptions(true);
     setPrescriptionError(null);
     try {
       const escapedSearch = escapeHtml((searchKeyword ?? prescriptionSearch).trim());
-      const queryParts = [`patientId=${encodeURIComponent(userId)}`];
+      const queryParts = [] as string[];
+      if (patientEmail) {
+        queryParts.push(`patientEmail=${encodeURIComponent(patientEmail)}`);
+      } else if (userId) {
+        queryParts.push(`patientId=${encodeURIComponent(userId)}`);
+      }
       if (escapedSearch) {
         queryParts.push(`search=${encodeURIComponent(escapedSearch)}`);
       }
 
-      const response = await fetch(buildApiUrl(`/api/prescriptions?${queryParts.join('&')}`), {
+      const response = await fetch(buildPrescriptionApiUrl(`/api/prescriptions?${queryParts.join('&')}`), {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {

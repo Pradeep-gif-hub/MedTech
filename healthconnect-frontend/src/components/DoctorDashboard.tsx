@@ -8,6 +8,9 @@ import { useBackendProfile, getAuthHeaders } from '../hooks/useBackendProfile';
 import { buildApiUrl } from '../config/api';
 import DoctorProfilePage from './DoctorProfilePage';
 
+const API_BASE = 'https://medtech-prescription-api.onrender.com';
+const buildPrescriptionApiUrl = (endpoint: string) => `${API_BASE}${endpoint}`;
+
 // Initialize EmailJS
 try {
   emailjs.init('ChNx9vs8ZLde4sGrm');
@@ -1469,7 +1472,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
       console.log('[FRONTEND] Sending prescription:', payload);
 
-      const response = await fetch(buildApiUrl('/api/prescriptions'), {
+      const response = await fetch(buildPrescriptionApiUrl('/api/prescriptions'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

@@ -36,16 +36,16 @@ async function run() {
   });
 
   const postBody = await postRes.json().catch(() => ({}));
-  if (!postRes.ok || !postBody || !postBody.prescription) {
+  if (!postRes.ok || !postBody || !postBody.data) {
     console.error('[TEST] Create failed:', postRes.status, postBody);
     process.exit(1);
   }
 
-  const savedId = postBody.prescription.prescriptionId;
+  const savedId = postBody.data.id;
   console.log('[TEST] Prescription saved:', savedId);
 
-  console.log('[TEST] Fetching prescriptions by patientId...');
-  const getRes = await fetch(`${BASE_URL}/api/prescriptions/${encodeURIComponent(patientId)}`);
+  console.log('[TEST] Fetching prescriptions by patientEmail...');
+  const getRes = await fetch(`${BASE_URL}/api/prescriptions?patientEmail=${encodeURIComponent(payload.patient.email)}`);
   const getBody = await getRes.json().catch(() => []);
 
   if (!getRes.ok || !Array.isArray(getBody)) {
@@ -53,7 +53,7 @@ async function run() {
     process.exit(1);
   }
 
-  const exists = getBody.some((item) => item && item.prescriptionId === savedId);
+  const exists = getBody.some((item) => item && item.id === savedId);
   if (!exists) {
     console.error('[TEST] Fetch success but created prescription not found');
     process.exit(1);
@@ -63,7 +63,7 @@ async function run() {
   console.log('[TEST] Verifying search endpoint...');
 
   const searchRes = await fetch(
-    `${BASE_URL}/api/prescriptions?patientId=${encodeURIComponent(patientId)}&search=${encodeURIComponent('shreya')}`
+    `${BASE_URL}/api/prescriptions?patientEmail=${encodeURIComponent(payload.patient.email)}&search=${encodeURIComponent('shreya')}`
   );
   const searchBody = await searchRes.json().catch(() => []);
   if (!searchRes.ok || !Array.isArray(searchBody)) {

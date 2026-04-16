@@ -13,6 +13,20 @@ function formatDate(value) {
 }
 
 async function sendPrescriptionEmail(patientEmail, prescriptionData = {}, pdfBuffer = null) {
+  if (patientEmail && typeof patientEmail === 'object' && !Array.isArray(patientEmail)) {
+    const payload = patientEmail;
+    return sendPrescriptionEmail(
+      payload.to,
+      {
+        patientName: payload.patientName,
+        doctorName: payload.doctorName,
+        date: payload.date || payload.prescription && payload.prescription.date,
+        prescriptionId: payload.prescriptionId || payload.prescription && payload.prescription.id,
+      },
+      payload.pdfBuffer || null
+    );
+  }
+
   const recipient = String(patientEmail || '').trim();
   if (!recipient) {
     return { success: false, error: 'Patient email is missing' };
