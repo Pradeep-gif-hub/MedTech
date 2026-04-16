@@ -1484,9 +1484,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         throw new Error('Diagnosis is required');
       }
 
-      console.log('[FRONTEND] Sending prescription:', payload);
+      const url = buildApiUrl('/api/prescriptions/create');
 
-      const response = await fetch(buildApiUrl('/api/prescriptions/create'), {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
