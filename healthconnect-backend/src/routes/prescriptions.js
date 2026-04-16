@@ -3,7 +3,7 @@ const crypto = require('crypto');
 
 const Prescription = require('../models/Prescription');
 const { ensureMongoConnected } = require('../utils/mongoose');
-const { sendPrescriptionEmail } = require('../utils/mailer');
+const { sendPrescriptionEmail } = require('../utils/prescriptionEmail');
 const { generatePrescriptionBuffer } = require('../../prescriptionPdfGenerator');
 
 const router = express.Router();
@@ -168,14 +168,23 @@ router.post('/', async (req, res) => {
 
     let emailResult = null;
     try {
-      console.log('[MAIL] Sending prescription email to:', normalized.patient.email);
-      emailResult = await sendPrescriptionEmail(normalized.patient.email, {
-        patientName: normalized.patient.name,
-        doctorName: normalized.doctor.name,
-        prescriptionDate: normalized.date,
-        prescriptionId: saved.prescriptionId,
-        pdfBuffer,
-      });
+      if (normalized.patient.email) {
+        console.log('[INFO] Sending prescription email to:', normalized.patient.email);
+        emailResult = await sendPrescriptionEmail(
+          normalized.patient.email,
+          {
+            patientName: normalized.patient.name,
+            doctorName: normalized.doctor.name,
+            date: normalized.date,
+            prescriptionId: saved.prescriptionId,
+          },
+          pdfBuffer
+        );
+
+        if (emailResult && emailResult.success) {
+          console.log('[INFO] Prescription email sent successfully');
+        }
+      }
 
       if (!emailResult || !emailResult.success) {
         console.error('[ERROR] Email failed:', emailResult && emailResult.error ? emailResult.error : 'Unknown email error');
