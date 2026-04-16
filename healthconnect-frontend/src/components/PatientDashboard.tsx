@@ -166,105 +166,105 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
     const patientId = userId || 'N/A';
     const medicines = Array.isArray(prescription.medicines) ? prescription.medicines : (prescription.medicines ? [prescription.medicines] : []);
 
-const headerHTML = `
-<div style="font-family: 'Segoe UI', Roboto, Arial, sans-serif; color:#1e293b; padding:28px; width:760px; box-sizing:border-box; background:#f8fafc; position:relative; overflow:hidden;">
+    const headerHTML = `
+<div style="font-family:'Segoe UI',Roboto,Arial,sans-serif; padding:30px; width:760px; background:linear-gradient(to bottom,#f0f9ff,#ffffff); color:#0f172a; position:relative;">
 
   <!-- WATERMARK -->
-  <div style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) rotate(-25deg); font-size:80px; color:rgba(0,0,0,0.04); font-weight:700; white-space:nowrap;">
+  <div style="position:absolute; top:45%; left:50%; transform:translate(-50%,-50%) rotate(-25deg); font-size:90px; color:rgba(0,0,0,0.03); font-weight:800;">
     MEDTECH
   </div>
 
   <!-- HEADER -->
-  <div style="display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#0ea5e9,#2563eb); padding:18px 22px; border-radius:12px; color:white; box-shadow:0 6px 20px rgba(0,0,0,0.1);">
-
-    <div style="display:flex; align-items:center; gap:12px;">
-      <!-- LOGO -->
-      <div style="width:48px; height:48px; background:white; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#2563eb;">
+  <div style="background:linear-gradient(135deg,#0ea5e9,#2563eb); padding:20px; border-radius:14px; display:flex; justify-content:space-between; align-items:center; color:white; box-shadow:0 8px 25px rgba(0,0,0,0.15);">
+    
+    <div style="display:flex; align-items:center; gap:14px;">
+      <div style="width:52px;height:52px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#2563eb;">
         MT
       </div>
       <div>
-        <h1 style="margin:0;font-size:22px;">MedTech Clinic</h1>
-        <div style="font-size:12px; opacity:0.9;">Advanced Digital Healthcare</div>
+        <div style="font-size:22px;font-weight:700;">MedTech Clinic</div>
+        <div style="font-size:12px;opacity:0.9;">Advanced Digital Healthcare Pvt. Ltd.</div>
       </div>
     </div>
 
-    <div style="text-align:right">
-      <div style="font-size:12px; opacity:0.9">Download Date</div>
-      <div style="font-size:14px; font-weight:600">${downloadDate}</div>
+    <div style="text-align:right;">
+      <div style="font-size:12px;opacity:0.8;">Download Date</div>
+      <div style="font-size:14px;font-weight:600;">${downloadDate}</div>
     </div>
+
   </div>
 
-  <!-- PATIENT INFO -->
-  <div style="display:flex; gap:16px; margin-top:18px;">
+  <!-- INFO CARDS -->
+  <div style="display:flex; gap:14px; margin-top:18px;">
     
-    <div style="flex:1; background:white; padding:14px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-      <div style="font-size:11px;color:#64748b">Patient ID</div>
-      <div style="font-size:15px;font-weight:600">${patientId}</div>
+    <div style="flex:1;background:white;padding:14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+      <div style="font-size:11px;color:#64748b;">Patient ID</div>
+      <div style="font-size:15px;font-weight:600;">${patientId}</div>
 
-      <div style="font-size:11px;color:#64748b;margin-top:8px">Patient Name</div>
-      <div style="font-size:15px;font-weight:600">${escapeHtml(prescription.fullname || '')}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:6px;">Patient Name</div>
+      <div style="font-size:15px;font-weight:600;">${escapeHtml(prescription.fullname || '')}</div>
+
+      <div style="font-size:11px;color:#64748b;margin-top:6px;">Report ID</div>
+      <div style="font-size:13px;">RX-${patientId}-${Date.now().toString().slice(-4)}</div>
     </div>
 
-    <div style="flex:1; background:white; padding:14px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-      <div style="font-size:11px;color:#64748b">Doctor</div>
-      <div style="font-size:15px;font-weight:600">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</div>
+    <div style="flex:1;background:white;padding:14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+      <div style="font-size:11px;color:#64748b;">Doctor</div>
+      <div style="font-size:15px;font-weight:600;">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</div>
 
-      <div style="font-size:11px;color:#64748b;margin-top:8px">Date</div>
-      <div style="font-size:15px;font-weight:600">${formatIST(prescription.created_at || prescription.date || Date.now())}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:6px;">Date</div>
+      <div style="font-size:15px;font-weight:600;">${formatIST(prescription.created_at || prescription.date || Date.now())}</div>
+
+      <div style="font-size:11px;color:#64748b;margin-top:6px;">Department</div>
+      <div style="font-size:13px;">General Medicine</div>
     </div>
 
   </div>
 
   <!-- DIAGNOSIS -->
-  <div style="margin-top:18px; background:white; padding:16px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-    <h2 style="margin:0 0 8px; font-size:16px; color:#0f172a;">Diagnosis / Notes</h2>
-    <div style="font-size:13px; line-height:1.5; color:#334155;">
+  <div style="margin-top:18px;background:white;padding:16px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Diagnosis / Notes</div>
+    <div style="font-size:13px;line-height:1.5;color:#334155;">
       ${escapeHtml((prescription.diagnosis || prescription.reason || 'No notes provided').toString())}
     </div>
   </div>
 
   <!-- TABLE -->
-  <div style="margin-top:18px;">
-    <table style="width:100%; border-collapse:collapse; font-size:13px; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-      
-      <thead style="background:#2563eb; color:white;">
-        <tr>
-          <th style="padding:10px; text-align:left;">Medicine</th>
-          <th style="padding:10px; text-align:left;">Dose</th>
-          <th style="padding:10px; text-align:left;">Frequency</th>
-          <th style="padding:10px; text-align:left;">Duration</th>
+  <div style="margin-top:20px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+    
+    <div style="padding:12px 16px;font-weight:600;background:#e0f2fe;color:#0369a1;">
+      Prescribed Medicines
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#2563eb;color:white;">
+          <th style="padding:12px;text-align:left;">Medicine</th>
+          <th style="padding:12px;">Dose</th>
+          <th style="padding:12px;">Frequency</th>
+          <th style="padding:12px;">Duration</th>
         </tr>
       </thead>
 
       <tbody>
-        ${medicines.map((m: any, i: number) => {
-          if (typeof m === 'string') {
-            const parts = m.split('|').map((s: string) => s.trim());
-            const name = parts[0] || m;
-            const dose = parts[1] || '';
-            const freq = parts[2] || '';
-            const dur = parts[3] || '';
+        ${medicines.map(function(m, i){
+          var bg = (i % 2 === 0) ? '#f8fafc' : '#ffffff';
 
-            return `
-            <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'};">
-              <td style="padding:10px;">${escapeHtml(name)}</td>
-              <td style="padding:10px;">${escapeHtml(dose)}</td>
-              <td style="padding:10px;">${escapeHtml(freq)}</td>
-              <td style="padding:10px;">${escapeHtml(dur)}</td>
-            </tr>`;
+          if(typeof m === 'string'){
+            var p = m.split('|').map(function(s){ return s.trim(); });
+            return '<tr style="background:'+bg+';">' +
+              '<td style="padding:10px;font-weight:500;">'+escapeHtml(p[0] || m)+'</td>' +
+              '<td style="padding:10px;text-align:center;">'+escapeHtml(p[1] || '')+'</td>' +
+              '<td style="padding:10px;text-align:center;">'+escapeHtml(p[2] || '')+'</td>' +
+              '<td style="padding:10px;text-align:center;">'+escapeHtml(p[3] || '')+'</td>' +
+            '</tr>';
           } else {
-            const name = m.name || m.medicine || '';
-            const dose = m.dose || '';
-            const freq = m.frequency || '';
-            const dur = m.duration || '';
-
-            return `
-            <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'};">
-              <td style="padding:10px;">${escapeHtml(name)}</td>
-              <td style="padding:10px;">${escapeHtml(dose)}</td>
-              <td style="padding:10px;">${escapeHtml(freq)}</td>
-              <td style="padding:10px;">${escapeHtml(dur)}</td>
-            </tr>`;
+            return '<tr style="background:'+bg+';">' +
+              '<td style="padding:10px;font-weight:500;">'+escapeHtml(m.name || '')+'</td>' +
+              '<td style="padding:10px;text-align:center;">'+escapeHtml(m.dose || '')+'</td>' +
+              '<td style="padding:10px;text-align:center;">'+escapeHtml(m.frequency || '')+'</td>' +
+              '<td style="padding:10px;text-align:center;">'+escapeHtml(m.duration || '')+'</td>' +
+            '</tr>';
           }
         }).join('')}
       </tbody>
@@ -273,21 +273,22 @@ const headerHTML = `
   </div>
 
   <!-- FOOTER -->
-  <div style="margin-top:28px; display:flex; justify-content:space-between; align-items:center;">
+  <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:center;">
 
     <div style="font-size:12px;color:#64748b;">
-      This is a digitally generated prescription.
+      Digitally generated prescription • No physical signature required
     </div>
 
-    <!-- SIGN + STAMP -->
+    <!-- SIGNATURE -->
     <div style="text-align:center;">
-      <div style="width:120px; height:50px; border-bottom:1px solid #000; margin-bottom:4px;"></div>
-      <div style="font-size:11px;">Authorized Signature</div>
+      <div style="width:140px;border-bottom:1px solid #000;margin-bottom:4px;"></div>
+      <div style="font-size:11px;font-weight:600;">MedTech Pvt. Ltd.</div>
+      <div style="font-size:10px;color:#64748b;">Authorized Medical Authority</div>
     </div>
 
-    <!-- STAMP -->
-    <div style="width:70px; height:70px; border:2px dashed #2563eb; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; color:#2563eb;">
-      VERIFIED
+    <!-- VERIFIED STAMP -->
+    <div style="width:80px;height:80px;border-radius:50%;border:2px solid #22c55e;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#16a34a;font-size:11px;font-weight:700;">
+      ✔ VERIFIED
     </div>
 
   </div>
