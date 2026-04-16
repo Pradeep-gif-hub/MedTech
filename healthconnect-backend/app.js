@@ -53,6 +53,7 @@ const {
   generatePrescriptionFilename,
   normalizePrescriptionData,
 } = require('./prescriptionPdfGenerator');
+const prescriptionsRouter = require('./src/routes/prescriptions');
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT || '8000', 10);
@@ -112,6 +113,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+app.use('/api/prescriptions', prescriptionsRouter);
 
 // ============ NODEMAILER TRANSPORTER ============
 const transporter = nodemailer.createTransport({

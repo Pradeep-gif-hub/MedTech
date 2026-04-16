@@ -27,6 +27,8 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
   // Prescriptions / PDF state
   const [serverPrescriptions, setServerPrescriptions] = useState([] as any[]);
   const [loadingServerPrescriptions, setLoadingServerPrescriptions] = useState(false);
+  const [prescriptionSearch, setPrescriptionSearch] = useState('');
+  const [prescriptionError, setPrescriptionError] = useState(null as string | null);
   const [notifications, setNotifications] = useState([] as any[]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
@@ -845,28 +847,38 @@ const headerHTML = `
 
   const sessionUser = useStoredUser();
 
-  const fetchPatientPrescriptions = async () => {
+  const fetchPatientPrescriptions = async (searchKeyword?: string) => {
     if (!userId) return;
     setLoadingServerPrescriptions(true);
+    setPrescriptionError(null);
     try {
-      const response = await fetch(buildApiUrl(`/api/prescriptions?patientId=${encodeURIComponent(userId)}`), {
+      const escapedSearch = escapeHtml((searchKeyword ?? prescriptionSearch).trim());
+      const queryParts = [`patientId=${encodeURIComponent(userId)}`];
+      if (escapedSearch) {
+        queryParts.push(`search=${encodeURIComponent(escapedSearch)}`);
+      }
+
+      const response = await fetch(buildApiUrl(`/api/prescriptions?${queryParts.join('&')}`), {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
         console.warn('Prescription fetch failed', response.status);
+        setPrescriptionError(`Failed to fetch prescriptions (${response.status})`);
         setServerPrescriptions([]);
         return;
       }
       const data = await response.json();
       console.log('Prescriptions:', data);
-      if (Array.isArray(data)) {
-        const sorted = data.slice().sort((a: any, b: any) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
+      const list = Array.isArray(data) ? data : Array.isArray(data?.prescriptions) ? data.prescriptions : [];
+      if (Array.isArray(list)) {
+        const sorted = list.slice().sort((a: any, b: any) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
         setServerPrescriptions(sorted);
       } else {
         setServerPrescriptions([]);
       }
     } catch (error) {
       console.error('Failed to fetch prescriptions', error);
+      setPrescriptionError('Failed to fetch prescriptions');
       setServerPrescriptions([]);
     } finally {
       setLoadingServerPrescriptions(false);
@@ -919,6 +931,18 @@ const headerHTML = `
       window.clearInterval(interval);
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId || activeTab !== 'prescriptions') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      fetchPatientPrescriptions(prescriptionSearch);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [prescriptionSearch, activeTab, userId]);
 
   // Fetch doctor details when doctor is assigned to consultation
   useEffect(() => {
@@ -1858,19 +1882,30 @@ const headerHTML = `
             <h2 className="text-xl font-bold text-gray-900">Digital Prescriptions</h2>
             <p className="text-sm text-gray-500">Latest prescriptions from your doctor.</p>
           </div>
-          <button
-            type="button"
-            onClick={fetchPatientPrescriptions}
-           className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={prescriptionSearch}
+              onChange={(e) => setPrescriptionSearch(e.target.value)}
+              placeholder="Search by patient, doctor, or date"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              type="button"
+              onClick={() => fetchPatientPrescriptions(prescriptionSearch)}
+             className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loadingServerPrescriptions ? (
           <div className="text-gray-600">Loading prescriptions...</div>
+        ) : prescriptionError ? (
+          <div className="text-red-600">{prescriptionError}</div>
         ) : serverPrescriptions.length === 0 ? (
-          <div className="text-gray-600">No prescriptions available for your account yet.</div>
+          <div className="text-gray-600">No prescriptions found.</div>
         ) : (
           <div className="space-y-4">
             {serverPrescriptions.map((prescription, index) => (
@@ -1885,7 +1920,7 @@ const headerHTML = `
                 <div className="mb-4">
                   <h4 className="font-medium text-gray-700 mb-2">Medicines</h4>
                   <ul className="list-disc list-inside space-y-1">
-                    {(prescription.medications || []).map((medicine: any, i: number) => (
+                    {(prescription.medicines || prescription.medications || []).map((medicine: any, i: number) => (
                       <li key={i} className="text-gray-600">
                         {typeof medicine === 'string' ? medicine : `${medicine.name || medicine.medicine || ''} ${medicine.dosage || medicine.dose || ''} ${medicine.duration || medicine.days || ''}`.trim()}
                       </li>

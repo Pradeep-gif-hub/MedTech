@@ -5,6 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const emailRoutes = require('./src/routes/email');
+const prescriptionsRouter = require('./src/routes/prescriptions');
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/', emailRoutes);
 app.use('/api', emailRoutes);
+app.use('/api/prescriptions', prescriptionsRouter);
 
 async function startServer() {
   return app.listen(PORT, () => {

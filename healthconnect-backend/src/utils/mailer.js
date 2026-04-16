@@ -353,7 +353,7 @@ function sendViaBrevoApi({ toEmail, subject, htmlContent, textContent, config })
   });
 }
 
-async function sendEmail({ toEmail, subject, htmlContent, textContent = '', retries = 1 }) {
+async function sendEmail({ toEmail, subject, htmlContent, textContent = '', retries = 1, attachments = [] }) {
   const recipient = String(toEmail || '').trim();
   const safeRetries = Number.isFinite(Number(retries)) ? Math.max(0, Number(retries)) : 1;
   const attempts = safeRetries + 1;
@@ -444,6 +444,7 @@ async function sendEmail({ toEmail, subject, htmlContent, textContent = '', retr
     subject,
     text: textContent || 'Please open this message in an HTML-capable email client.',
     html: htmlContent || `<pre>${textContent}</pre>`,
+    attachments: Array.isArray(attachments) ? attachments : [],
   };
 
   let lastError = null;
@@ -597,6 +598,61 @@ async function sendTestEmail(toEmail) {
   return sendEmail({ toEmail, subject, htmlContent, textContent, retries: 1 });
 }
 
+async function sendPrescriptionEmail(toEmail, payload = {}) {
+  const patientName = String(payload.patientName || 'Patient').trim();
+  const doctorName = String(payload.doctorName || 'Doctor').trim();
+  const prescriptionId = String(payload.prescriptionId || '').trim();
+  const formattedDate = new Date(payload.prescriptionDate || Date.now()).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const subject = 'Your Prescription - MedTech Clinic';
+  const textContent = [
+    `Hello ${patientName},`,
+    '',
+    'Your prescription has been generated successfully.',
+    `Doctor: ${doctorName}`,
+    `Date: ${formattedDate}`,
+    prescriptionId ? `Prescription ID: ${prescriptionId}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const htmlContent = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+      <div style="background:#0f766e;padding:18px 22px;color:white;font-size:20px;font-weight:700">MedTech Clinic</div>
+      <div style="padding:24px;background:#ffffff;color:#111827">
+        <p style="margin:0 0 12px 0">Hello ${patientName},</p>
+        <p style="margin:0 0 12px 0">Your prescription has been generated successfully.</p>
+        <p style="margin:0 0 6px 0"><strong>Doctor:</strong> ${doctorName}</p>
+        <p style="margin:0 0 6px 0"><strong>Date:</strong> ${formattedDate}</p>
+        ${prescriptionId ? `<p style="margin:0 0 6px 0"><strong>Prescription ID:</strong> ${prescriptionId}</p>` : ''}
+        <p style="margin:14px 0 0 0;color:#4b5563;font-size:14px">The prescription PDF is attached to this email.</p>
+      </div>
+    </div>
+  `;
+
+  const attachments = [];
+  if (payload.pdfBuffer) {
+    attachments.push({
+      filename: `prescription_${prescriptionId || Date.now()}.pdf`,
+      content: payload.pdfBuffer,
+      contentType: 'application/pdf',
+    });
+  }
+
+  return sendEmail({
+    toEmail,
+    subject,
+    htmlContent,
+    textContent,
+    retries: 1,
+    attachments,
+  });
+}
+
 // =============== SMTP CONNECTION VERIFICATION ===============
 async function verifySmtpConnection() {
   console.log('\n[MAILER-VERIFY] ===== SMTP CONNECTION VERIFICATION =====');
@@ -709,6 +765,7 @@ module.exports = {
   sendOtpEmail,
   sendPasswordResetEmail,
   sendTestEmail,
+  sendPrescriptionEmail,
   getEmailHealth,
   getLastEmailError,
   verifySmtpConnection,
