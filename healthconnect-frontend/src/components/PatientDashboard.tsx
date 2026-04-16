@@ -178,10 +178,8 @@ const headerHTML = `
   <div style="background:linear-gradient(135deg,#0ea5e9,#2563eb); padding:20px; border-radius:14px; display:flex; justify-content:space-between; align-items:center; color:white; box-shadow:0 8px 25px rgba(0,0,0,0.15);">
     
     <div style="display:flex; align-items:center; gap:14px;">
-      
-      <!-- LOGO (UPDATED) -->
       <div style="width:52px;height:52px;background:white;border-radius:14px;display:flex;align-items:center;justify-content:center;">
-        <div style="width:26px;height:26px;background:#22c55e;border-radius:6px; display:flex;align-items:center;justify-content:center; color:white; font-size:16px;">+</div>
+        <div style="width:26px;height:26px;background:#22c55e;border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-size:16px;">+</div>
       </div>
 
       <div>
@@ -190,7 +188,6 @@ const headerHTML = `
       </div>
     </div>
 
-    <!-- IST TIME -->
     <div style="text-align:right;">
       <div style="font-size:12px;opacity:0.8;">Download Date (IST)</div>
       <div style="font-size:14px;font-weight:600;">
@@ -203,29 +200,36 @@ const headerHTML = `
   <!-- DETAILS TABLE -->
   <div style="margin-top:18px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
     
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+
       <tbody>
+
+        <tr>
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569; width:25%;">Patient ID</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; width:25%;">${patientId}</td>
+
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569; width:25%;">Doctor</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; width:25%;">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</td>
+        </tr>
+
         <tr style="background:#f8fafc;">
-          <td style="padding:10px;font-weight:600;color:#475569;">Patient ID</td>
-          <td style="padding:10px;">${patientId}</td>
-          <td style="padding:10px;font-weight:600;color:#475569;">Doctor</td>
-          <td style="padding:10px;">${escapeHtml(prescription.doctor?.name || prescription.doctor || 'Dr. Mohammad Hasan')}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Patient Name</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${escapeHtml(prescription.fullname || '')}</td>
+
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Date</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">${formatIST(prescription.created_at || prescription.date || Date.now())}</td>
         </tr>
 
         <tr>
-          <td style="padding:10px;font-weight:600;color:#475569;">Patient Name</td>
-          <td style="padding:10px;">${escapeHtml(prescription.fullname || '')}</td>
-          <td style="padding:10px;font-weight:600;color:#475569;">Date</td>
-          <td style="padding:10px;">${formatIST(prescription.created_at || prescription.date || Date.now())}</td>
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Report ID</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">RX-${patientId}-${Date.now().toString().slice(-4)}</td>
+
+          <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600; color:#475569;">Department</td>
+          <td style="padding:12px; border:1px solid #e2e8f0;">General Medicine</td>
         </tr>
 
-        <tr style="background:#f8fafc;">
-          <td style="padding:10px;font-weight:600;color:#475569;">Report ID</td>
-          <td style="padding:10px;">RX-${patientId}-${Date.now().toString().slice(-4)}</td>
-          <td style="padding:10px;font-weight:600;color:#475569;">Department</td>
-          <td style="padding:10px;">General Medicine</td>
-        </tr>
       </tbody>
+
     </table>
 
   </div>
@@ -238,7 +242,7 @@ const headerHTML = `
     </div>
   </div>
 
-  <!-- TABLE -->
+  <!-- MEDICINE TABLE -->
   <div style="margin-top:20px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
     
     <div style="padding:12px 16px;font-weight:600;background:#e0f2fe;color:#0369a1;">
@@ -262,17 +266,17 @@ const headerHTML = `
           if(typeof m === 'string'){
             var p = m.split('|').map(function(s){ return s.trim(); });
             return '<tr style="background:'+bg+';">' +
-              '<td style="padding:10px;font-weight:500;">'+escapeHtml(p[0] || m)+'</td>' +
-              '<td style="padding:10px;text-align:center;">'+escapeHtml(p[1] || '')+'</td>' +
-              '<td style="padding:10px;text-align:center;">'+escapeHtml(p[2] || '')+'</td>' +
-              '<td style="padding:10px;text-align:center;">'+escapeHtml(p[3] || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;font-weight:500;">'+escapeHtml(p[0] || m)+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(p[1] || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(p[2] || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(p[3] || '')+'</td>' +
             '</tr>';
           } else {
             return '<tr style="background:'+bg+';">' +
-              '<td style="padding:10px;font-weight:500;">'+escapeHtml(m.name || '')+'</td>' +
-              '<td style="padding:10px;text-align:center;">'+escapeHtml(m.dose || '')+'</td>' +
-              '<td style="padding:10px;text-align:center;">'+escapeHtml(m.frequency || '')+'</td>' +
-              '<td style="padding:10px;text-align:center;">'+escapeHtml(m.duration || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;font-weight:500;">'+escapeHtml(m.name || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.dose || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.frequency || '')+'</td>' +
+              '<td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">'+escapeHtml(m.duration || '')+'</td>' +
             '</tr>';
           }
         }).join('')}
@@ -302,7 +306,6 @@ const headerHTML = `
 
 </div>
 `;
-
     const temp = document.createElement('div');
     temp.style.position = 'fixed'; temp.style.left = '-9999px'; temp.style.top = '0'; temp.style.width = '760px'; temp.style.background = '#fff'; temp.style.color = '#111'; temp.innerHTML = headerHTML; document.body.appendChild(temp);
 
