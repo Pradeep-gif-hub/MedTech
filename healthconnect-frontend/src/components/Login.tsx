@@ -386,6 +386,35 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
     try {
       // Truncate password to 72 bytes as per bcrypt requirement
       const truncatedPassword = password.slice(0, 72);
+
+      if (selectedRole === 'admin') {
+        const adminRes = await fetch(buildApiUrl('/api/admin/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: truncatedPassword }),
+        });
+
+        const adminData = await parseJsonSafe(adminRes);
+        if (!adminRes.ok) {
+          const errorMessage = adminData?.error || `HTTP ${adminRes.status}`;
+          alert(`Login failed: ${errorMessage}`);
+          return;
+        }
+
+        const adminToken = adminData.token || '';
+        if (!adminToken) {
+          alert('Login failed: missing admin token');
+          return;
+        }
+
+        persistSession(adminToken, 'admin');
+        localStorage.setItem('admin_email', adminData?.admin?.email || email);
+        setToken(adminToken);
+        setLoggedIn(true);
+        redirectByRole('admin');
+        return;
+      }
+
       const res = await tryPost(['/api/users/login', '/users/login'], { email, password: truncatedPassword });
       if (res.ok) {
         const data = await parseJsonSafe(res);

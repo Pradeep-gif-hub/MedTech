@@ -4,11 +4,17 @@
 declare module 'react' {
   const React: any;
   export default React;
-  export const useState: any;
-  export const useEffect: any;
-  export const useRef: any;
+  export function useState<S>(initialState: S | (() => S)): [S, (value: S | ((prevState: S) => S)) => void];
+  export function useEffect(effect: () => void | (() => void), deps?: any[]): void;
+  export function useRef<T>(initialValue: T): { current: T };
+  export function useMemo<T>(factory: () => T, deps: any[]): T;
   export type FC<P = {}> = any;
   export type ReactNode = any;
+}
+
+declare module 'socket.io-client' {
+  export type Socket = any;
+  export function io(url: string, options?: any): any;
 }
 
 declare module 'react/jsx-runtime' {

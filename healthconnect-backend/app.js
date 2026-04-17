@@ -10,6 +10,8 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const http = require('http');
+const { Server } = require('socket.io');
 const { OAuth2Client } = require('google-auth-library');
 
 // Database imports
@@ -54,6 +56,7 @@ const {
   normalizePrescriptionData,
 } = require('./prescriptionPdfGenerator');
 const prescriptionsRouter = require('./src/routes/prescriptions');
+const { adminRouter, createAlert } = require('./src/routes/admin');
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT || '8000', 10);
@@ -68,6 +71,7 @@ const SMTP_PASS = process.env.SMTP_PASS || '';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@medtech.com';
 const FROM_NAME = process.env.FROM_NAME || 'MedTech';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://medtech-4rjc.onrender.com';
+const ALLOWED_PUBLIC_ROLES = new Set(['doctor', 'patient', 'pharmacy']);
 
 // ============ CORS CONFIGURATION ============
 const corsOptions = {
@@ -114,6 +118,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use('/api/prescriptions', prescriptionsRouter);
+app.use('/api/admin', adminRouter);
 
 // ============ NODEMAILER TRANSPORTER ============
 const transporter = nodemailer.createTransport({
@@ -128,6 +133,11 @@ const transporter = nodemailer.createTransport({
     rejectUnauthorized: false  // Allow self-signed certs
   }
 });
+
+app.set('mailTransporter', transporter);
+app.set('mailFromName', FROM_NAME);
+app.set('mailFromEmail', FROM_EMAIL);
+app.set('frontendUrl', FRONTEND_URL);
 
 // Test transporter on startup
 console.log('[STARTUP] Testing SMTP connection...');
@@ -652,11 +662,30 @@ app.post('/api/users/google-login', async (req, res) => {
           email,
           avatar: picture,
           picture,
-          role: role || 'patient',
+          role: ALLOWED_PUBLIC_ROLES.has(role) ? role : 'patient',
+          status: 'active',
           googleId,
         });
 
         console.log('[GOOGLE-LOGIN] ✅ New user created with ID:', user.id);
+
+        try {
+          const createdUser = await getUserById(user.id);
+          const alert = await createAlert(
+            { app },
+            `New user registered: ${name || email}`,
+            'info'
+          );
+          const io = app.get('io');
+          if (io && createdUser) {
+            io.emit('new_user', serializeUser(createdUser));
+          }
+          if (io && alert) {
+            io.emit('system_alert', alert);
+          }
+        } catch (alertError) {
+          console.error('[GOOGLE-LOGIN] ⚠️ Failed to emit new user alert:', alertError.message);
+        }
       } catch (createError) {
         console.error('[GOOGLE-LOGIN] ❌ Error creating user:', createError.message);
         return res.status(500).json({
@@ -946,8 +975,47 @@ async function startServer() {
     // Initialize database
     await initializeDatabase();
 
+    const server = http.createServer(app);
+    const io = new Server(server, {
+      cors: {
+        origin: corsOptions.origin,
+        methods: corsOptions.methods,
+        credentials: true,
+      },
+    });
+
+    io.on('connection', (socket) => {
+      console.log(`[SOCKET] client connected: ${socket.id}`);
+      socket.on('disconnect', () => {
+        console.log(`[SOCKET] client disconnected: ${socket.id}`);
+      });
+    });
+
+    app.set('io', io);
+
+    let lastHighLoadAlertAt = 0;
+    setInterval(async () => {
+      const usage = process.memoryUsage();
+      const heapRatio = usage.heapTotal > 0 ? usage.heapUsed / usage.heapTotal : 0;
+      const now = Date.now();
+
+      // Simulated threshold to surface operational alerts in dashboard.
+      if (heapRatio >= 0.8 && now - lastHighLoadAlertAt > 5 * 60 * 1000) {
+        lastHighLoadAlertAt = now;
+        try {
+          await createAlert(
+            { app },
+            `High load detected: heap usage ${(heapRatio * 100).toFixed(1)}%`,
+            'warning'
+          );
+        } catch (monitorError) {
+          console.error('[MONITOR] Failed to insert high-load alert:', monitorError.message);
+        }
+      }
+    }, 60 * 1000);
+
     // Start listening
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`\n${'═'.repeat(70)}`);
       console.log(`[STARTUP] ✅ MedTech Backend Running on Port ${PORT}`);
       console.log(`${'═'.repeat(70)}`);
@@ -955,8 +1023,10 @@ async function startServer() {
       console.log(`[STARTUP] 📧 Email Service: Brevo SMTP Relay`);
       console.log(`[STARTUP] 🔐 Authentication: Google OAuth + JWT`);
       console.log(`[STARTUP] 💾 Database: SQLite3`);
+      console.log(`[STARTUP] 📡 Realtime: Socket.IO enabled`);
       console.log(`[STARTUP] \n📍 Health Check: http://localhost:${PORT}/health`);
       console.log(`[STARTUP] 🔑 Google Login: POST http://localhost:${PORT}/api/users/google-login`);
+      console.log(`[STARTUP] 🔐 Admin Login: POST http://localhost:${PORT}/api/admin/login`);
       console.log(`[STARTUP] 👤 Get User: GET http://localhost:${PORT}/api/users/me`);
       console.log(`[STARTUP] 📧 Email Health: GET http://localhost:${PORT}/api/auth/email-health`);
       console.log(`${'═'.repeat(70)}\n`);

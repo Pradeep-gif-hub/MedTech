@@ -1,14 +1,89 @@
-import React, { useState } from 'react';
-import { Shield, Users, Activity, BarChart3, Settings, TrendingUp, Globe, UserCheck, UserX } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Shield, Users, Activity, BarChart3, Settings, TrendingUp, Globe, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStoredUser } from '../hooks/useStoredUser';
-import { useBackendProfile } from '../hooks/useBackendProfile';
+import { API_BASE_URL, buildApiUrl } from '../config/api';
+
+type SocketLike = {
+  on: (eventName: string, callback: (...args: unknown[]) => void) => void;
+  disconnect: () => void;
+};
+
+type IconComponent = {
+  (props: { className?: string }): JSX.Element;
+};
+
+declare global {
+  interface Window {
+    io?: (url: string, options?: { transports?: string[] }) => SocketLike;
+  }
+}
 
 interface AdminPanelProps {
   onLogout: () => void;
 }
 
-// --- Animation variants ---
+type PanelTab = 'dashboard' | 'users' | 'analytics' | 'system';
+type UserRole = 'doctor' | 'patient' | 'pharmacy';
+type UserStatus = 'active' | 'pending' | 'suspended';
+type AlertType = 'info' | 'warning' | 'critical';
+
+type PanelUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  location: string;
+  status: UserStatus;
+  created_at: string;
+  picture?: string | null;
+};
+
+type AlertItem = {
+  id: number;
+  message: string;
+  type: AlertType;
+  created_at: string;
+};
+
+type DashboardPayload = {
+  cards: {
+    totalUsers: number;
+    activeDoctors: number;
+    dailyConsultations: number;
+    systemUptime: number;
+  };
+  recentRegistrations: PanelUser[];
+  alerts: AlertItem[];
+};
+
+type AnalyticsPayload = {
+  totalConsultations: number;
+  revenue: number;
+  patientSatisfaction: number;
+  consultationTrends: Array<{ type: 'video' | 'kiosk'; count: number }>;
+  topSpecializations: Array<{ specialization: string; count: number }>;
+};
+
+type Toast = {
+  id: number;
+  message: string;
+  tone: 'info' | 'success' | 'warning' | 'error';
+};
+
+type EditForm = {
+  name: string;
+  email: string;
+  location: string;
+  role: UserRole;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Request failed';
+};
+
 const fadeInUp = {
   hidden: { opacity: 0, y: 18 },
   visible: { opacity: 1, y: 0 },
@@ -20,7 +95,7 @@ const tabSlide = {
   exit: { opacity: 0, x: -20 },
 };
 
-const Card: React.FC<{ title: string; value: React.ReactNode; icon: any; gradient: string; meta?: string }> = ({ title, value, icon: Icon, gradient, meta }) => (
+const Card: React.FC<{ title: string; value: React.ReactNode; icon: IconComponent; gradient: string; meta?: string }> = ({ title, value, icon: Icon, gradient, meta }) => (
   <motion.div whileHover={{ scale: 1.03 }} className={`rounded-2xl p-5 shadow-2xl ${gradient} text-white transform-gpu`}>
     <div className="flex items-start justify-between">
       <div>
@@ -42,53 +117,314 @@ const StatProgress: React.FC<{ label: string; percent: number; accent?: string }
       <span className="text-sm font-semibold">{percent}%</span>
     </div>
     <div className="w-full bg-white/10 rounded-full h-2">
-      <div className={`h-2 rounded-full`} style={{ width: `${percent}%`, background: accent || 'linear-gradient(90deg,#22c55e,#06b6d4)' }} />
+      <div className="h-2 rounded-full" style={{ width: `${percent}%`, background: accent || 'linear-gradient(90deg,#22c55e,#06b6d4)' }} />
     </div>
   </div>
 );
 
+const formatDate = (value: string) => {
+  if (!value) return '-';
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return '-';
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatRelative = (value: string) => {
+  if (!value) return 'just now';
+  const dt = new Date(value).getTime();
+  if (!dt) return 'just now';
+  const diffMs = Date.now() - dt;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days > 1 ? 's' : ''} ago`;
+};
+
+const roleLabel = (role: UserRole) => role.charAt(0).toUpperCase() + role.slice(1);
+
+const roleBadgeClass = (role: UserRole) => {
+  if (role === 'doctor') return 'bg-emerald-900/40';
+  if (role === 'patient') return 'bg-blue-900/40';
+  return 'bg-purple-900/40';
+};
+
+const statusBadgeClass = (status: UserStatus) => {
+  if (status === 'active') return 'bg-emerald-900/40';
+  if (status === 'pending') return 'bg-amber-900/40';
+  return 'bg-red-900/40';
+};
+
+const alertCardClass = (type: AlertType) => {
+  if (type === 'critical') return 'bg-red-900/40 border-red-500';
+  if (type === 'warning') return 'bg-orange-900/40 border-orange-400';
+  return 'bg-emerald-900/30 border-emerald-400';
+};
+
 const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'analytics' | 'system'>('dashboard');
-  const signedUser = useStoredUser();
-  const { profile } = useBackendProfile();
+  const [activeTab, setActiveTab] = useState('dashboard' as PanelTab);
+  const [users, setUsers] = useState([] as PanelUser[]);
+  const [dashboard, setDashboard] = useState(null as DashboardPayload | null);
+  const [analytics, setAnalytics] = useState(null as AnalyticsPayload | null);
+  const [roleFilter, setRoleFilter] = useState('all' as 'all' | UserRole);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState('view' as 'view' | 'edit');
+  const [selectedUser, setSelectedUser] = useState(null as PanelUser | null);
+  const [editForm, setEditForm] = useState({ name: '', email: '', location: '', role: 'patient' as UserRole } as EditForm);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('patient' as UserRole);
+  const [toasts, setToasts] = useState([] as Toast[]);
+
+  const adminEmail = localStorage.getItem('admin_email') || 'pradeep240818@gmail.com';
+
+  const addToast = (message: string, tone: Toast['tone'] = 'info') => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((prev: Toast[]) => [...prev, { id, message, tone }]);
+    setTimeout(() => {
+      setToasts((prev: Toast[]) => prev.filter((t: Toast) => t.id !== id));
+    }, 3500);
+  };
+
+  const getAdminToken = () => localStorage.getItem('token') || '';
+
+  const adminFetch = async <T,>(endpoint: string, options: RequestInit = {}): Promise<T> => {
+    const token = getAdminToken();
+    const res = await fetch(buildApiUrl(endpoint), {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+
+    const body = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
+
+    return body as T;
+  };
+
+  const loadDashboard = async () => {
+    const response = await adminFetch<{ success: boolean; cards: DashboardPayload['cards']; recentRegistrations: PanelUser[]; alerts: AlertItem[] }>('/api/admin/dashboard');
+    setDashboard({ cards: response.cards, recentRegistrations: response.recentRegistrations, alerts: response.alerts });
+  };
+
+  const loadUsers = async (nextRole: 'all' | UserRole = roleFilter) => {
+    const query = nextRole === 'all' ? '' : `?role=${encodeURIComponent(nextRole)}`;
+    const response = await adminFetch<{ success: boolean; users: PanelUser[] }>(`/api/admin/users${query}`);
+    setUsers(response.users);
+  };
+
+  const loadAnalytics = async () => {
+    const response = await adminFetch<{ success: boolean; analytics: AnalyticsPayload }>('/api/admin/analytics');
+    setAnalytics(response.analytics);
+  };
+
+  const refreshAll = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([loadDashboard(), loadUsers(roleFilter), loadAnalytics()]);
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      addToast(message || 'Failed to load admin data', 'error');
+      if (message.toLowerCase().includes('token')) {
+        handleLogout();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshAll();
+  }, []);
+
+  useEffect(() => {
+    let socket: SocketLike | null = null;
+    let mounted = true;
+
+    const setupSocket = async () => {
+      if (!window.io) {
+        await new Promise<void>((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.socket.io/4.8.1/socket.io.min.js';
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => resolve();
+          document.body.appendChild(script);
+        });
+      }
+
+      if (!mounted || !window.io) {
+        return;
+      }
+
+      socket = window.io(API_BASE_URL, {
+        transports: ['websocket', 'polling'],
+      });
+
+      socket.on('new_user', (payloadRaw: unknown) => {
+        const payload = payloadRaw as PanelUser;
+        setUsers((prev: PanelUser[]) => [payload, ...prev.filter((u: PanelUser) => u.id !== payload.id)]);
+        setDashboard((prev: DashboardPayload | null) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            cards: { ...prev.cards, totalUsers: prev.cards.totalUsers + 1 },
+            recentRegistrations: [payload, ...prev.recentRegistrations.filter((u: PanelUser) => u.id !== payload.id)].slice(0, 5),
+          };
+        });
+        addToast(`New user registered: ${payload.name}`, 'success');
+      });
+
+      socket.on('system_alert', (payloadRaw: unknown) => {
+        const payload = payloadRaw as AlertItem;
+        setDashboard((prev: DashboardPayload | null) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            alerts: [payload, ...prev.alerts].slice(0, 10),
+          };
+        });
+        addToast(payload.message, payload.type === 'critical' ? 'error' : payload.type === 'warning' ? 'warning' : 'info');
+      });
+
+      socket.on('user_status_changed', (payloadRaw: unknown) => {
+        const payload = payloadRaw as PanelUser;
+        setUsers((prev: PanelUser[]) => prev.map((u: PanelUser) => (u.id === payload.id ? { ...u, status: payload.status } : u)));
+        setDashboard((prev: DashboardPayload | null) => {
+          if (!prev) return prev;
+          const nextRecent = prev.recentRegistrations.map((u: PanelUser) => (u.id === payload.id ? { ...u, status: payload.status } : u));
+          return { ...prev, recentRegistrations: nextRecent };
+        });
+        addToast(`Status updated: ${payload.name}`, 'info');
+      });
+    };
+
+    setupSocket();
+
+    return () => {
+      mounted = false;
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, []);
 
   const handleLogout = () => {
-    try {
-      localStorage.removeItem('token');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('user_id');
-      window.dispatchEvent(new CustomEvent('user-updated', { detail: null }));
-    } catch {
-      // no-op
-    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('admin_email');
+    window.dispatchEvent(new CustomEvent('user-updated', { detail: null }));
     onLogout();
   };
 
-  // sample data (replace with real props / fetches)
-  const usersSample = [
-    { name: 'Dr. Mohit Insan', role: 'Doctor', location: 'Mumbai, Maharashtra', joinDate: 'Dec 1, 2024', status: 'active' },
-    { name: 'Pradeep Awasthi', role: 'Patient', location: 'Pune, Maharashtra', joinDate: 'Dec 5, 2024', status: 'active' },
-    { name: 'MedCare Pharmacy', role: 'Pharmacy', location: 'Bangalore, Karnataka', joinDate: 'Dec 8, 2024', status: 'pending' },
-    { name: 'Dr. Anita Patel', role: 'Doctor', location: 'Ahmedabad, Gujarat', joinDate: 'Dec 10, 2024', status: 'active' },
-    { name: 'Rajesh Gupta', role: 'Patient', location: 'Jaipur, Rajasthan', joinDate: 'Dec 12, 2024', status: 'suspended' },
-  ];
+  const openUserModal = async (id: number, mode: 'view' | 'edit') => {
+    setBusy(true);
+    try {
+      const response = await adminFetch<{ success: boolean; user: PanelUser }>('/api/admin/users/' + id);
+      setSelectedUser(response.user);
+      setModalMode(mode);
+      setEditForm({
+        name: response.user.name || '',
+        email: response.user.email || '',
+        location: response.user.location || '',
+        role: response.user.role,
+      });
+      setShowModal(true);
+    } catch (error: unknown) {
+      addToast(getErrorMessage(error) || 'Failed to open user details', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitUserEdit = async () => {
+    if (!selectedUser) return;
+
+    setBusy(true);
+    try {
+      await adminFetch('/api/admin/users/' + selectedUser.id, {
+        method: 'PUT',
+        body: JSON.stringify(editForm),
+      });
+      await loadUsers(roleFilter);
+      await loadDashboard();
+      setShowModal(false);
+      addToast('User updated successfully', 'success');
+    } catch (error: unknown) {
+      addToast(getErrorMessage(error) || 'Failed to update user', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateStatus = async (user: PanelUser, status: UserStatus) => {
+    setBusy(true);
+    try {
+      await adminFetch('/api/admin/users/' + user.id + '/status', {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      await loadUsers(roleFilter);
+      await loadDashboard();
+      addToast(`Status updated to ${status}`, 'success');
+    } catch (error: unknown) {
+      addToast(getErrorMessage(error) || 'Failed to update status', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) {
+      addToast('Invite email is required', 'warning');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await adminFetch('/api/admin/invite', {
+        method: 'POST',
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      });
+      setInviteEmail('');
+      addToast('Invite email sent successfully', 'success');
+    } catch (error: unknown) {
+      addToast(getErrorMessage(error) || 'Failed to send invite email', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const analyticsVideo = analytics?.consultationTrends.find((entry: { type: string; count: number }) => entry.type === 'video')?.count || 0;
+  const analyticsKiosk = analytics?.consultationTrends.find((entry: { type: string; count: number }) => entry.type === 'kiosk')?.count || 0;
+  const totalTrend = analyticsVideo + analyticsKiosk;
+  const videoPercent = totalTrend ? Math.round((analyticsVideo / totalTrend) * 100) : 0;
+  const kioskPercent = totalTrend ? Math.round((analyticsKiosk / totalTrend) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white">
-      {/* Loading Spinner */}
-      {!profile && (
+      {loading && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
             <div className="inline-block">
-              <div className="w-16 h-16 border-4 border-purple-400/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+              <div className="w-16 h-16 border-4 border-purple-400/30 border-t-purple-500 rounded-full animate-spin mb-4" />
             </div>
             <p className="text-white/90 font-semibold text-lg">Loading Admin Panel...</p>
             <p className="text-white/60 text-sm mt-2">Fetching system data</p>
           </div>
         </div>
       )}
-      {/* Header */}
+
       <header className="bg-gradient-to-r from-[#7c3aed] to-[#ec4899] shadow-2xl">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -103,18 +439,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
           <div className="flex items-center gap-4">
             <div className="text-sm opacity-90 text-right">
-              <div>Signed in as <span className="font-semibold">{profile?.email || signedUser?.email || 'Not signed in'}</span></div>
-              <div className="text-xs opacity-80">
-                Age: {profile?.age ?? '-'} | Gender: {profile?.gender || '-'} | Blood Group: {profile?.bloodgroup || '-'} | DOB: {profile?.dob || '-'} | Phone: {profile?.phone || '-'}
-              </div>
+              <div>Signed in as <span className="font-semibold">{adminEmail}</span></div>
             </div>
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-white/10">
-              <img
-                src={profile?.picture || profile?.profile_picture_url || signedUser?.picture || '/default-avatar.png'}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-white/10" />
             <button onClick={handleLogout} className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white font-medium shadow hover:scale-[1.02] transition">
               Logout
             </button>
@@ -122,7 +449,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         </div>
       </header>
 
-      {/* Tabs */}
       <div className="bg-white/5 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6">
           <nav className="flex gap-6 py-3">
@@ -133,11 +459,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               { key: 'system', label: 'System Settings', icon: Settings },
             ].map((t) => {
               const Icon = t.icon;
-              const active = activeTab === (t.key as any);
+              const active = activeTab === (t.key as PanelTab);
               return (
                 <button
                   key={t.key}
-                  onClick={() => setActiveTab(t.key as any)}
+                  onClick={() => setActiveTab(t.key as PanelTab)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${active ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}
                 >
                   <Icon className="h-5 w-5" />
@@ -149,35 +475,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         </div>
       </div>
 
-      {/* Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.section key="dashboard" variants={tabSlide} initial="hidden" animate="visible" exit="exit">
               <motion.div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6" variants={fadeInUp} initial="hidden" animate="visible">
-                <Card title="Total Users" value={<span>7843</span>} icon={Users} gradient="bg-gradient-to-r from-[#ff7ab6] to-[#ff6a88]" meta="+8.2% from last month" />
-                <Card title="Active Doctors" value={<span>568</span>} icon={Activity} gradient="bg-gradient-to-r from-[#34d399] to-[#10b981]" meta="+12.5% from last month" />
-                <Card title="Daily Consultations" value={<span>490</span>} icon={TrendingUp} gradient="bg-gradient-to-r from-[#7c3aed] to-[#4f46e5]" meta="+15.3% from yesterday" />
-                <Card title="System Uptime" value={<span>83.6%</span>} icon={Globe} gradient="bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" meta="Last 30 days" />
+                <Card title="Total Users" value={<span>{dashboard?.cards.totalUsers || 0}</span>} icon={Users} gradient="bg-gradient-to-r from-[#ff7ab6] to-[#ff6a88]" meta="Live from users table" />
+                <Card title="Active Doctors" value={<span>{dashboard?.cards.activeDoctors || 0}</span>} icon={Activity} gradient="bg-gradient-to-r from-[#34d399] to-[#10b981]" meta="role=doctor & status=active" />
+                <Card title="Daily Consultations" value={<span>{dashboard?.cards.dailyConsultations || 0}</span>} icon={TrendingUp} gradient="bg-gradient-to-r from-[#7c3aed] to-[#4f46e5]" meta="Today" />
+                <Card title="System Uptime" value={<span>{Math.floor((dashboard?.cards.systemUptime || 0) / 3600)}h</span>} icon={Globe} gradient="bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" meta="Node process uptime" />
               </motion.div>
 
-              {/* Recent & Alerts */}
               <motion.div className="grid lg:grid-cols-2 gap-6 mb-6" variants={fadeInUp} initial="hidden" animate="visible">
                 <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
                   <h2 className="text-xl font-semibold mb-4">Recent User Registrations</h2>
                   <div className="space-y-3">
-                    {[
-                      { name: 'Dr Mohit Insan', role: 'Doctor', location: 'Maharashtra', time: '2 hours ago' },
-                      { name: 'MedCare Pharmacy', role: 'Pharmacy', location: 'Karnataka', time: '4 hours ago' },
-                      { name: 'Jethalal Gada', role: 'Patient', location: 'Uttar Pradesh', time: '6 hours ago' },
-                      { name: 'Dr. Hathii ', role: 'Doctor', location: 'Gujarat', time: '8 hours ago' },
-                    ].map((u, i) => (
-                      <motion.div key={i} whileHover={{ scale: 1.01 }} className="flex items-center justify-between p-3 rounded-lg bg-white/4">
+                    {(dashboard?.recentRegistrations || []).map((u: PanelUser) => (
+                      <motion.div key={u.id} whileHover={{ scale: 1.01 }} className="flex items-center justify-between p-3 rounded-lg bg-white/4">
                         <div>
                           <div className="font-medium">{u.name}</div>
-                          <div className="text-sm opacity-80">{u.role} • {u.location}</div>
+                          <div className="text-sm opacity-80">{roleLabel(u.role)} • {u.location || 'India'}</div>
                         </div>
-                        <div className="text-sm opacity-70">{u.time}</div>
+                        <div className="text-sm opacity-70">{formatRelative(u.created_at)}</div>
                       </motion.div>
                     ))}
                   </div>
@@ -186,83 +505,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
                   <h2 className="text-xl font-semibold mb-4">System Alerts</h2>
                   <div className="space-y-3">
-                    {[{type:'warning', message:'High server load detected in Mumbai region', time:'30 minutes ago', severity:'medium'},
-                      {type:'info', message:'Scheduled maintenance completed successfully', time:'2 hours ago', severity:'low'},
-                      {type:'success', message:'New kiosk deployed in rural Rajasthan', time:'4 hours ago', severity:'low'},
-                      {type:'error', message:'Payment gateway timeout reported', time:'6 hours ago', severity:'high'}
-                    ].map((a, i) => (
-                      <div key={i} className={`p-3 rounded-lg border-l-4 ${a.severity === 'high' ? 'bg-red-900/40 border-red-500' : a.severity === 'medium' ? 'bg-orange-900/40 border-orange-400' : 'bg-emerald-900/30 border-emerald-400'}`}>
+                    {(dashboard?.alerts || []).map((a: AlertItem) => (
+                      <div key={a.id} className={`p-3 rounded-lg border-l-4 ${alertCardClass(a.type)}`}>
                         <div className="font-medium">{a.message}</div>
-                        <div className="text-sm opacity-80 mt-1">{a.time}</div>
+                        <div className="text-sm opacity-80 mt-1">{formatRelative(a.created_at)}</div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Geographic & Usage */}
-              <motion.div className="bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
-                <h3 className="text-lg font-semibold mb-4">Current Geographical Distribution</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                  <div>
-                    <h4 className="font-semibold mb-3">Top States by Users</h4>
-                    <div className="space-y-3">
-                      {[
-                        { state: 'Maharashtra', users: 2847, percentage: 23 },
-                        { state: 'Karnataka', users: 2134, percentage: 17 },
-                        { state: 'Uttar Pradesh', users: 1923, percentage: 15 },
-                        { state: 'Gujarat', users: 1654, percentage: 13 },
-                        { state: 'Rajasthan', users: 1276, percentage: 10 },
-                      ].map((s, i) => (
-                        <div key={i} className="flex justify-between items-center">
-                          <div>
-                            <div className="font-medium">{s.state}</div>
-                            <div className="text-sm opacity-80">{s.users} users</div>
-                          </div>
-                          <div className="font-bold text-emerald-300">{s.percentage}%</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold mb-3">Kiosk Deployment</h4>
-                    <div className="space-y-3">
-                      {[
-                        { location: 'Rural Villages', count: 245, status: 'active' },
-                        { location: 'Semi-Urban Centers', count: 178, status: 'completed' },
-                        { location: 'Pending Deployment', count: 67, status: 'pending' },
-                        { location: 'Maintenance Required', count: 12, status: 'maintenance' },
-                      ].map((k, i) => (
-                        <div key={i} className="flex justify-between items-center">
-                          <div>
-                            <div className="font-medium">{k.location}</div>
-                            <div className="text-sm opacity-80">{k.count} kiosks</div>
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded ${k.status === 'active' ? 'bg-emerald-900/40 text-emerald-200' : k.status === 'pending' ? 'bg-amber-900/40 text-amber-200' : 'bg-red-900/40 text-red-200'}`}>
-                            {k.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold mb-3">Usage Statistics</h4>
-                    <div className="space-y-3">
-                      <div className="p-3 rounded-lg bg-white/4">
-                        <div className="font-bold text-2xl">68%</div>
-                        <div className="text-sm opacity-80">Mobile App Usage</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-white/4">
-                        <div className="font-bold text-2xl">32%</div>
-                        <div className="text-sm opacity-80">Kiosk Usage</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-white/4">
-                        <div className="font-bold text-2xl">14.5min</div>
-                        <div className="text-sm opacity-80">Avg Session Time</div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -275,13 +523,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">User Management</h2>
                   <div className="flex items-center gap-3">
-                    <select className="bg-white/5 px-3 py-2 rounded-md text-black">
-                      <option>All Users</option>
-                      <option>Patients</option>
-                      <option>Doctors</option>
-                      <option>Pharmacies</option>
+                    <select
+                      className="bg-white/5 px-3 py-2 rounded-md text-white"
+                      value={roleFilter}
+                      onChange={async (e) => {
+                        const next = e.target.value as 'all' | UserRole;
+                        setRoleFilter(next);
+                        await loadUsers(next);
+                      }}
+                    >
+                      <option value="all">All Users</option>
+                      <option value="patient">Patients</option>
+                      <option value="doctor">Doctors</option>
+                      <option value="pharmacy">Pharmacies</option>
                     </select>
-                    <button className="px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]">Export Data</button>
+                    <button className="px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" onClick={() => loadUsers(roleFilter)}>
+                      Export Data
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -299,23 +557,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {usersSample.map((u, i) => (
-                      <tr key={i} className="odd:bg-white/3 hover:bg-white/5 transition">
+                    {users.map((u: PanelUser) => (
+                      <tr key={u.id} className="odd:bg-white/3 hover:bg-white/5 transition">
                         <td className="px-4 py-3">{u.name}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-sm px-2 py-1 rounded ${u.role === 'Doctor' ? 'bg-emerald-900/40' : u.role === 'Patient' ? 'bg-blue-900/40' : 'bg-purple-900/40'}`}>{u.role}</span>
+                          <span className={`text-sm px-2 py-1 rounded ${roleBadgeClass(u.role)}`}>{roleLabel(u.role)}</span>
                         </td>
-                        <td className="px-4 py-3 text-sm opacity-90">{u.location}</td>
-                        <td className="px-4 py-3 text-sm opacity-80">{u.joinDate}</td>
+                        <td className="px-4 py-3 text-sm opacity-90">{u.location || '-'}</td>
+                        <td className="px-4 py-3 text-sm opacity-80">{formatDate(u.created_at)}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-sm px-2 py-1 rounded ${u.status === 'active' ? 'bg-emerald-900/40' : u.status === 'pending' ? 'bg-amber-900/40' : 'bg-red-900/40'}`}>{u.status}</span>
+                          <span className={`text-sm px-2 py-1 rounded ${statusBadgeClass(u.status)}`}>{u.status}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-3 text-sm">
-                            <button className="underline">View</button>
-                            <button className="underline">Edit</button>
-                            {u.status === 'pending' && <button className="underline text-emerald-300">Approve</button>}
-                            {u.status === 'suspended' ? <button className="underline text-emerald-300">Activate</button> : <button className="underline text-red-300">Suspend</button>}
+                            <button className="underline" onClick={() => openUserModal(u.id, 'view')}>View</button>
+                            <button className="underline" onClick={() => openUserModal(u.id, 'edit')}>Edit</button>
+                            {u.status === 'pending' && <button className="underline text-emerald-300" onClick={() => updateStatus(u, 'active')}>Approve</button>}
+                            {u.status === 'suspended'
+                              ? <button className="underline text-emerald-300" onClick={() => updateStatus(u, 'active')}>Activate</button>
+                              : <button className="underline text-red-300" onClick={() => updateStatus(u, 'suspended')}>Suspend</button>}
                           </div>
                         </td>
                       </tr>
@@ -324,20 +584,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 </table>
               </motion.div>
 
-              {/* Form example */}
               <motion.div className="mt-6 bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
                 <h3 className="text-lg font-semibold mb-4">Create / Invite User</h3>
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  <input className="px-4 py-3 rounded-md bg-white/5 focus:outline-none focus:ring-2 focus:ring-pink-400" placeholder="Full name" />
-                  <input className="px-4 py-3 rounded-md bg-white/5" placeholder="Email" />
-                  <select className="px-4 py-3 rounded-md bg-white/5">
-                    <option>Patient</option>
-                    <option>Doctor</option>
-                    <option>Pharmacy</option>
+                <form className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4" onSubmit={sendInvite}>
+                  <input
+                    className="px-4 py-3 rounded-md bg-white/5"
+                    placeholder="Invite email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                  />
+                  <select className="px-4 py-3 rounded-md bg-white/5" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as UserRole)}>
+                    <option value="patient">Patient</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="pharmacy">Pharmacy</option>
                   </select>
                   <div className="flex items-center gap-3">
-                    <button type="button" className="px-4 py-2 rounded-md bg-gradient-to-r from-[#7c3aed] to-[#ef4444]">Invite</button>
-                    <button type="reset" className="px-4 py-2 rounded-md bg-white/5">Clear</button>
+                    <button type="submit" className="px-4 py-2 rounded-md bg-gradient-to-r from-[#7c3aed] to-[#ef4444]">Invite</button>
+                    <button type="button" onClick={() => { setInviteEmail(''); setInviteRole('patient'); }} className="px-4 py-2 rounded-md bg-white/5">Clear</button>
                   </div>
                 </form>
               </motion.div>
@@ -347,53 +610,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
           {activeTab === 'analytics' && (
             <motion.section key="analytics" variants={tabSlide} initial="hidden" animate="visible" exit="exit">
               <motion.div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6" variants={fadeInUp} initial="hidden" animate="visible">
-                <Card title="Total Consultations" value={<span>34274</span>} icon={BarChart3} gradient="bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" meta="+18% from last month" />
-                <Card title="Revenue Generated" value={<span>₹8.4L</span>} icon={TrendingUp} gradient="bg-gradient-to-r from-[#f97316] to-[#ef4444]" meta="+22% from last month" />
-                <Card title="Patient Satisfaction" value={<span>4.6/5</span>} icon={Users} gradient="bg-gradient-to-r from-[#34d399] to-[#10b981]" meta="+0.3 from last month" />
-                <Card title="System Performance" value={<span>91.7%</span>} icon={Globe} gradient="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]" meta="Uptime last 30 days" />
+                <Card title="Total Consultations" value={<span>{analytics?.totalConsultations || 0}</span>} icon={BarChart3} gradient="bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" meta="From consultations table" />
+                <Card title="Revenue Generated" value={<span>₹{((analytics?.revenue || 0) / 100000).toFixed(1)}L</span>} icon={TrendingUp} gradient="bg-gradient-to-r from-[#f97316] to-[#ef4444]" meta="SUM(fee)" />
+                <Card title="Patient Satisfaction" value={<span>{(analytics?.patientSatisfaction || 0).toFixed(1)}/5</span>} icon={Users} gradient="bg-gradient-to-r from-[#34d399] to-[#10b981]" meta="AVG(rating)" />
+                <Card title="System Performance" value={<span>Live</span>} icon={Globe} gradient="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed]" meta="Realtime analytics" />
               </motion.div>
 
               <motion.div className="grid lg:grid-cols-2 gap-6" variants={fadeInUp} initial="hidden" animate="visible">
                 <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
                   <h3 className="font-semibold mb-4">Consultation Trends</h3>
-                  <StatProgress label="Video Consultations" percent={63} />
+                  <StatProgress label="Video Consultations" percent={videoPercent} />
                   <div className="mt-4">
-                    <StatProgress label="Kiosk Consultations" percent={43} accent="linear-gradient(90deg,#3b82f6,#06b6d4)" />
+                    <StatProgress label="Kiosk Consultations" percent={kioskPercent} accent="linear-gradient(90deg,#3b82f6,#06b6d4)" />
                   </div>
                 </div>
 
                 <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
                   <h3 className="font-semibold mb-4">Top Specializations</h3>
                   <div className="space-y-3">
-                    {[{specialty:'General Medicine', consultations:12847, percentage:48}, {specialty:'Pediatrics', consultations:8234, percentage:22}, {specialty:'Cardiology', consultations:5621, percentage:15}, {specialty:'Dermatology', consultations:4518, percentage:12}, {specialty:'Orthopedics', consultations:3789, percentage:10}].map((s,i)=> (
+                    {(analytics?.topSpecializations || []).slice(0, 5).map((s: { specialization: string; count: number }, i: number) => (
                       <div key={i} className="flex justify-between items-center">
                         <div>
-                          <div className="font-medium">{s.specialty}</div>
-                          <div className="text-sm opacity-80">{s.consultations} consultations</div>
+                          <div className="font-medium">{s.specialization || 'General'}</div>
+                          <div className="text-sm opacity-80">{s.count} consultations</div>
                         </div>
-                        <div className="font-bold text-emerald-300">{s.percentage}%</div>
+                        <div className="font-bold text-emerald-300">{analytics?.totalConsultations ? Math.round((s.count / analytics.totalConsultations) * 100) : 0}%</div>
                       </div>
                     ))}
                   </div>
                 </div>
-              </motion.div>
-
-              {/* Small dashboard chart placeholders (SVG sparkline) */}
-              <motion.div className="mt-6 grid md:grid-cols-3 gap-6" variants={fadeInUp} initial="hidden" animate="visible">
-                {[{title:'Weekly Traffic', value:'12.4k'}, {title:'Conversion Rate', value:'4.1%'}, {title:'Avg Response Time', value:'320ms'}].map((c,i)=> (
-                  <div key={i} className="bg-white/6 rounded-2xl p-4 shadow-xl">
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <div className="font-semibold">{c.title}</div>
-                        <div className="text-sm opacity-80">{c.value}</div>
-                      </div>
-                      <svg width="80" height="36" viewBox="0 0 80 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 28 C14 8 28 20 56 6 68 0 78 10 80 14" stroke="white" strokeOpacity="0.9" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                    <div className="text-xs opacity-70">MedTech is getting Noticed...</div>
-                  </div>
-                ))}
               </motion.div>
             </motion.section>
           )}
@@ -406,14 +651,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                   <div className="space-y-4">
                     <label className="block text-sm opacity-90">Platform Name</label>
                     <input defaultValue="HealthConnect" className="w-full px-4 py-3 rounded-md bg-white/5 focus:ring-2 focus:ring-pink-400" />
-
                     <label className="block text-sm opacity-90">Support Email</label>
                     <input defaultValue="support@healthconnect.in" className="w-full px-4 py-3 rounded-md bg-white/5 focus:ring-2 focus:ring-cyan-400" />
-
-                    <label className="flex items-center gap-3 mt-2">
-                      <input type="checkbox" defaultChecked className="w-4 h-4" />
-                      <span className="text-sm">Enable Maintenance Mode</span>
-                    </label>
                   </div>
                 </div>
 
@@ -428,31 +667,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                       <label className="block text-sm opacity-90">Max Login Attempts</label>
                       <input type="number" defaultValue={5} className="w-full px-4 py-3 rounded-md bg-white/5" />
                     </div>
-                    <label className="flex items-center gap-3 mt-2">
-                      <input type="checkbox" defaultChecked className="w-4 h-4" />
-                      <span className="text-sm">Enable Two-Factor Authentication</span>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div className="bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
-                <h3 className="font-semibold mb-4">System Monitoring</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-                  <div className="p-4 rounded-lg bg-emerald-900/30">
-                    <div className="font-semibold">Server Status</div>
-                    <div className="text-2xl font-bold">Operational</div>
-                    <div className="text-sm opacity-80">All services running</div>
-                  </div>
-                  <div className="p-4 rounded-lg bg-blue-900/30">
-                    <div className="font-semibold">Database Health</div>
-                    <div className="text-2xl font-bold">Excellent</div>
-                    <div className="text-sm opacity-80">Response time: 45ms</div>
-                  </div>
-                  <div className="p-4 rounded-lg bg-purple-900/30">
-                    <div className="font-semibold">API Performance</div>
-                    <div className="text-2xl font-bold">92.9%</div>
-                    <div className="text-sm opacity-80">Success rate</div>
                   </div>
                 </div>
               </motion.div>
@@ -460,6 +674,66 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
           )}
         </AnimatePresence>
       </main>
+
+      {showModal && selectedUser && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-[#0f172a] border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">{modalMode === 'view' ? 'User Details' : 'Edit User'}</h3>
+              <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white"><X /></button>
+            </div>
+
+            {modalMode === 'view' ? (
+              <div className="space-y-3 text-sm">
+                <div><span className="opacity-70">Name:</span> {selectedUser.name}</div>
+                <div><span className="opacity-70">Email:</span> {selectedUser.email}</div>
+                <div><span className="opacity-70">Role:</span> {roleLabel(selectedUser.role)}</div>
+                <div><span className="opacity-70">Status:</span> {selectedUser.status}</div>
+                <div><span className="opacity-70">Location:</span> {selectedUser.location || '-'}</div>
+                <div><span className="opacity-70">Joined:</span> {formatDate(selectedUser.created_at)}</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.name} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, name: e.target.value }))} />
+                <input className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.email} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, email: e.target.value }))} />
+                <input className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.location} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, location: e.target.value }))} />
+                <select className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.role} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, role: e.target.value as UserRole }))}>
+                  <option value="patient">Patient</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="pharmacy">Pharmacy</option>
+                </select>
+                <div className="flex gap-3">
+                  <button className="px-4 py-2 rounded-md bg-gradient-to-r from-[#34d399] to-[#10b981]" onClick={submitUserEdit}>Save</button>
+                  <button className="px-4 py-2 rounded-md bg-white/10" onClick={() => setShowModal(false)}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="fixed top-4 right-4 z-[60] space-y-2">
+        {toasts.map((toast: Toast) => (
+          <div
+            key={toast.id}
+            className={`px-4 py-3 rounded-lg shadow-lg border text-sm ${
+              toast.tone === 'success'
+                ? 'bg-emerald-900/90 border-emerald-400'
+                : toast.tone === 'error'
+                ? 'bg-red-900/90 border-red-400'
+                : toast.tone === 'warning'
+                ? 'bg-orange-900/90 border-orange-400'
+                : 'bg-blue-900/90 border-blue-400'
+            }`}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
+
+      {busy && (
+        <div className="fixed inset-0 z-40 bg-black/40 pointer-events-none" />
+      )}
     </div>
   );
 };
