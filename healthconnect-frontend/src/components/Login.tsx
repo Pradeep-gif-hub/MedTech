@@ -3,6 +3,7 @@ import { Eye, EyeOff, ArrowLeft, Users, Activity, Pill, Shield, CheckCircle, Mai
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { UserRole } from '../App';
 import { useAuth } from '../contexts/AuthContext';
+import { usePlatformSettings } from '../contexts/PlatformSettingsContext';
 import { buildApiUrl } from '../config/api';
 
 interface LoginProps {
@@ -25,6 +26,7 @@ const roleRoutes: Record<Exclude<UserRole, 'unknown'>, string> = {
 const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUser }: LoginProps) => {
   // Auth hook for Google login
   const { setToken, setUser } = useAuth();
+  const { settings } = usePlatformSettings();
   // UI state
   const [showPassword, setShowPassword] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
@@ -55,6 +57,10 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
       setSelectedRole(role);
     }
   }, [role]);
+
+  useEffect(() => {
+    document.title = `${settings.platform_name} ${roleData[selectedRole].title} Login`;
+  }, [settings.platform_name, selectedRole]);
 
   const roleData: Record<UserRole, { title: string; description: string; icon: JSX.Element; bgColor: string }> = {
     patient: { title: 'Patient', description: 'Access consultations and health records', icon: <Users className="h-6 w-6 text-white" />, bgColor: 'bg-blue-600' },
@@ -531,7 +537,7 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input 
                       type="email" 
-                      placeholder="Enter the email address associated with your MedTech account." 
+                      placeholder={`Enter the email address associated with your ${settings.platform_name} account.`}
                       value={forgotEmail} 
                       onChange={(e) => setForgotEmail(e.target.value)} 
                       className="w-full px-4 py-3 pl-10 border rounded-lg text-sm placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" 
@@ -833,6 +839,7 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
             ) : (
               <form onSubmit={handleLogin} className="space-y-6">
                 <div>
+                  <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold">{settings.platform_name}</p>
                   <h2 className="text-2xl font-bold text-gray-900">{roleData[selectedRole].title} Login</h2>
                   <p className="text-sm text-gray-600 mt-1">{roleData[selectedRole].description}</p>
                 </div>

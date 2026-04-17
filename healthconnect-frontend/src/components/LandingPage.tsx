@@ -12,6 +12,7 @@ import {
   Heart,
 } from "lucide-react";
 import type { CurrentView } from "../App";
+import { usePlatformSettings } from "../contexts/PlatformSettingsContext";
 
 interface LandingPageProps {
   onNavigate: (view: CurrentView) => void;
@@ -22,6 +23,8 @@ const LandingPage: React.FC<LandingPageProps> = ({
   onNavigate,
   onPublicNavigate,
 }) => {
+  const { settings } = usePlatformSettings();
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50 via-white to-blue-50">
       {/* Navigation */}
@@ -32,7 +35,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <div className="flex items-center space-x-2">
               <Heart className="h-8 w-8 text-white" />
               <span className="text-xl font-extrabold text-white tracking-tight">
-                HealthConnect
+                {settings.platform_name}
               </span>
             </div>
 
@@ -372,7 +375,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <Heart className="h-6 w-6 text-emerald-400" />
-                <span className="font-bold text-xl">HealthConnect</span>
+                <span className="font-bold text-xl">{settings.platform_name}</span>
               </div>
               <p className="text-gray-400 leading-relaxed">
                 Bringing healthcare to every corner of India through digital
@@ -436,13 +439,13 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
             <div>
               <h4 className="font-bold text-lg mb-4">Contact</h4>
-              <p className="text-gray-400">support@healthconnect.com</p>
+              <p className="text-gray-400">{settings.support_email || 'support@healthconnect.com'}</p>
               <p className="text-gray-400">+91 8127136711</p>
             </div>
           </div>
 
           <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500 text-sm">
-            © 2024 HealthConnect. All rights reserved.
+            © 2024 {settings.platform_name}. All rights reserved.
           </div>
         </div>
       </footer>

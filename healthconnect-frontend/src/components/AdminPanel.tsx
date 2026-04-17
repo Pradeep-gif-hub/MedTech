@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Shield, Users, Activity, BarChart3, Settings, TrendingUp, Globe, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE_URL, buildApiUrl } from '../config/api';
+import { usePlatformSettings } from '../contexts/PlatformSettingsContext';
 
 type SocketLike = {
   on: (eventName: string, callback: (...args: unknown[]) => void) => void;
@@ -39,6 +40,9 @@ type PanelUser = {
   gender?: string | null;
   blood_group?: string | null;
   bloodgroup?: string | null;
+  specialization?: string | null;
+  phone?: string | null;
+  dob?: string | null;
   profile_pic?: string | null;
   picture?: string | null;
 };
@@ -54,11 +58,20 @@ type DashboardPayload = {
   cards: {
     totalUsers: number;
     activeDoctors: number;
+    patients: number;
+    pharmacies: number;
     dailyConsultations: number;
     systemUptime: number;
+    totalVisitors: number;
   };
   recentRegistrations: PanelUser[];
   alerts: AlertItem[];
+};
+
+type SpecializationItem = {
+  specialization: string;
+  count: number;
+  doctors: Array<{ id?: number; name: string; email: string }>;
 };
 
 type AnalyticsPayload = {
@@ -66,7 +79,10 @@ type AnalyticsPayload = {
   revenue: number;
   patientSatisfaction: number;
   consultationTrends: Array<{ type: 'video' | 'kiosk'; count: number }>;
-  topSpecializations: Array<{ specialization: string; count: number }>;
+  dailyConsultations: Array<{ date: string; count: number }>;
+  monthlyGrowth: Array<{ month: string; count: number }>;
+  revenueTrend: Array<{ month: string; value: number }>;
+  topSpecializations: SpecializationItem[];
 };
 
 type Toast = {
@@ -80,6 +96,13 @@ type EditForm = {
   email: string;
   location: string;
   role: UserRole;
+};
+
+type PlatformSettingsForm = {
+  platform_name: string;
+  support_email: string;
+  session_timeout: number;
+  max_login_attempts: number;
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -170,6 +193,9 @@ const normalizeUser = (raw: Partial<PanelUser> & { id?: number | string }): Pane
     gender: raw.gender,
     blood_group: raw.blood_group,
     bloodgroup: raw.bloodgroup,
+    specialization: raw.specialization,
+    phone: raw.phone,
+    dob: raw.dob,
     profile_pic: raw.profile_pic,
     picture: raw.picture,
   };
@@ -209,11 +235,14 @@ const alertCardClass = (type: AlertType) => {
 };
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
+  const { settings, saveSettings } = usePlatformSettings();
+
   const [activeTab, setActiveTab] = useState('dashboard' as PanelTab);
   const [users, setUsers] = useState([] as PanelUser[]);
   const [dashboard, setDashboard] = useState(null as DashboardPayload | null);
   const [analytics, setAnalytics] = useState(null as AnalyticsPayload | null);
   const [roleFilter, setRoleFilter] = useState('all' as 'all' | UserRole);
+  const [statusFilter, setStatusFilter] = useState('all' as 'all' | UserStatus);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -225,10 +254,60 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('patient' as UserRole);
   const [toasts, setToasts] = useState([] as Toast[]);
+  const [hoveredSpecialization, setHoveredSpecialization] = useState<string | null>(null);
+  const [settingsForm, setSettingsForm] = useState<PlatformSettingsForm>({
+    platform_name: 'MedTech',
+    support_email: 'support@healthconnect.com',
+    session_timeout: 30,
+    max_login_attempts: 5,
+  });
 
   const adminEmail = localStorage.getItem('admin_email') || 'pradeep240818@gmail.com';
-  const adminAvatar = localStorage.getItem('admin_profile_pic') || '/default-avatar.png';
+  const [adminAvatar, setAdminAvatar] = useState(localStorage.getItem('role') === 'admin' ? '/admin.png' : '/default-avatar.png');
+
+useEffect(() => {
+  const fetchAdminProfile = async () => {
+    try {
+      const res = await fetch(buildApiUrl('/api/users/me'), {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await res.json();
+      console.log("ADMIN API RESPONSE 👉", data);
+
+      // ✅ FINAL CLEAN AVATAR PICK
+     const avatar =
+  data?.avatar ||
+  data?.profile_picture_url ||
+  data?.picture ||
+  data?.profile_pic;
+
+// ✅ FORCE admin logo if role = admin
+const finalAvatar =
+  data?.role === 'admin'
+    ? '/admin.png'
+    : avatar || '/default-avatar.png';
+
+setAdminAvatar(finalAvatar);
+    } catch (err) {
+      console.error("Failed to load admin avatar", err);
+    }
+  };
+
+  fetchAdminProfile();
+}, []);
   const USERS_PER_PAGE = 8;
+
+  useEffect(() => {
+    setSettingsForm({
+      platform_name: settings.platform_name,
+      support_email: settings.support_email,
+      session_timeout: settings.session_timeout,
+      max_login_attempts: settings.max_login_attempts,
+    });
+  }, [settings]);
 
   const addToast = (message: string, tone: Toast['tone'] = 'info') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -266,8 +345,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       cards?: DashboardPayload['cards'];
       totalUsers?: number;
       activeDoctors?: number;
+      patients?: number;
+      pharmacies?: number;
       dailyConsultations?: number;
+      totalVisitors?: number;
       uptime?: number;
+      recentUsers?: PanelUser[];
       recentRegistrations?: PanelUser[];
       alerts?: AlertItem[];
     }>('/api/admin/dashboard');
@@ -275,15 +358,34 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     const cards = response.cards || {
       totalUsers: Number(response.totalUsers || 0),
       activeDoctors: Number(response.activeDoctors || 0),
+      patients: Number(response.patients || 0),
+      pharmacies: Number(response.pharmacies || 0),
       dailyConsultations: Number(response.dailyConsultations || 0),
+      totalVisitors: Number(response.totalVisitors || 0),
       systemUptime: Math.round(Number(response.uptime || 0)),
     };
 
-    setDashboard({ cards, recentRegistrations: response.recentRegistrations || [], alerts: response.alerts || [] });
+    let recentRegistrations = (response.recentUsers || response.recentRegistrations || []).map((u) => normalizeUser(u));
+    if (recentRegistrations.length === 0) {
+      const recent = await adminFetch<PanelUser[]>('/api/admin/recent-users').catch(() => [] as PanelUser[]);
+      recentRegistrations = recent.map((u) => normalizeUser(u));
+    }
+
+    setDashboard({ cards, recentRegistrations, alerts: response.alerts || [] });
   };
 
-  const loadUsers = async () => {
-    const response = await adminFetch<{ success?: boolean; users?: PanelUser[]; data?: PanelUser[] } | PanelUser[]>('/api/admin/users');
+  const loadUsers = async (filters?: { search?: string; role?: string; status?: string }) => {
+    const params = new URLSearchParams();
+    const search = (filters?.search ?? searchTerm).trim();
+    const role = filters?.role ?? roleFilter;
+    const status = filters?.status ?? statusFilter;
+
+    if (search) params.set('search', search);
+    if (role && role !== 'all') params.set('role', role);
+    if (status && status !== 'all') params.set('status', status);
+
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const response = await adminFetch<{ success?: boolean; users?: PanelUser[]; data?: PanelUser[] } | PanelUser[]>(`/api/admin/users${suffix}`);
     if (Array.isArray(response)) {
       setUsers(response.map((u) => normalizeUser(u)));
       return;
@@ -298,18 +400,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       totalConsultations?: number;
       revenue?: number;
       satisfaction?: number;
+      dailyConsultations?: Array<{ date: string; count: number }>;
+      monthlyGrowth?: Array<{ month: string; count: number }>;
+      revenueTrend?: Array<{ month: string; value: number }>;
     }>('/api/admin/analytics');
     if (response.analytics) {
       setAnalytics(response.analytics);
       return;
     }
 
+    const specializations = await adminFetch<Array<{ name: string; count: number; doctors?: Array<{ id?: number; name: string; email: string }> }>>('/api/admin/specializations').catch(() => [] as Array<{ name: string; count: number; doctors?: Array<{ id?: number; name: string; email: string }> }>);
+
     setAnalytics({
       totalConsultations: Number(response.totalConsultations || 0),
       revenue: Number(response.revenue || 0),
       patientSatisfaction: Number(response.satisfaction || 0),
       consultationTrends: [],
-      topSpecializations: [],
+      dailyConsultations: response.dailyConsultations || [],
+      monthlyGrowth: response.monthlyGrowth || [],
+      revenueTrend: response.revenueTrend || [],
+      topSpecializations: specializations.map((s) => ({ specialization: s.name, count: s.count, doctors: s.doctors || [] })),
     });
   };
 
@@ -331,6 +441,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   useEffect(() => {
     refreshAll();
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      Promise.all([loadDashboard(), loadAnalytics()]).catch(() => {
+        // Silent background refresh.
+      });
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [searchTerm, roleFilter, statusFilter]);
 
   useEffect(() => {
     let socket: SocketLike | null = null;
@@ -470,9 +589,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const updateStatus = async (user: PanelUser, status: UserStatus) => {
     setBusy(true);
     try {
-      await adminFetch('/api/admin/users/' + user.id + '/status', {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
+      await adminFetch('/api/admin/users/' + user.id + '/status?status=' + encodeURIComponent(status), {
+        method: 'PUT',
       });
       await loadUsers();
       await loadDashboard();
@@ -506,6 +624,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     }
   };
 
+  const savePlatformSettings = async () => {
+    setBusy(true);
+    try {
+      const updated = await saveSettings(settingsForm);
+      setSettingsForm({
+        platform_name: updated.platform_name,
+        support_email: updated.support_email,
+        session_timeout: updated.session_timeout,
+        max_login_attempts: updated.max_login_attempts,
+      });
+      addToast('Platform settings saved successfully', 'success');
+    } catch (error: unknown) {
+      addToast(getErrorMessage(error) || 'Failed to save settings', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const analyticsVideo = analytics?.consultationTrends.find((entry: { type: string; count: number }) => entry.type === 'video')?.count || 0;
   const analyticsKiosk = analytics?.consultationTrends.find((entry: { type: string; count: number }) => entry.type === 'kiosk')?.count || 0;
   const totalTrend = analyticsVideo + analyticsKiosk;
@@ -519,12 +655,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       user.name.toLowerCase().includes(term) ||
       user.email.toLowerCase().includes(term);
     const matchesRole = roleFilter === 'all' ? true : user.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesStatus = statusFilter === 'all' ? true : user.status === statusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
   const paginatedUsers = filteredUsers.slice((safePage - 1) * USERS_PER_PAGE, safePage * USERS_PER_PAGE);
+  const doctorCount = users.filter((u) => u.role === 'doctor').length;
+  const patientCount = users.filter((u) => u.role === 'patient').length;
+  const pharmacyCount = users.filter((u) => u.role === 'pharmacy').length;
+  const hoveredSpecializationDetails = (analytics?.topSpecializations || []).find((s) => s.specialization === hoveredSpecialization);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white">
@@ -547,8 +688,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               <Shield className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Admin Panel</h1>
-              <p className="text-sm opacity-80">System Administration • MedTech</p>
+              <h1 className="text-2xl font-bold tracking-tight">{settings.platform_name} Admin Panel</h1>
+              <p className="text-sm opacity-80">System Administration • {settings.platform_name}</p>
             </div>
           </div>
 
@@ -600,7 +741,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 <Card title="Total Users" value={<span>{dashboard?.cards.totalUsers || 0}</span>} icon={Users} gradient="bg-gradient-to-r from-[#ff7ab6] to-[#ff6a88]" meta="Live from users table" />
                 <Card title="Active Doctors" value={<span>{dashboard?.cards.activeDoctors || 0}</span>} icon={Activity} gradient="bg-gradient-to-r from-[#34d399] to-[#10b981]" meta="role=doctor & status=active" />
                 <Card title="Daily Consultations" value={<span>{dashboard?.cards.dailyConsultations || 0}</span>} icon={TrendingUp} gradient="bg-gradient-to-r from-[#7c3aed] to-[#4f46e5]" meta="Today" />
-                <Card title="System Uptime" value={<span>{Math.floor((dashboard?.cards.systemUptime || 0) / 3600)}h</span>} icon={Globe} gradient="bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" meta="Node process uptime" />
+                <Card title="Total Visitors" value={<span>{(dashboard?.cards.totalVisitors || 0).toLocaleString()}</span>} icon={Globe} gradient="bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" meta="Site traffic tracker" />
+              </motion.div>
+
+              <motion.div className="grid md:grid-cols-3 gap-4 mb-6" variants={fadeInUp} initial="hidden" animate="visible">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-900/20 px-4 py-3">
+                  <div className="text-sm text-emerald-200/90">Doctors</div>
+                  <div className="text-2xl font-bold text-emerald-200">{doctorCount}</div>
+                </div>
+                <div className="rounded-xl border border-blue-500/30 bg-blue-900/20 px-4 py-3">
+                  <div className="text-sm text-blue-200/90">Patients</div>
+                  <div className="text-2xl font-bold text-blue-200">{patientCount}</div>
+                </div>
+                <div className="rounded-xl border border-purple-500/30 bg-purple-900/20 px-4 py-3">
+                  <div className="text-sm text-purple-200/90">Pharmacies</div>
+                  <div className="text-2xl font-bold text-purple-200">{pharmacyCount}</div>
+                </div>
               </motion.div>
 
               <motion.div className="grid lg:grid-cols-2 gap-6 mb-6" variants={fadeInUp} initial="hidden" animate="visible">
@@ -608,10 +764,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                   <h2 className="text-xl font-semibold mb-4">Recent User Registrations</h2>
                   <div className="space-y-3">
                     {(dashboard?.recentRegistrations || []).map((u: PanelUser) => (
-                      <motion.div key={u.id} whileHover={{ scale: 1.01 }} className="flex items-center justify-between p-3 rounded-lg bg-white/4">
-                        <div>
-                          <div className="font-medium">{u.name}</div>
+                      <motion.div
+                        key={u.id}
+                        whileHover={{ y: -2, scale: 1.01 }}
+                        className="flex items-center justify-between p-3 rounded-xl border border-white/10 bg-white/4 hover:bg-white/8 hover:border-cyan-300/40 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={u.profile_pic || u.picture || '/default-avatar.png'}
+                            alt={u.name}
+                            className="w-10 h-10 rounded-full object-cover border border-white/20"
+                          />
+                          <div>
+                          <div className="font-medium tracking-wide">{u.name}</div>
                           <div className="text-sm opacity-80">{roleLabel(u.role)} • {u.location || 'India'}</div>
+                          </div>
                         </div>
                         <div className="text-sm opacity-70">{formatRelative(u.created_at)}</div>
                       </motion.div>
@@ -641,80 +808,106 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                   <h2 className="text-2xl font-semibold">User Management</h2>
                   <div className="flex flex-wrap items-center gap-3">
                     <input
-                      className="bg-white/5 px-3 py-2 rounded-md text-white w-64 max-w-full"
-                      type="text"
-                      placeholder="Search by name, email..."
-                      value={searchTerm}
-                      onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        setPage(1);
-                      }}
-                    />
+  className="bg-white/5 px-3 py-2 rounded-md text-white w-64 max-w-full 
+             border border-white/10 
+             placeholder-gray-400 
+             outline-none focus:outline-none focus-visible:outline-none
+             focus:ring-2 focus:ring-blue-500 
+             focus:ring-offset-2 focus:ring-offset-[#0f172a]
+             focus:border-blue-500 transition-all duration-200"
+  type="text"
+  placeholder="Search by name, email..."
+  value={searchTerm}
+  onChange={(e) => {
+    setSearchTerm(e.target.value);
+    setPage(1);
+  }}
+/>
                     <select
-                      className="bg-black px-3 py-2 rounded-md text-white"
-                      value={roleFilter}
+  className="bg-[#0f172a] px-3 py-2 rounded-md text-white border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  value={roleFilter}
+  onChange={(e) => {
+    const next = e.target.value as 'all' | UserRole;
+    setRoleFilter(next);
+    setPage(1);
+  }}
+>
+  <option value="all" className="bg-[#0f172a] text-white">All Roles</option>
+  <option value="patient" className="bg-[#0f172a] text-white">Patient</option>
+  <option value="doctor" className="bg-[#0f172a] text-white">Doctor</option>
+  <option value="pharmacy" className="bg-[#0f172a] text-white">Pharmacy</option>
+</select>
+                    <select
+                      className="bg-[#0f172a] px-3 py-2 rounded-md text-white border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={statusFilter}
                       onChange={(e) => {
-                        const next = e.target.value as 'all' | UserRole;
-                        setRoleFilter(next);
+                        const next = e.target.value as 'all' | UserStatus;
+                        setStatusFilter(next);
                         setPage(1);
                       }}
                     >
-                      <option value="all">All Roles</option>
-                      <option value="patient">Patient</option>
-                      <option value="doctor">Doctor</option>
-                      <option value="pharmacy">Pharmacy</option>
+                      <option value="all" className="bg-[#0f172a] text-white">All Status</option>
+                      <option value="active" className="bg-[#0f172a] text-white">Active</option>
+                      <option value="inactive" className="bg-[#0f172a] text-white">Suspended</option>
+                      <option value="pending" className="bg-[#0f172a] text-white">Pending</option>
                     </select>
-                    <button
-                      className="px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]"
-                      onClick={() => {
-                        setPage(1);
-                        loadUsers();
-                      }}
-                    >
-                      Search Users
-                    </button>
+                 <button
+  className="px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6] 
+             text-white 
+             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#0f172a]"
+  onClick={() => {
+    setPage(1);
+    loadUsers({
+      search: searchTerm,
+      role: roleFilter,
+      status: statusFilter,
+    });
+  }}
+>
+  Search Users
+</button>
                   </div>
                 </div>
               </motion.div>
 
-              <motion.div className="bg-white/6 rounded-2xl shadow-xl p-4" variants={fadeInUp} initial="hidden" animate="visible">
+              <motion.div className="bg-white/6 rounded-2xl shadow-xl p-4 border border-white/10" variants={fadeInUp} initial="hidden" animate="visible">
                 <div className="overflow-x-auto overflow-y-auto max-h-[28rem] rounded-xl">
-                  <table className="min-w-full text-left table-auto">
+                  <table className="min-w-full text-left table-auto border-separate border-spacing-0">
                     <thead className="sticky top-0 bg-[#0f172a]/95 backdrop-blur">
                     <tr className="text-sm text-white/80">
-                      <th className="px-4 py-3">Name</th>
-                      <th className="px-4 py-3">Role</th>
-                      <th className="px-4 py-3">Location</th>
-                      <th className="px-4 py-3">Join Date</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Actions</th>
+                      <th className="px-4 py-3 border-b border-white/15">Name</th>
+                      <th className="px-4 py-3 border-b border-white/15">Role</th>
+                      <th className="px-4 py-3 border-b border-white/15">Location</th>
+                      <th className="px-4 py-3 border-b border-white/15">Join Date</th>
+                      <th className="px-4 py-3 border-b border-white/15">Status</th>
+                      <th className="px-4 py-3 border-b border-white/15">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
                     {paginatedUsers.map((u: PanelUser) => (
-                      <tr key={u.id} className="odd:bg-white/3 hover:bg-white/5 transition">
-                        <td className="px-4 py-3">
+                      <tr key={u.id} className="odd:bg-white/3 hover:bg-white/6 transition">
+                        <td className="px-4 py-3 border-b border-white/10">
                           <div className="font-medium">{u.name || 'Unknown User'}</div>
                           <div className="text-xs opacity-75">{u.email || '-'}</div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 border-b border-white/10">
                           <span className={`text-sm px-2 py-1 rounded ${roleBadgeClass(u.role)}`}>{roleLabel(u.role)}</span>
                         </td>
-                        <td className="px-4 py-3 text-sm opacity-90">{u.location || 'India'}</td>
-                        <td className="px-4 py-3 text-sm opacity-80">{u.joinDate}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-sm opacity-90 border-b border-white/10">{u.location || 'India'}</td>
+                        <td className="px-4 py-3 text-sm opacity-80 border-b border-white/10">{u.joinDate}</td>
+                        <td className="px-4 py-3 border-b border-white/10">
                           <span className={`text-sm px-2 py-1 rounded ${statusBadgeClass(u.status || 'inactive')}`}>
                             {u.status || 'inactive'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 border-b border-white/10">
                           <div className="flex gap-3 text-sm">
                             <button className="underline" onClick={() => openUserModal(u, 'view')}>View</button>
                             <button className="underline" onClick={() => openUserModal(u, 'edit')}>Edit</button>
                             {u.status === 'pending' && <button className="underline text-emerald-300" onClick={() => updateStatus(u, 'active')}>Approve</button>}
-                            {u.status === 'suspended'
+                            {u.status === 'inactive' || u.status === 'suspended'
                               ? <button className="underline text-emerald-300" onClick={() => updateStatus(u, 'active')}>Activate</button>
-                              : <button className="underline text-red-300" onClick={() => updateStatus(u, 'suspended')}>Suspend</button>}
+                              : <button className="underline text-red-300" onClick={() => updateStatus(u, 'inactive')}>Suspend</button>}
                           </div>
                         </td>
                       </tr>
@@ -751,17 +944,36 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               <motion.div className="mt-6 bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
                 <h3 className="text-lg font-semibold mb-4">Create / Invite User</h3>
                 <form className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4" onSubmit={sendInvite}>
-                  <input
-                    className="px-4 py-3 rounded-md bg-white/5"
-                    placeholder="Invite email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
-                  <select className="px-4 py-3 rounded-md bg-white/5" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as UserRole)}>
-                    <option value="patient">Patient</option>
-                    <option value="doctor">Doctor</option>
-                    <option value="pharmacy">Pharmacy</option>
-                  </select>
+                 <input
+  className="px-4 py-3 rounded-md 
+             bg-white/5 text-white 
+             placeholder-gray-400 
+             border border-white/10 
+             outline-none focus:outline-none focus-visible:outline-none
+             focus:ring-2 focus:ring-blue-500 
+             focus:ring-offset-2 focus:ring-offset-[#0f172a]
+             focus:border-blue-500 
+             transition-all duration-200"
+  placeholder="Invite email"
+  value={inviteEmail}
+  onChange={(e) => setInviteEmail(e.target.value)}
+/>
+                 <select
+  className="px-4 py-3 rounded-md 
+             bg-[#0f172a] text-white 
+             border border-white/10 
+             outline-none focus:outline-none focus-visible:outline-none
+             focus:ring-2 focus:ring-blue-500 
+             focus:ring-offset-2 focus:ring-offset-[#0f172a]
+             focus:border-blue-500 
+             transition-all duration-200"
+  value={inviteRole}
+  onChange={(e) => setInviteRole(e.target.value as UserRole)}
+>
+  <option value="patient" className="bg-[#0f172a] text-white">Patient</option>
+  <option value="doctor" className="bg-[#0f172a] text-white">Doctor</option>
+  <option value="pharmacy" className="bg-[#0f172a] text-white">Pharmacy</option>
+</select>
                   <div className="flex items-center gap-3">
                     <button type="submit" className="px-4 py-2 rounded-md bg-gradient-to-r from-[#7c3aed] to-[#ef4444]">Invite</button>
                     <button type="button" onClick={() => { setInviteEmail(''); setInviteRole('patient'); }} className="px-4 py-2 rounded-md bg-white/5">Clear</button>
@@ -791,9 +1003,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
                 <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
                   <h3 className="font-semibold mb-4">Top Specializations</h3>
-                  <div className="space-y-3">
-                    {(analytics?.topSpecializations || []).slice(0, 5).map((s: { specialization: string; count: number }, i: number) => (
-                      <div key={i} className="flex justify-between items-center">
+                  <div className="space-y-3 relative">
+                    {(analytics?.topSpecializations || []).slice(0, 5).map((s: SpecializationItem, i: number) => (
+                      <div
+                        key={i}
+                        className="flex justify-between items-center rounded-lg px-3 py-2 hover:bg-white/8 cursor-default"
+                        onMouseEnter={() => setHoveredSpecialization(s.specialization)}
+                        onMouseLeave={() => setHoveredSpecialization((curr) => (curr === s.specialization ? null : curr))}
+                      >
                         <div>
                           <div className="font-medium">{s.specialization || 'General'}</div>
                           <div className="text-sm opacity-80">{s.count} consultations</div>
@@ -801,6 +1018,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                         <div className="font-bold text-emerald-300">{analytics?.totalConsultations ? Math.round((s.count / analytics.totalConsultations) * 100) : 0}%</div>
                       </div>
                     ))}
+
+                    {hoveredSpecialization && hoveredSpecializationDetails && (
+                      <div className="absolute right-2 top-2 w-72 rounded-xl border border-cyan-400/30 bg-[#071327]/95 backdrop-blur p-3 shadow-2xl z-20">
+                        <div className="font-semibold text-cyan-200 mb-2">{hoveredSpecialization} Doctors</div>
+                        {(hoveredSpecializationDetails.doctors || []).length === 0 ? (
+                          <div className="text-sm opacity-80">No doctors found</div>
+                        ) : (
+                          <div className="space-y-2 max-h-44 overflow-auto">
+                            {hoveredSpecializationDetails.doctors.map((doc, idx) => (
+                              <div key={doc.id || idx} className="text-sm border-b border-white/10 pb-1">
+                                <div className="font-medium">{doc.name}</div>
+                                <div className="opacity-80">{doc.email}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -814,9 +1049,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                   <h3 className="font-semibold mb-4">General Settings</h3>
                   <div className="space-y-4">
                     <label className="block text-sm opacity-90">Platform Name</label>
-                    <input defaultValue="HealthConnect" className="w-full px-4 py-3 rounded-md bg-white/5 focus:ring-2 focus:ring-pink-400" />
+                    <input
+                      value={settingsForm.platform_name}
+                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, platform_name: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-md bg-white/5 focus:ring-2 focus:ring-pink-400"
+                    />
                     <label className="block text-sm opacity-90">Support Email</label>
-                    <input defaultValue="support@healthconnect.in" className="w-full px-4 py-3 rounded-md bg-white/5 focus:ring-2 focus:ring-cyan-400" />
+                    <input
+                      value={settingsForm.support_email}
+                      onChange={(e) => setSettingsForm((prev) => ({ ...prev, support_email: e.target.value }))}
+                      className="w-full px-4 py-3 rounded-md bg-white/5 focus:ring-2 focus:ring-cyan-400"
+                    />
                   </div>
                 </div>
 
@@ -825,13 +1068,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm opacity-90">Session Timeout (minutes)</label>
-                      <input type="number" defaultValue={30} className="w-full px-4 py-3 rounded-md bg-white/5" />
+                      <input
+                        type="number"
+                        value={settingsForm.session_timeout}
+                        onChange={(e) => setSettingsForm((prev) => ({ ...prev, session_timeout: Number(e.target.value || 1) }))}
+                        className="w-full px-4 py-3 rounded-md bg-white/5"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm opacity-90">Max Login Attempts</label>
-                      <input type="number" defaultValue={5} className="w-full px-4 py-3 rounded-md bg-white/5" />
+                      <input
+                        type="number"
+                        value={settingsForm.max_login_attempts}
+                        onChange={(e) => setSettingsForm((prev) => ({ ...prev, max_login_attempts: Number(e.target.value || 1) }))}
+                        className="w-full px-4 py-3 rounded-md bg-white/5"
+                      />
                     </div>
                   </div>
+                  <button onClick={savePlatformSettings} className="mt-6 px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]">
+                    Save Settings
+                  </button>
                 </div>
               </motion.div>
             </motion.section>
@@ -854,20 +1110,34 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 <div><span className="opacity-70">Role:</span> {roleLabel(selectedUser.role)}</div>
                 <div><span className="opacity-70">Gender:</span> {selectedUser.gender || 'Not specified'}</div>
                 <div><span className="opacity-70">Blood Group:</span> {selectedUser.blood_group || selectedUser.bloodgroup || 'Not specified'}</div>
+                {selectedUser.role === 'doctor' && (
+                  <div><span className="opacity-70">Specialized In:</span> {selectedUser.specialization || 'Not specified'}</div>
+                )}
+                <div><span className="opacity-70">Phone:</span> {selectedUser.phone || 'Not specified'}</div>
+                <div><span className="opacity-70">DOB:</span> {selectedUser.dob || 'Not specified'}</div>
                 <div><span className="opacity-70">Status:</span> {selectedUser.status || 'inactive'}</div>
                 <div><span className="opacity-70">Location:</span> {selectedUser.location || 'India'}</div>
                 <div><span className="opacity-70">Joined:</span> {selectedUser.joinDate || formatDate(selectedUser.created_at)}</div>
               </div>
             ) : (
               <div className="space-y-3">
-                <input className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.name} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, name: e.target.value }))} />
-                <input className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.email} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, email: e.target.value }))} />
-                <input className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.location} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, location: e.target.value }))} />
-                <select className="w-full px-4 py-3 rounded-md bg-white/5" value={editForm.role} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, role: e.target.value as UserRole }))}>
-                  <option value="patient">Patient</option>
-                  <option value="doctor">Doctor</option>
-                  <option value="pharmacy">Pharmacy</option>
-                </select>
+                <input className="w-full px-4 py-3 rounded-md bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500" value={editForm.name} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, name: e.target.value }))} />
+                <input className="w-full px-4 py-3 rounded-md bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500" value={editForm.email} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, email: e.target.value }))} />
+                <input className="w-full px-4 py-3 rounded-md bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500" value={editForm.location} onChange={(e) => setEditForm((p: EditForm) => ({ ...p, location: e.target.value }))} />
+                <select
+  className="w-full px-4 py-3 rounded-md bg-white/5 text-white border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  value={editForm.role}
+  onChange={(e) =>
+    setEditForm((p: EditForm) => ({
+      ...p,
+      role: e.target.value as UserRole,
+    }))
+  }
+>
+  <option value="patient" className="bg-[#0f172a] text-white">Patient</option>
+  <option value="doctor" className="bg-[#0f172a] text-white">Doctor</option>
+  <option value="pharmacy" className="bg-[#0f172a] text-white">Pharmacy</option>
+</select>
                 <div className="flex gap-3">
                   <button className="px-4 py-2 rounded-md bg-gradient-to-r from-[#34d399] to-[#10b981]" onClick={submitUserEdit}>Save</button>
                   <button className="px-4 py-2 rounded-md bg-white/10" onClick={() => setShowModal(false)}>Cancel</button>

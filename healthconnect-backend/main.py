@@ -312,6 +312,9 @@ try:
                     if 'dob' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN dob VARCHAR"))
                         added.append('dob')
+                    if 'location' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR"))
+                        added.append('location')
                     if 'phone' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR"))
                         added.append('phone')
@@ -412,6 +415,9 @@ try:
                     if 'status' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR"))
                         added.append('status')
+                    if 'location' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR"))
+                        added.append('location')
                     conn.commit()
                     if added:
                         print(f"[startup] Added missing user reset columns (postgres): {added}")
@@ -421,6 +427,26 @@ try:
                 print("[startup] Non-sqlite/non-postgres DB detected — run Alembic migrations to update schema if needed.")
         except Exception as e:
             print(f"[startup] Failed to ensure user columns: {e}")
+
+        # Force activate selected users for admin recovery scenarios.
+        try:
+            force_activate_emails = [
+                "pradeepkumarawasthi67@gmail.com",
+                "pradeepka.ic.24@nitj.ac.in",
+                "pawasthi063@gmail.com",
+            ]
+            db = SessionLocal()
+            try:
+                for email in force_activate_emails:
+                    user = db.query(User).filter(User.email == email).first()
+                    if user and hasattr(user, "status"):
+                        user.status = "active"
+                db.commit()
+                print("[startup] Forced active status for configured users")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[startup] Failed to force activate configured users: {e}")
 
 except Exception as e:
     print(f"[startup] Warning: create_all failed or skipped: {e}")

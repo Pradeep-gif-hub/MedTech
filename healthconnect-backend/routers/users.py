@@ -312,6 +312,9 @@ async def google_login(
         )
         print(f"[GOOGLE_LOGIN] Extracted email={email}, name={name}, google_id={google_id}")
 
+        if str(getattr(user, "status", "active") or "active").lower() in {"inactive", "suspended"}:
+            raise HTTPException(status_code=403, detail="Your account is suspended by admin")
+
         should_commit = False
         meta = _get_or_create_auth_meta(db, user)
         if google_id and meta.google_id != google_id:
@@ -539,6 +542,9 @@ async def login(
         if not user:
             # Do not reveal whether email exists
             raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        if str(getattr(user, "status", "active") or "active").lower() in {"inactive", "suspended"}:
+            raise HTTPException(status_code=403, detail="Your account is suspended by admin")
 
         # Verify password
         stored_hash = getattr(user, "password", "") or ""

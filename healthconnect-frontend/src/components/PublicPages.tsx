@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Heart, Users, Activity, Pill, MapPin, Phone, Mail, Globe, CheckCircle, Award, Clock } from 'lucide-react';
 import type { CurrentView } from '../App';
+import { usePlatformSettings } from '../contexts/PlatformSettingsContext';
 
 interface PublicPagesProps {
   page: string;
@@ -9,6 +10,8 @@ interface PublicPagesProps {
 }
 
 const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNavigate }) => {
+  const { settings } = usePlatformSettings();
+
   const renderAbout = () => (
     <div className="space-y-16">
       {/* Mission Section */}
@@ -588,11 +591,12 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
           <div className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <Heart className="h-8 w-8 text-emerald-400" />
-              <span className="text-xl font-bold">HealthConnect</span>
+              <span className="text-xl font-bold">{settings.platform_name}</span>
             </div>
             <p className="text-gray-400 mb-6">
               Revolutionizing healthcare access in rural communities
             </p>
+            <p className="text-gray-400 mb-6">{settings.support_email || 'support@healthconnect.com'}</p>
             <div className="flex justify-center space-x-8">
               <button 
                 onClick={() => onPublicNavigate('about')}
@@ -614,7 +618,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
               </button>
             </div>
             <div className="border-t border-gray-800 mt-8 pt-8">
-              <p className="text-gray-400">&copy; 2025 HealthConnect. All rights reserved.</p>
+              <p className="text-gray-400">&copy; 2025 {settings.platform_name}. All rights reserved.</p>
             </div>
           </div>
         </div>

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -36,6 +38,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
     role = Column(String, nullable=True)
+    location = Column(String, nullable=True)
     dob = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     emergency_contact = Column(String, nullable=True)
@@ -162,3 +165,14 @@ class Feedback(Base):
     prescription = relationship("Prescription", foreign_keys=[prescription_id])
     patient = relationship("User", foreign_keys=[patient_id])
     doctor = relationship("User", foreign_keys=[doctor_id])
+
+
+class PlatformSettings(Base):
+    __tablename__ = "platform_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    platform_name = Column(String, default="MedTech")
+    support_email = Column(String, default="support@healthconnect.com")
+    session_timeout = Column(Integer, default=30)
+    max_login_attempts = Column(Integer, default=5)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

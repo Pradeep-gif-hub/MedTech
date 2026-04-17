@@ -10,6 +10,7 @@ import ProfileCompletion from './components/ProfileCompletion';
 import ResetPassword from './components/ResetPassword';
 import ChatbotPage from './pages/ChatbotPage';
 import { AuthProvider } from './contexts/AuthContext';
+import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 
 export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'unknown';
 export type CurrentView =
@@ -339,9 +340,11 @@ function App() {
   };
 
   return (
-    <AuthProvider>
-      <div className="min-h-screen bg-gray-50">{renderContent()}</div>
-    </AuthProvider>
+    <PlatformSettingsProvider>
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-50">{renderContent()}</div>
+      </AuthProvider>
+    </PlatformSettingsProvider>
   );
 }
 
