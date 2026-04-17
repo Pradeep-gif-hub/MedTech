@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import settings
 import datetime
 import json
+import os
 
 from database import SessionLocal
-from models import Prescription, User
+from models import Prescription, User, Visitor
 
 # Backend deployment fix - reverted to stable version
 # required routers
@@ -260,6 +261,33 @@ def test_email(email: str):
         }
 
 
+def _extract_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host.strip()
+    return "unknown"
+
+
+@app.post("/api/track-visitor")
+def track_visitor(request: Request):
+    ip_address = _extract_client_ip(request)
+
+    if ip_address in {"127.0.0.1", "::1", "localhost", "unknown"}:
+        return {"message": "skipped-local"}
+
+    db = SessionLocal()
+    try:
+        exists = db.query(Visitor).filter(Visitor.ip_address == ip_address).first()
+        if not exists:
+            db.add(Visitor(ip_address=ip_address))
+            db.commit()
+        return {"message": "tracked"}
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def log_email_config_startup():
     print("SMTP_SERVER loaded:", bool(settings.SMTP_SERVER))
@@ -447,6 +475,28 @@ try:
                 db.close()
         except Exception as e:
             print(f"[startup] Failed to force activate configured users: {e}")
+
+        # Enforce single trusted admin account at startup.
+        try:
+            trusted_admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+            if not trusted_admin_email:
+                print("[startup] ADMIN_EMAIL not configured; skipping single-admin enforcement")
+            else:
+                db = SessionLocal()
+                try:
+                    admins = db.query(User).filter(User.role == "admin").all()
+                    updated = 0
+                    for admin in admins:
+                        if (admin.email or "").strip().lower() != trusted_admin_email:
+                            admin.role = "patient"
+                            updated += 1
+                    if updated:
+                        db.commit()
+                    print(f"[startup] Single-admin enforcement completed (downgraded={updated})")
+                finally:
+                    db.close()
+        except Exception as e:
+            print(f"[startup] Failed to enforce single-admin policy: {e}")
 
 except Exception as e:
     print(f"[startup] Warning: create_all failed or skipped: {e}")

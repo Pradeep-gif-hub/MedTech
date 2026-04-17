@@ -68,9 +68,13 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
     name = (user_data.get("name") or "").strip()
     picture = user_data.get("picture")
     google_id = user_data.get("google_id") or user_data.get("sub")
+    requested_role_normalized = (requested_role or "").strip().lower()
 
     if not email:
         raise HTTPException(status_code=401, detail="Google account email is unavailable")
+
+    if requested_role_normalized == "admin":
+        raise HTTPException(status_code=403, detail="Admin login with Google is not allowed")
 
     role = _detect_google_role(email, requested_role=requested_role)
     user = db.query(models.User).filter(models.User.email == email).first()
@@ -83,7 +87,7 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
             email=email,
             role=role,
             password="",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         if hasattr(user, "status"):
@@ -121,6 +125,17 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
         if should_commit:
             db.commit()
             db.refresh(user)
+
+    backfill_changed = False
+    if not getattr(user, "created_at", None):
+        user.created_at = datetime.now(timezone.utc)
+        backfill_changed = True
+    if hasattr(user, "status") and not (getattr(user, "status", "") or "").strip():
+        setattr(user, "status", "active")
+        backfill_changed = True
+    if backfill_changed:
+        db.commit()
+        db.refresh(user)
 
     return user, created_now, google_id, picture, email, name
 
@@ -557,6 +572,17 @@ async def login(
 
         if not verified:
             raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        user_changed = False
+        if not getattr(user, "created_at", None):
+            user.created_at = datetime.now(timezone.utc)
+            user_changed = True
+        if hasattr(user, "status") and not (getattr(user, "status", "") or "").strip():
+            setattr(user, "status", "active")
+            user_changed = True
+        if user_changed:
+            db.commit()
+            db.refresh(user)
 
         # Successful login: return user data
         return {

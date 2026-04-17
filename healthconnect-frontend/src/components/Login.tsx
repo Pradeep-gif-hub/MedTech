@@ -62,6 +62,13 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
     document.title = `${settings.platform_name} ${roleData[selectedRole].title} Login`;
   }, [settings.platform_name, selectedRole]);
 
+  useEffect(() => {
+    if (selectedRole === 'admin' && showSignUp) {
+      setShowSignUp(false);
+      setSignUpStep('form');
+    }
+  }, [selectedRole, showSignUp]);
+
   const roleData: Record<UserRole, { title: string; description: string; icon: JSX.Element; bgColor: string }> = {
     patient: { title: 'Patient', description: 'Access consultations and health records', icon: <Users className="h-6 w-6 text-white" />, bgColor: 'bg-blue-600' },
     doctor: { title: 'Doctor', description: 'Manage consultations and patient care', icon: <Activity className="h-6 w-6 text-white" />, bgColor: 'bg-green-600' },
@@ -753,23 +760,27 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
                         {isSendingOtp ? 'Sending OTP...' : 'Send OTP'}
                       </button>
 
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-gray-300"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                          <span className="px-2 bg-emerald-50 text-gray-500">Or sign up with</span>
-                        </div>
-                      </div>
+                      {selectedRole !== 'admin' && (
+                        <>
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-gray-300"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                              <span className="px-2 bg-emerald-50 text-gray-500">Or sign up with</span>
+                            </div>
+                          </div>
 
-                      <div className="w-full">
-                        <GoogleLogin
-                          onSuccess={handleGoogleSignupSuccess}
-                          onError={handleGoogleError}
-                          text="signup_with"
-                          theme="outline"
-                        />
-                      </div>
+                          <div className="w-full">
+                            <GoogleLogin
+                              onSuccess={handleGoogleSignupSuccess}
+                              onError={handleGoogleError}
+                              text="signup_with"
+                              theme="outline"
+                            />
+                          </div>
+                        </>
+                      )}
 
                       <p className="text-base text-gray-600 mt-4 text-center">
                         Already have an account? 
@@ -883,27 +894,33 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
                   Forgot Password?
                 </button>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-emerald-50 text-gray-500">Or continue with</span>
-                  </div>
-                </div>
+                {selectedRole !== 'admin' && (
+                  <>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-300"></div>
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="px-2 bg-emerald-50 text-gray-500">Or continue with</span>
+                      </div>
+                    </div>
 
-                <div className="w-full">
-                  <GoogleLogin
-                    onSuccess={handleGoogleLoginSuccess}
-                    onError={handleGoogleError}
-                    text="signin"
-                    theme="outline"
-                  />
-                </div>
+                    <div className="w-full">
+                      <GoogleLogin
+                        onSuccess={handleGoogleLoginSuccess}
+                        onError={handleGoogleError}
+                        text="signin"
+                        theme="outline"
+                      />
+                    </div>
+                  </>
+                )}
 
-                <p className="text-sm text-gray-600 mt-4 text-center">
-                  Don't have an account? <button type="button" onClick={() => setShowSignUp(true)} className="text-emerald-600 font-medium">Sign Up</button>
-                </p>
+                {selectedRole !== 'admin' && (
+                  <p className="text-sm text-gray-600 mt-4 text-center">
+                    Don't have an account? <button type="button" onClick={() => setShowSignUp(true)} className="text-emerald-600 font-medium">Sign Up</button>
+                  </p>
+                )}
               </form>
             )}
           </div>

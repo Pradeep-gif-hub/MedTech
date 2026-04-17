@@ -11,6 +11,7 @@ import ResetPassword from './components/ResetPassword';
 import ChatbotPage from './pages/ChatbotPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
+import { buildApiUrl } from './config/api';
 
 export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'unknown';
 export type CurrentView =
@@ -39,6 +40,15 @@ function App() {
   const [publicPage, setPublicPage] = useState<string>('about');
   const [pendingNewUser, setPendingNewUser] = useState<any>(null);
   const [loginNotice, setLoginNotice] = useState<string>('');
+
+  useEffect(() => {
+    fetch(buildApiUrl('/api/track-visitor'), {
+      method: 'POST',
+      keepalive: true,
+    }).catch(() => {
+      // Visitor tracking is best-effort and must not impact user flows.
+    });
+  }, []);
 
   const applyRoleRedirect = (role: UserRole) => {
     if (role === 'unknown') return;

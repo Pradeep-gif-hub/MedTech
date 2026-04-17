@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Shield, Users, Activity, BarChart3, Settings, TrendingUp, Globe, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { API_BASE_URL, buildApiUrl } from '../config/api';
 import { usePlatformSettings } from '../contexts/PlatformSettingsContext';
+
+dayjs.extend(relativeTime);
 
 type SocketLike = {
   on: (eventName: string, callback: (...args: unknown[]) => void) => void;
@@ -154,16 +158,11 @@ const formatDate = (value: string) => {
   if (!value) return '-';
   const dt = new Date(value);
   if (Number.isNaN(dt.getTime())) return '-';
-  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const getRandomDate = () => {
-  const start = new Date('2025-11-20').getTime();
-  const end = new Date('2026-04-17').getTime();
-  return new Date(start + Math.random() * (end - start)).toLocaleDateString('en-IN', {
-    day: '2-digit',
+  return dt.toLocaleDateString('en-IN', {
     month: 'short',
+    day: 'numeric',
     year: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
 };
 
@@ -189,7 +188,7 @@ const normalizeUser = (raw: Partial<PanelUser> & { id?: number | string }): Pane
     location: (raw.location || 'India') as string,
     status: normalizeStatus(raw.status),
     created_at: created,
-    joinDate: created ? formatDate(created) : getRandomDate(),
+    joinDate: created ? formatDate(created) : '-',
     gender: raw.gender,
     blood_group: raw.blood_group,
     bloodgroup: raw.bloodgroup,
@@ -203,16 +202,9 @@ const normalizeUser = (raw: Partial<PanelUser> & { id?: number | string }): Pane
 
 const formatRelative = (value: string) => {
   if (!value) return 'just now';
-  const dt = new Date(value).getTime();
-  if (!dt) return 'just now';
-  const diffMs = Date.now() - dt;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? 's' : ''} ago`;
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return 'just now';
+  return parsed.fromNow();
 };
 
 const roleLabel = (role: UserRole) => role.charAt(0).toUpperCase() + role.slice(1);
