@@ -4,8 +4,11 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 const emailRoutes = require('./src/routes/email');
 const prescriptionsRouter = require('./src/routes/prescriptions');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -61,9 +64,46 @@ app.get('/health', (_req, res) => {
 app.use('/', emailRoutes);
 app.use('/api', emailRoutes);
 app.use('/api/prescriptions', prescriptionsRouter);
+app.use('/api/admin', adminRoutes);
+app.use('/api/v1/admin', adminRoutes);
+
+const transporter = require('nodemailer').createTransport({
+  host: SMTP_SERVER,
+  port: Number.parseInt(SMTP_PORT, 10),
+  secure: false,
+  auth: {
+    user: SMTP_USER,
+    pass: SMTP_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
+
+app.set('mailTransporter', transporter);
+app.set('mailFromName', String(process.env.FROM_NAME || 'MedTech'));
+app.set('mailFromEmail', String(process.env.FROM_EMAIL || 'noreply@medtech.com'));
+app.set('frontendUrl', String(process.env.FRONTEND_URL || 'https://medtech-4rjc.onrender.com'));
 
 async function startServer() {
-  return app.listen(PORT, () => {
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+    },
+  });
+
+  io.on('connection', (socket) => {
+    console.log(`[SERVER][SOCKET] connected: ${socket.id}`);
+    socket.on('disconnect', () => {
+      console.log(`[SERVER][SOCKET] disconnected: ${socket.id}`);
+    });
+  });
+
+  app.set('io', io);
+
+  return server.listen(PORT, () => {
     console.log(`[SERVER] Node email backend listening on port ${PORT}`);
     console.log(`[SERVER] CORS enabled for: ${corsOptions.origin.join(', ')}`);
     console.log('[SERVER] SMTP_SERVER:', SMTP_SERVER || '[missing]');

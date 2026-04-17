@@ -107,6 +107,7 @@ async function adminAuth(req, res, next) {
 }
 
 function formatUser(row) {
+  const profilePic = row.profile_pic || row.picture || row.avatar || null;
   return {
     id: row.id,
     name: row.name,
@@ -115,7 +116,8 @@ function formatUser(row) {
     location: row.location || '',
     status: row.status || 'active',
     created_at: row.created_at,
-    picture: row.picture || row.avatar || null,
+    profile_pic: profilePic,
+    picture: profilePic,
   };
 }
 
@@ -180,17 +182,26 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       getAsync('SELECT COUNT(*) AS count FROM users'),
       getAsync("SELECT COUNT(*) AS count FROM users WHERE role = 'doctor' AND status = 'active'"),
       getAsync("SELECT COUNT(*) AS count FROM consultations WHERE DATE(created_at) = DATE('now', 'localtime')"),
-      allAsync('SELECT id, name, email, role, location, status, created_at FROM users ORDER BY datetime(created_at) DESC LIMIT 5'),
+      allAsync('SELECT id, name, email, role, location, status, created_at, profile_pic, picture, avatar FROM users ORDER BY datetime(created_at) DESC LIMIT 5'),
       allAsync('SELECT id, message, type, created_at FROM alerts ORDER BY datetime(created_at) DESC LIMIT 10'),
     ]);
 
+    const totalUsersValue = Number(totalUsers?.count || 0);
+    const activeDoctorsValue = Number(activeDoctors?.count || 0);
+    const dailyConsultationsValue = Number(dailyConsultations?.count || 0);
+    const uptimeValue = Math.round(process.uptime());
+
     return res.json({
       success: true,
+      totalUsers: totalUsersValue,
+      activeDoctors: activeDoctorsValue,
+      dailyConsultations: dailyConsultationsValue,
+      uptime: uptimeValue,
       cards: {
-        totalUsers: Number(totalUsers?.count || 0),
-        activeDoctors: Number(activeDoctors?.count || 0),
-        dailyConsultations: Number(dailyConsultations?.count || 0),
-        systemUptime: Math.round(process.uptime()),
+        totalUsers: totalUsersValue,
+        activeDoctors: activeDoctorsValue,
+        dailyConsultations: dailyConsultationsValue,
+        systemUptime: uptimeValue,
       },
       recentRegistrations: recentRegistrations.map(formatUser),
       alerts: recentAlerts,
@@ -217,7 +228,7 @@ router.get('/users', adminAuth, async (req, res) => {
     }
 
     const query = `
-      SELECT id, name, email, role, location, status, created_at, picture, avatar
+      SELECT id, name, email, role, location, status, created_at, profile_pic, picture, avatar
       FROM users
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY datetime(created_at) DESC
@@ -228,6 +239,7 @@ router.get('/users', adminAuth, async (req, res) => {
     return res.json({
       success: true,
       users: users.map(formatUser),
+      data: users.map(formatUser),
     });
   } catch (error) {
     console.error('[ADMIN] get users failed:', error.message);
@@ -246,7 +258,7 @@ router.get('/users/:id', adminAuth, async (req, res) => {
     }
 
     const user = await getAsync(
-      'SELECT id, name, email, role, location, status, created_at, phone, age, gender, bloodgroup, allergy, dob, picture, avatar FROM users WHERE id = ?',
+      'SELECT id, name, email, role, location, status, created_at, phone, age, gender, bloodgroup, allergy, dob, profile_pic, picture, avatar FROM users WHERE id = ?',
       [userId]
     );
 
@@ -305,7 +317,7 @@ router.put('/users/:id', adminAuth, async (req, res) => {
 
     await runAsync(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
 
-    const updated = await getAsync('SELECT id, name, email, role, location, status, created_at, picture, avatar FROM users WHERE id = ?', [userId]);
+    const updated = await getAsync('SELECT id, name, email, role, location, status, created_at, profile_pic, picture, avatar FROM users WHERE id = ?', [userId]);
     if (!updated) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -332,7 +344,7 @@ router.patch('/users/:id/status', adminAuth, async (req, res) => {
 
     await runAsync('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, userId]);
 
-    const user = await getAsync('SELECT id, name, email, role, location, status, created_at, picture, avatar FROM users WHERE id = ?', [userId]);
+    const user = await getAsync('SELECT id, name, email, role, location, status, created_at, profile_pic, picture, avatar FROM users WHERE id = ?', [userId]);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -414,12 +426,19 @@ router.get('/analytics', adminAuth, async (req, res) => {
       allAsync('SELECT specialization, COUNT(*) AS count FROM consultations WHERE specialization IS NOT NULL AND TRIM(specialization) != "" GROUP BY specialization ORDER BY count DESC LIMIT 10'),
     ]);
 
+    const totalConsultationsValue = Number(totalConsultations?.count || 0);
+    const revenueValue = Number(totalRevenue?.total || 0);
+    const patientSatisfactionValue = Number(patientSatisfaction?.avgRating || 0);
+
     return res.json({
       success: true,
+      totalConsultations: totalConsultationsValue,
+      revenue: revenueValue,
+      satisfaction: patientSatisfactionValue,
       analytics: {
-        totalConsultations: Number(totalConsultations?.count || 0),
-        revenue: Number(totalRevenue?.total || 0),
-        patientSatisfaction: Number(patientSatisfaction?.avgRating || 0),
+        totalConsultations: totalConsultationsValue,
+        revenue: revenueValue,
+        patientSatisfaction: patientSatisfactionValue,
         consultationTrends,
         topSpecializations,
       },
@@ -443,7 +462,5 @@ router.get('/alerts', adminAuth, async (req, res) => {
   }
 });
 
-module.exports = {
-  adminRouter: router,
-  createAlert,
-};
+module.exports = router;
+module.exports.createAlert = createAlert;

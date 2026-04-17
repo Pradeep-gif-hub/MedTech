@@ -107,6 +107,7 @@ function initializeDatabase() {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT,
           email TEXT UNIQUE NOT NULL,
+          profile_pic TEXT,
           avatar TEXT,
           picture TEXT,
           phone TEXT,
@@ -333,6 +334,7 @@ function initializeDatabase() {
           } else {
             console.log('[DATABASE] ✅ Prescriptions patient email index created');
             try {
+              await ensureUserColumn('profile_pic', 'TEXT');
               await ensureUserColumn('location', 'TEXT');
               await ensureUserColumn("status", "TEXT", "DEFAULT 'active'");
               await seedAdminUser();
@@ -398,18 +400,19 @@ function getUserByGoogleId(googleId) {
  */
 function createUser(userData) {
   return new Promise((resolve, reject) => {
-    const { name, email, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, role, location, status, googleId, password } = userData;
+    const { name, email, profile_pic, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, role, location, status, googleId, password } = userData;
     
     const query = `
       INSERT INTO users (
-        name, email, avatar, picture, phone, age, gender, 
+        name, email, profile_pic, avatar, picture, phone, age, gender,
         bloodgroup, allergy, dob, location, status, role, google_id, password, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `;
 
     const params = [
       name || null,
       email,
+      profile_pic || picture || avatar || null,
       avatar || picture || null,
       picture || null,
       phone || null,
@@ -443,7 +446,7 @@ function createUser(userData) {
  */
 function updateUser(id, userData) {
   return new Promise((resolve, reject) => {
-    const { name, email, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, location, status, role, googleId, password } = userData;
+    const { name, email, profile_pic, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, location, status, role, googleId, password } = userData;
     
     const fields = [];
     const params = [];
@@ -455,6 +458,10 @@ function updateUser(id, userData) {
     if (email !== undefined) {
       fields.push('email = ?');
       params.push(email);
+    }
+    if (profile_pic !== undefined) {
+      fields.push('profile_pic = ?');
+      params.push(profile_pic);
     }
     if (avatar !== undefined || picture !== undefined) {
       fields.push('avatar = ?');

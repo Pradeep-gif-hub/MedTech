@@ -56,7 +56,8 @@ const {
   normalizePrescriptionData,
 } = require('./prescriptionPdfGenerator');
 const prescriptionsRouter = require('./src/routes/prescriptions');
-const { adminRouter, createAlert } = require('./src/routes/admin');
+const adminRoutes = require('./routes/admin');
+const { createAlert } = adminRoutes;
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT || '8000', 10);
@@ -118,7 +119,8 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use('/api/prescriptions', prescriptionsRouter);
-app.use('/api/admin', adminRouter);
+app.use('/api/admin', adminRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // ============ NODEMAILER TRANSPORTER ============
 const transporter = nodemailer.createTransport({
@@ -238,12 +240,14 @@ async function authenticateToken(req, res, next) {
  * Serialize user for response (remove sensitive fields)
  */
 function serializeUser(user) {
+  const profilePic = user.profile_pic || user.picture || user.avatar || null;
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    avatar: user.avatar || user.picture,
-    picture: user.picture,
+    profile_pic: profilePic,
+    avatar: profilePic,
+    picture: profilePic,
     phone: user.phone,
     age: user.age,
     gender: user.gender,
@@ -660,6 +664,7 @@ app.post('/api/users/google-login', async (req, res) => {
         user = await createUser({
           name,
           email,
+          profile_pic: picture,
           avatar: picture,
           picture,
           role: ALLOWED_PUBLIC_ROLES.has(role) ? role : 'patient',
@@ -703,6 +708,22 @@ app.post('/api/users/google-login', async (req, res) => {
           console.error('[GOOGLE-LOGIN] ⚠️ Could not update user with Google ID:', updateError.message);
         }
       }
+
+      if ((!user.profile_pic && picture) || !user.status) {
+        try {
+          await updateUser(user.id, {
+            profile_pic: picture || user.profile_pic || user.picture || user.avatar || null,
+            avatar: picture || user.avatar || null,
+            picture: picture || user.picture || null,
+            status: user.status || 'active',
+          });
+          user = await getUserById(user.id);
+          console.log('[GOOGLE-LOGIN] ✅ Updated existing user profile picture/status');
+        } catch (profileUpdateError) {
+          console.error('[GOOGLE-LOGIN] ⚠️ Could not update existing user profile picture/status:', profileUpdateError.message);
+        }
+      }
+
       console.log('[GOOGLE-LOGIN] ℹ️ Using existing user');
     }
 
@@ -978,9 +999,8 @@ async function startServer() {
     const server = http.createServer(app);
     const io = new Server(server, {
       cors: {
-        origin: corsOptions.origin,
-        methods: corsOptions.methods,
-        credentials: true,
+        origin: '*',
+        methods: ['GET', 'POST'],
       },
     });
 

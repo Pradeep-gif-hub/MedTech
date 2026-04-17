@@ -35,6 +35,7 @@ type PanelUser = {
   location: string;
   status: UserStatus;
   created_at: string;
+  profile_pic?: string | null;
   picture?: string | null;
 };
 
@@ -180,6 +181,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [toasts, setToasts] = useState([] as Toast[]);
 
   const adminEmail = localStorage.getItem('admin_email') || 'pradeep240818@gmail.com';
+  const adminAvatar = localStorage.getItem('admin_profile_pic') || '/default-avatar.png';
 
   const addToast = (message: string, tone: Toast['tone'] = 'info') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -212,19 +214,57 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   };
 
   const loadDashboard = async () => {
-    const response = await adminFetch<{ success: boolean; cards: DashboardPayload['cards']; recentRegistrations: PanelUser[]; alerts: AlertItem[] }>('/api/admin/dashboard');
-    setDashboard({ cards: response.cards, recentRegistrations: response.recentRegistrations, alerts: response.alerts });
+    const response = await adminFetch<{
+      success?: boolean;
+      cards?: DashboardPayload['cards'];
+      totalUsers?: number;
+      activeDoctors?: number;
+      dailyConsultations?: number;
+      uptime?: number;
+      recentRegistrations?: PanelUser[];
+      alerts?: AlertItem[];
+    }>('/api/admin/dashboard');
+
+    const cards = response.cards || {
+      totalUsers: Number(response.totalUsers || 0),
+      activeDoctors: Number(response.activeDoctors || 0),
+      dailyConsultations: Number(response.dailyConsultations || 0),
+      systemUptime: Math.round(Number(response.uptime || 0)),
+    };
+
+    setDashboard({ cards, recentRegistrations: response.recentRegistrations || [], alerts: response.alerts || [] });
   };
 
   const loadUsers = async (nextRole: 'all' | UserRole = roleFilter) => {
     const query = nextRole === 'all' ? '' : `?role=${encodeURIComponent(nextRole)}`;
-    const response = await adminFetch<{ success: boolean; users: PanelUser[] }>(`/api/admin/users${query}`);
-    setUsers(response.users);
+    const response = await adminFetch<{ success?: boolean; users?: PanelUser[]; data?: PanelUser[] } | PanelUser[]>(`/api/admin/users${query}`);
+    if (Array.isArray(response)) {
+      setUsers(response);
+      return;
+    }
+    setUsers(response.users || response.data || []);
   };
 
   const loadAnalytics = async () => {
-    const response = await adminFetch<{ success: boolean; analytics: AnalyticsPayload }>('/api/admin/analytics');
-    setAnalytics(response.analytics);
+    const response = await adminFetch<{
+      success?: boolean;
+      analytics?: AnalyticsPayload;
+      totalConsultations?: number;
+      revenue?: number;
+      satisfaction?: number;
+    }>('/api/admin/analytics');
+    if (response.analytics) {
+      setAnalytics(response.analytics);
+      return;
+    }
+
+    setAnalytics({
+      totalConsultations: Number(response.totalConsultations || 0),
+      revenue: Number(response.revenue || 0),
+      patientSatisfaction: Number(response.satisfaction || 0),
+      consultationTrends: [],
+      topSpecializations: [],
+    });
   };
 
   const refreshAll = async () => {
@@ -266,8 +306,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         return;
       }
 
-      socket = window.io(API_BASE_URL, {
-        transports: ['websocket', 'polling'],
+      const wsEndpoint = (import.meta.env.VITE_WS_URL as string | undefined) || window.location.origin || API_BASE_URL;
+
+      socket = window.io(wsEndpoint, {
+        transports: ['websocket'],
       });
 
       socket.on('new_user', (payloadRaw: unknown) => {
@@ -441,7 +483,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
             <div className="text-sm opacity-90 text-right">
               <div>Signed in as <span className="font-semibold">{adminEmail}</span></div>
             </div>
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-white/10" />
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 bg-white/10">
+              <img src={adminAvatar} alt="Admin" className="w-full h-full object-cover" />
+            </div>
             <button onClick={handleLogout} className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white font-medium shadow hover:scale-[1.02] transition">
               Logout
             </button>
