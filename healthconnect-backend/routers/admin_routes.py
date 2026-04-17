@@ -4,6 +4,7 @@ import os
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
@@ -12,6 +13,10 @@ from passlib.context import CryptContext
 import time
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 LOCAL_TOKEN_PREFIX = "local:"
@@ -87,14 +92,14 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/login")
-def admin_login(credentials: dict, db: Session = Depends(get_db)):
+def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db)):
     configured_email = _admin_email()
     configured_password = _admin_password()
     if not configured_email or not configured_password:
         raise HTTPException(status_code=500, detail="Admin credentials are not configured")
 
-    email = (credentials.get("email") or "").strip().lower()
-    password = (credentials.get("password") or "").strip()
+    email = (request.email or "").strip().lower()
+    password = (request.password or "").strip()
 
     if not secrets.compare_digest(email, configured_email) or not secrets.compare_digest(password, configured_password):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
