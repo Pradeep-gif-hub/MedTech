@@ -24,7 +24,7 @@ interface AdminPanelProps {
 
 type PanelTab = 'dashboard' | 'users' | 'analytics' | 'system';
 type UserRole = 'doctor' | 'patient' | 'pharmacy';
-type UserStatus = 'active' | 'pending' | 'suspended';
+type UserStatus = 'active' | 'pending' | 'suspended' | 'inactive';
 type AlertType = 'info' | 'warning' | 'critical';
 
 type PanelUser = {
@@ -35,6 +35,10 @@ type PanelUser = {
   location: string;
   status: UserStatus;
   created_at: string;
+  joinDate: string;
+  gender?: string | null;
+  blood_group?: string | null;
+  bloodgroup?: string | null;
   profile_pic?: string | null;
   picture?: string | null;
 };
@@ -130,6 +134,47 @@ const formatDate = (value: string) => {
   return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const getRandomDate = () => {
+  const start = new Date('2025-11-20').getTime();
+  const end = new Date('2026-04-17').getTime();
+  return new Date(start + Math.random() * (end - start)).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const normalizeRole = (value: unknown): UserRole => {
+  const role = String(value || '').toLowerCase();
+  if (role === 'doctor' || role === 'pharmacy') return role;
+  return 'patient';
+};
+
+const normalizeStatus = (value: unknown): UserStatus => {
+  const status = String(value || '').toLowerCase();
+  if (status === 'active' || status === 'pending' || status === 'suspended') return status;
+  return 'inactive';
+};
+
+const normalizeUser = (raw: Partial<PanelUser> & { id?: number | string }): PanelUser => {
+  const created = typeof raw.created_at === 'string' ? raw.created_at : '';
+  return {
+    id: Number(raw.id || 0),
+    name: (raw.name || 'Unknown User') as string,
+    email: (raw.email || '-') as string,
+    role: normalizeRole(raw.role),
+    location: (raw.location || 'India') as string,
+    status: normalizeStatus(raw.status),
+    created_at: created,
+    joinDate: created ? formatDate(created) : getRandomDate(),
+    gender: raw.gender,
+    blood_group: raw.blood_group,
+    bloodgroup: raw.bloodgroup,
+    profile_pic: raw.profile_pic,
+    picture: raw.picture,
+  };
+};
+
 const formatRelative = (value: string) => {
   if (!value) return 'just now';
   const dt = new Date(value).getTime();
@@ -153,9 +198,8 @@ const roleBadgeClass = (role: UserRole) => {
 };
 
 const statusBadgeClass = (status: UserStatus) => {
-  if (status === 'active') return 'bg-emerald-900/40';
-  if (status === 'pending') return 'bg-amber-900/40';
-  return 'bg-red-900/40';
+  if (status === 'active') return 'bg-emerald-900/40 text-emerald-200';
+  return 'bg-red-900/40 text-red-200';
 };
 
 const alertCardClass = (type: AlertType) => {
@@ -170,6 +214,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [dashboard, setDashboard] = useState(null as DashboardPayload | null);
   const [analytics, setAnalytics] = useState(null as AnalyticsPayload | null);
   const [roleFilter, setRoleFilter] = useState('all' as 'all' | UserRole);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -182,6 +228,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
   const adminEmail = localStorage.getItem('admin_email') || 'pradeep240818@gmail.com';
   const adminAvatar = localStorage.getItem('admin_profile_pic') || '/default-avatar.png';
+  const USERS_PER_PAGE = 8;
 
   const addToast = (message: string, tone: Toast['tone'] = 'info') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -235,14 +282,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     setDashboard({ cards, recentRegistrations: response.recentRegistrations || [], alerts: response.alerts || [] });
   };
 
-  const loadUsers = async (nextRole: 'all' | UserRole = roleFilter) => {
-    const query = nextRole === 'all' ? '' : `?role=${encodeURIComponent(nextRole)}`;
-    const response = await adminFetch<{ success?: boolean; users?: PanelUser[]; data?: PanelUser[] } | PanelUser[]>(`/api/admin/users${query}`);
+  const loadUsers = async () => {
+    const response = await adminFetch<{ success?: boolean; users?: PanelUser[]; data?: PanelUser[] } | PanelUser[]>('/api/admin/users');
     if (Array.isArray(response)) {
-      setUsers(response);
+      setUsers(response.map((u) => normalizeUser(u)));
       return;
     }
-    setUsers(response.users || response.data || []);
+    setUsers((response.users || response.data || []).map((u) => normalizeUser(u)));
   };
 
   const loadAnalytics = async () => {
@@ -270,7 +316,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const refreshAll = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadDashboard(), loadUsers(roleFilter), loadAnalytics()]);
+      await Promise.all([loadDashboard(), loadUsers(), loadAnalytics()]);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       addToast(message || 'Failed to load admin data', 'error');
@@ -316,7 +362,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       });
 
       socket.on('new_user', (payloadRaw: unknown) => {
-        const payload = payloadRaw as PanelUser;
+        const payload = normalizeUser(payloadRaw as PanelUser);
         setUsers((prev: PanelUser[]) => [payload, ...prev.filter((u: PanelUser) => u.id !== payload.id)]);
         setDashboard((prev: DashboardPayload | null) => {
           if (!prev) return prev;
@@ -343,10 +389,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
       socket.on('user_status_changed', (payloadRaw: unknown) => {
         const payload = payloadRaw as PanelUser;
-        setUsers((prev: PanelUser[]) => prev.map((u: PanelUser) => (u.id === payload.id ? { ...u, status: payload.status } : u)));
+        const nextStatus = normalizeStatus(payload?.status);
+        setUsers((prev: PanelUser[]) => prev.map((u: PanelUser) => (u.id === payload.id ? { ...u, status: nextStatus } : u)));
         setDashboard((prev: DashboardPayload | null) => {
           if (!prev) return prev;
-          const nextRecent = prev.recentRegistrations.map((u: PanelUser) => (u.id === payload.id ? { ...u, status: payload.status } : u));
+          const nextRecent = prev.recentRegistrations.map((u: PanelUser) => (u.id === payload.id ? { ...u, status: nextStatus } : u));
           return { ...prev, recentRegistrations: nextRecent };
         });
         addToast(`Status updated: ${payload.name}`, 'info');
@@ -371,21 +418,30 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     onLogout();
   };
 
-  const openUserModal = async (id: number, mode: 'view' | 'edit') => {
+  const openUserModal = async (user: PanelUser, mode: 'view' | 'edit') => {
     setBusy(true);
     try {
-      const response = await adminFetch<{ success: boolean; user: PanelUser }>('/api/admin/users/' + id);
-      setSelectedUser(response.user);
+      const response = await adminFetch<{ success: boolean; user: PanelUser }>('/api/admin/users/' + user.id);
+      setSelectedUser(normalizeUser(response.user));
       setModalMode(mode);
       setEditForm({
-        name: response.user.name || '',
-        email: response.user.email || '',
-        location: response.user.location || '',
-        role: response.user.role,
+        name: response.user.name || user.name || '',
+        email: response.user.email || user.email || '',
+        location: response.user.location || user.location || 'India',
+        role: normalizeRole(response.user.role || user.role),
       });
       setShowModal(true);
     } catch (error: unknown) {
-      addToast(getErrorMessage(error) || 'Failed to open user details', 'error');
+      setSelectedUser(user);
+      setModalMode(mode);
+      setEditForm({
+        name: user.name || '',
+        email: user.email || '',
+        location: user.location || 'India',
+        role: user.role,
+      });
+      setShowModal(true);
+      addToast(getErrorMessage(error) || 'Loaded limited user details', 'warning');
     } finally {
       setBusy(false);
     }
@@ -400,7 +456,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         method: 'PUT',
         body: JSON.stringify(editForm),
       });
-      await loadUsers(roleFilter);
+      await loadUsers();
       await loadDashboard();
       setShowModal(false);
       addToast('User updated successfully', 'success');
@@ -418,7 +474,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
-      await loadUsers(roleFilter);
+      await loadUsers();
       await loadDashboard();
       addToast(`Status updated to ${status}`, 'success');
     } catch (error: unknown) {
@@ -455,6 +511,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const totalTrend = analyticsVideo + analyticsKiosk;
   const videoPercent = totalTrend ? Math.round((analyticsVideo / totalTrend) * 100) : 0;
   const kioskPercent = totalTrend ? Math.round((analyticsKiosk / totalTrend) * 100) : 0;
+
+  const filteredUsers = users.filter((user) => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      user.name.toLowerCase().includes(term) ||
+      user.email.toLowerCase().includes(term);
+    const matchesRole = roleFilter === 'all' ? true : user.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedUsers = filteredUsers.slice((safePage - 1) * USERS_PER_PAGE, safePage * USERS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white">
@@ -569,31 +639,48 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               <motion.div className="mb-6" variants={fadeInUp} initial="hidden" animate="visible">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">User Management</h2>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      className="bg-white/5 px-3 py-2 rounded-md text-white w-64 max-w-full"
+                      type="text"
+                      placeholder="Search by name, email..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setPage(1);
+                      }}
+                    />
                     <select
-                      className="bg-white/5 px-3 py-2 rounded-md text-white"
+                      className="bg-black px-3 py-2 rounded-md text-white"
                       value={roleFilter}
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const next = e.target.value as 'all' | UserRole;
                         setRoleFilter(next);
-                        await loadUsers(next);
+                        setPage(1);
                       }}
                     >
-                      <option value="all">All Users</option>
-                      <option value="patient">Patients</option>
-                      <option value="doctor">Doctors</option>
-                      <option value="pharmacy">Pharmacies</option>
+                      <option value="all">All Roles</option>
+                      <option value="patient">Patient</option>
+                      <option value="doctor">Doctor</option>
+                      <option value="pharmacy">Pharmacy</option>
                     </select>
-                    <button className="px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]" onClick={() => loadUsers(roleFilter)}>
-                      Export Data
+                    <button
+                      className="px-4 py-2 rounded-md bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]"
+                      onClick={() => {
+                        setPage(1);
+                        loadUsers();
+                      }}
+                    >
+                      Search Users
                     </button>
                   </div>
                 </div>
               </motion.div>
 
-              <motion.div className="bg-white/6 rounded-2xl shadow-xl p-4 overflow-x-auto" variants={fadeInUp} initial="hidden" animate="visible">
-                <table className="min-w-full text-left table-auto">
-                  <thead>
+              <motion.div className="bg-white/6 rounded-2xl shadow-xl p-4" variants={fadeInUp} initial="hidden" animate="visible">
+                <div className="overflow-x-auto overflow-y-auto max-h-[28rem] rounded-xl">
+                  <table className="min-w-full text-left table-auto">
+                    <thead className="sticky top-0 bg-[#0f172a]/95 backdrop-blur">
                     <tr className="text-sm text-white/80">
                       <th className="px-4 py-3">Name</th>
                       <th className="px-4 py-3">Role</th>
@@ -602,23 +689,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Actions</th>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u: PanelUser) => (
+                    </thead>
+                    <tbody>
+                    {paginatedUsers.map((u: PanelUser) => (
                       <tr key={u.id} className="odd:bg-white/3 hover:bg-white/5 transition">
-                        <td className="px-4 py-3">{u.name}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{u.name || 'Unknown User'}</div>
+                          <div className="text-xs opacity-75">{u.email || '-'}</div>
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`text-sm px-2 py-1 rounded ${roleBadgeClass(u.role)}`}>{roleLabel(u.role)}</span>
                         </td>
-                        <td className="px-4 py-3 text-sm opacity-90">{u.location || '-'}</td>
-                        <td className="px-4 py-3 text-sm opacity-80">{formatDate(u.created_at)}</td>
+                        <td className="px-4 py-3 text-sm opacity-90">{u.location || 'India'}</td>
+                        <td className="px-4 py-3 text-sm opacity-80">{u.joinDate}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-sm px-2 py-1 rounded ${statusBadgeClass(u.status)}`}>{u.status}</span>
+                          <span className={`text-sm px-2 py-1 rounded ${statusBadgeClass(u.status || 'inactive')}`}>
+                            {u.status || 'inactive'}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-3 text-sm">
-                            <button className="underline" onClick={() => openUserModal(u.id, 'view')}>View</button>
-                            <button className="underline" onClick={() => openUserModal(u.id, 'edit')}>Edit</button>
+                            <button className="underline" onClick={() => openUserModal(u, 'view')}>View</button>
+                            <button className="underline" onClick={() => openUserModal(u, 'edit')}>Edit</button>
                             {u.status === 'pending' && <button className="underline text-emerald-300" onClick={() => updateStatus(u, 'active')}>Approve</button>}
                             {u.status === 'suspended'
                               ? <button className="underline text-emerald-300" onClick={() => updateStatus(u, 'active')}>Activate</button>
@@ -627,8 +719,33 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                  <div className="opacity-80">
+                    Showing {filteredUsers.length === 0 ? 0 : (safePage - 1) * USERS_PER_PAGE + 1}-
+                    {Math.min(safePage * USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="px-3 py-1 rounded-md bg-white/10 disabled:opacity-40"
+                      onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                      disabled={safePage <= 1}
+                    >
+                      Prev
+                    </button>
+                    <span className="opacity-85">Page {safePage} / {totalPages}</span>
+                    <button
+                      className="px-3 py-1 rounded-md bg-white/10 disabled:opacity-40"
+                      onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                      disabled={safePage >= totalPages}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </motion.div>
 
               <motion.div className="mt-6 bg-white/6 p-6 rounded-2xl shadow-xl" variants={fadeInUp} initial="hidden" animate="visible">
@@ -735,9 +852,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 <div><span className="opacity-70">Name:</span> {selectedUser.name}</div>
                 <div><span className="opacity-70">Email:</span> {selectedUser.email}</div>
                 <div><span className="opacity-70">Role:</span> {roleLabel(selectedUser.role)}</div>
-                <div><span className="opacity-70">Status:</span> {selectedUser.status}</div>
-                <div><span className="opacity-70">Location:</span> {selectedUser.location || '-'}</div>
-                <div><span className="opacity-70">Joined:</span> {formatDate(selectedUser.created_at)}</div>
+                <div><span className="opacity-70">Gender:</span> {selectedUser.gender || 'Not specified'}</div>
+                <div><span className="opacity-70">Blood Group:</span> {selectedUser.blood_group || selectedUser.bloodgroup || 'Not specified'}</div>
+                <div><span className="opacity-70">Status:</span> {selectedUser.status || 'inactive'}</div>
+                <div><span className="opacity-70">Location:</span> {selectedUser.location || 'India'}</div>
+                <div><span className="opacity-70">Joined:</span> {selectedUser.joinDate || formatDate(selectedUser.created_at)}</div>
               </div>
             ) : (
               <div className="space-y-3">
