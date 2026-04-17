@@ -9,25 +9,18 @@ export const getAPIBaseUrl = (): string => {
     return 'http://localhost:8000';
   }
 
-  // Production environment - use environment variable if available
+  // Production environment - use environment variable if available.
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {
     const normalized = envUrl.replace(/\/$/, '');
-
-    // Guard against misconfigured production env pointing API to static frontend host.
-    if (normalized.includes('medtech-4rjc.onrender.com')) {
-      const fallbackBackend = 'https://medtech-hcmo.onrender.com';
-      console.warn(`[API Config] VITE_API_URL points to frontend host (${normalized}). Falling back to ${fallbackBackend}`);
-      return fallbackBackend;
-    }
-
     console.log(`[API Config] Using VITE_API_URL: ${normalized}`);
     return normalized;
   }
 
-  // Fallback: never use hardcoded domain, fail loudly
-  console.error('[API Config] ❌ VITE_API_URL is NOT set!');
-  throw new Error('[CRITICAL] VITE_API_URL environment variable is required for production');
+  // Safe production fallback.
+  const browserOrigin = window.location.origin.replace(/\/$/, '');
+  console.warn(`[API Config] VITE_API_URL not set. Falling back to browser origin: ${browserOrigin}`);
+  return browserOrigin;
 };
 
 export const API_BASE_URL = getAPIBaseUrl();

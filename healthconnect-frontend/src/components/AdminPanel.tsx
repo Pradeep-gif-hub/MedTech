@@ -306,7 +306,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         return;
       }
 
-      const wsEndpoint = (import.meta.env.VITE_WS_URL as string | undefined) || window.location.origin || API_BASE_URL;
+      const wsEndpoint =
+        (import.meta.env.VITE_API_URL as string | undefined) ||
+        window.location.origin ||
+        API_BASE_URL;
 
       socket = window.io(wsEndpoint, {
         transports: ['websocket'],
