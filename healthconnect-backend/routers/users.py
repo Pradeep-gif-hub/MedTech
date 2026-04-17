@@ -55,6 +55,76 @@ def _get_or_create_auth_meta(db: Session, user: models.User) -> models.UserAuthM
         return meta
 
 
+def _detect_google_role(email: str, requested_role: str | None = None) -> str:
+    role = (requested_role or "").strip().lower()
+    if role in ["patient", "doctor", "pharmacy"]:
+        return role
+
+    return "patient"
+
+
+def handle_google_login(user_data: dict, db: Session, requested_role: str | None = None):
+    email = (user_data.get("email") or "").strip().lower()
+    name = (user_data.get("name") or "").strip()
+    picture = user_data.get("picture")
+    google_id = user_data.get("google_id") or user_data.get("sub")
+
+    if not email:
+        raise HTTPException(status_code=401, detail="Google account email is unavailable")
+
+    role = _detect_google_role(email, requested_role=requested_role)
+    user = db.query(models.User).filter(models.User.email == email).first()
+    created_now = False
+
+    if not user:
+        print(f"[GOOGLE] Creating NEW user: {email} with role={role}")
+        user = models.User(
+            name=name or None,
+            email=email,
+            role=role,
+            password="",
+            created_at=datetime.utcnow(),
+        )
+
+        if hasattr(user, "status"):
+            setattr(user, "status", "active")
+        if picture and hasattr(user, "profile_picture_url"):
+            setattr(user, "profile_picture_url", picture)
+        if picture and hasattr(user, "profile_pic"):
+            setattr(user, "profile_pic", picture)
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        created_now = True
+    else:
+        print(f"[GOOGLE] Existing user login: {email}")
+        should_commit = False
+
+        # Non-destructive updates only.
+        if not (user.name or "").strip() and name:
+            user.name = name
+            should_commit = True
+
+        if hasattr(user, "status") and not (getattr(user, "status", "") or "").strip():
+            setattr(user, "status", "active")
+            should_commit = True
+
+        if picture and hasattr(user, "profile_picture_url") and not getattr(user, "profile_picture_url", None):
+            setattr(user, "profile_picture_url", picture)
+            should_commit = True
+
+        if picture and hasattr(user, "profile_pic") and not getattr(user, "profile_pic", None):
+            setattr(user, "profile_pic", picture)
+            should_commit = True
+
+        if should_commit:
+            db.commit()
+            db.refresh(user)
+
+    return user, created_now, google_id, picture, email, name
+
+
 @router.get("/email-health")
 def email_health():
     """
@@ -235,106 +305,37 @@ async def google_login(
             print("[GOOGLE_LOGIN] Token payload is empty")
             raise HTTPException(status_code=401, detail="Invalid Google token")
         
-        # Extract user information from Google token
-        email = token_payload.get("email")
-        name = token_payload.get("name")
-        google_id = token_payload.get("google_id") or token_payload.get("sub")
-        picture = token_payload.get("picture")
-        
+        user, created_now, google_id, picture, email, name = handle_google_login(
+            token_payload,
+            db,
+            requested_role=data.get("role"),
+        )
         print(f"[GOOGLE_LOGIN] Extracted email={email}, name={name}, google_id={google_id}")
-        
-        # Check if user exists
-        user = db.query(models.User).filter(models.User.email == email).first()
-        is_new_user = False
-        
-        if not user:
-            print(f"[GOOGLE_LOGIN] New user detected: {email}")
-            is_new_user = True
-            temp_role = data.get("role") or "patient"
-            if temp_role not in ["patient", "doctor", "pharmacy", "admin"]:
-                temp_role = "patient"
 
-            # Persist a temporary Google user so profile completion can update this exact record.
-            user = models.User(
-                email=email,
-                name=name,
-                password="",
-                role=temp_role,
-                profile_picture_url=picture,
-            )
-            db.add(user)
-            db.flush()
+        should_commit = False
+        meta = _get_or_create_auth_meta(db, user)
+        if google_id and meta.google_id != google_id:
+            meta.google_id = google_id
+            should_commit = True
+        if not meta.is_google_user:
+            meta.is_google_user = True
+            should_commit = True
+        if created_now and meta.profile_completed:
+            meta.profile_completed = False
+            should_commit = True
 
-            meta = models.UserAuthMeta(
-                user_id=user.id,
-                google_id=google_id,
-                is_google_user=True,
-                profile_completed=False,
-            )
-            db.add(meta)
+        # If user already has a password and at least one profile field, treat profile as completed.
+        has_password = bool((getattr(user, "password", "") or "").strip())
+        has_profile_data = bool(user.phone or user.dob or user.gender or user.age)
+        if has_password and has_profile_data and not meta.profile_completed:
+            meta.profile_completed = True
+            should_commit = True
+
+        if should_commit:
             db.commit()
             db.refresh(user)
 
-            local_token = build_local_token(user.id)
-            response = {
-                "user": {
-                    "user_id": user.id,
-                    "id": user.id,
-                    "email": email,
-                    "name": name,
-                    "role": temp_role,
-                    "dob": None,
-                    "phone": None,
-                    "age": None,
-                    "gender": None,
-                    "bloodgroup": None,
-                    "abha_id": None,
-                    "allergy": None,
-                    "profile_picture_url": picture,
-                    "google_id": google_id,
-                    "is_google_user": True,
-                    "profile_completed": False,
-                    "picture": picture,
-                    "avatar": picture,
-                    "email_verified": token_payload.get("email_verified"),
-                    "token": local_token,
-                },
-                "is_new_user": True,
-                "token": local_token,
-                "message": "Please complete your profile"
-            }
-            print(f"[GOOGLE_LOGIN] Response: is_new_user=True, email={email}")
-            return response
-        else:
-            print(f"[GOOGLE_LOGIN] Existing user: {user.id}")
-            should_commit = False
-
-            meta = _get_or_create_auth_meta(db, user)
-            if google_id and meta.google_id != google_id:
-                meta.google_id = google_id
-                should_commit = True
-            if not meta.is_google_user:
-                meta.is_google_user = True
-                should_commit = True
-
-            # If user already has a password and at least one profile field, treat profile as completed.
-            has_password = bool((getattr(user, "password", "") or "").strip())
-            has_profile_data = bool(user.phone or user.dob or user.gender or user.age)
-            if has_password and has_profile_data and not meta.profile_completed:
-                meta.profile_completed = True
-                should_commit = True
-
-            # Update profile picture if changed
-            if picture and picture != user.profile_picture_url:
-                user.profile_picture_url = picture
-                print(f"[GOOGLE_LOGIN] Profile picture updated")
-                should_commit = True
-
-            if should_commit:
-                db.commit()
-                db.refresh(user)
-
-            is_new_user = not bool(meta.profile_completed)
+        is_new_user = not bool(meta.profile_completed)
         
         # Return response
         local_token = build_local_token(user.id)

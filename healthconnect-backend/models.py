@@ -46,11 +46,13 @@ class User(Base):
     surgeries = Column(String, nullable=True)
 
     # Patient profile fields
+    status = Column(String, nullable=True, default="active")
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
     bloodgroup = Column(String, nullable=True)
     abha_id = Column(String, nullable=True)
     allergy = Column(String, nullable=True)  # singular allergy field used by frontend
+    profile_pic = Column(String, nullable=True)  # Backward-compatible alias used by admin payloads
     profile_picture_url = Column(String, nullable=True)  # URL to user's profile picture
 
     # Password reset fields used by legacy flows and compatibility checks.

@@ -321,6 +321,12 @@ try:
                     if 'profile_picture_url' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN profile_picture_url VARCHAR"))
                         added.append('profile_picture_url')
+                    if 'profile_pic' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_pic VARCHAR"))
+                        added.append('profile_pic')
+                    if 'status' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR"))
+                        added.append('status')
                     if 'reset_token' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
                         added.append('reset_token')
@@ -400,6 +406,12 @@ try:
                     if 'reset_token_expiry' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry TIMESTAMP"))
                         added.append('reset_token_expiry')
+                    if 'profile_pic' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_pic VARCHAR"))
+                        added.append('profile_pic')
+                    if 'status' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR"))
+                        added.append('status')
                     conn.commit()
                     if added:
                         print(f"[startup] Added missing user reset columns (postgres): {added}")
