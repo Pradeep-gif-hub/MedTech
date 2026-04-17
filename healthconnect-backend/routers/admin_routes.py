@@ -70,18 +70,26 @@ def _ensure_single_admin(db: Session) -> None:
 
 def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
     auth_header = request.headers.get("Authorization") or ""
+    print(f"[ADMIN AUTH] Authorization header: {auth_header[:50] if auth_header else 'MISSING'}...")
+    
     if not auth_header.startswith("Bearer "):
+        print(f"[ADMIN AUTH] ❌ Invalid header format")
         raise HTTPException(status_code=401, detail="Admin authentication required")
 
     token = auth_header.split(" ", 1)[1].strip()
+    print(f"[ADMIN AUTH] Token type: {token[:20] if token else 'EMPTY'}...")
+    
     user = None
 
     if token.startswith(LOCAL_TOKEN_PREFIX):
         raw_user_id = token.replace(LOCAL_TOKEN_PREFIX, "", 1)
+        print(f"[ADMIN AUTH] Extracted user_id: {raw_user_id}")
         if raw_user_id.isdigit():
             user = db.query(User).filter(User.id == int(raw_user_id)).first()
+            print(f"[ADMIN AUTH] User found: {user.email if user else 'NOT FOUND'}, role: {user.role if user else 'N/A'}")
 
     if not user:
+        print(f"[ADMIN AUTH] ❌ User not found or invalid token")
         raise HTTPException(status_code=401, detail="Invalid admin token")
 
     _ensure_single_admin(db)
@@ -233,6 +241,7 @@ def get_settings(db: Session = Depends(get_db), _admin: User = Depends(require_a
 
 @router.put("/settings")
 def update_settings(data: dict, db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
+    print(f"[SETTINGS UPDATE] Admin user: {_admin.email}, role: {_admin.role}")
     settings = _get_or_create_settings(db)
 
     settings.platform_name = data.get("platform_name", settings.platform_name)
@@ -253,6 +262,7 @@ def update_settings(data: dict, db: Session = Depends(get_db), _admin: User = De
 
     db.commit()
     db.refresh(settings)
+    print(f"[SETTINGS UPDATE] ✅ Settings updated successfully")
 
     return {
         "message": "Settings updated successfully",
