@@ -14,6 +14,7 @@ from routers import users
 from routers import otp as otp_router
 from routers import auth as auth_router
 from routers import auth_debug as auth_debug_router
+from routers import admin_routes as admin_router
 
 # optional routers - import if available to avoid import errors during startup
 doctors = None
@@ -181,6 +182,9 @@ async def get_prescription_payload(prescription_id: int):
 # mount users router at both common prefixes to handle frontend path differences
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
+
+# admin routes for dashboard, users and analytics
+app.include_router(admin_router.router)
 
 # dedicated auth routes
 app.include_router(auth_router.router, prefix="/auth", tags=["Auth"])
