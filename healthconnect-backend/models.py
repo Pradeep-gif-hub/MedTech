@@ -184,3 +184,14 @@ class Visitor(Base):
     id = Column(Integer, primary_key=True, index=True)
     ip_address = Column(String, nullable=False, unique=True, index=True)
     visited_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class VisitorCounter(Base):
+    """
+    Global visitor counter - tracks total page visits/refreshes.
+    Used for dashboard statistics.
+    """
+    __tablename__ = "visitor_counter"
+
+    id = Column(Integer, primary_key=True, index=True)
+    total_visits = Column(Integer, default=0, nullable=False)

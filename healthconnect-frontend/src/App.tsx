@@ -50,6 +50,21 @@ function App() {
     });
   }, []);
 
+  // Track total page visits for dashboard counter
+  useEffect(() => {
+    fetch(buildApiUrl('/api/track-visit'), {
+      method: 'POST',
+      keepalive: true,
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log('[App] Total page visits:', data.totalVisitors);
+      })
+      .catch(() => {
+        // Visit tracking is best-effort and must not impact user flows.
+      });
+  }, []);
+
   const applyRoleRedirect = (role: UserRole) => {
     if (role === 'unknown') return;
 

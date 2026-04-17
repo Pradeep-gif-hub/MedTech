@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import User, Consultation, Feedback as Review, PlatformSettings, Visitor
+from models import User, Consultation, Feedback as Review, PlatformSettings, Visitor, VisitorCounter
 from passlib.context import CryptContext
 import time
 
@@ -448,6 +448,8 @@ def get_dashboard(db: Session = Depends(get_db), _admin: User = Depends(require_
         )
 
     total_visitors = db.query(func.count(Visitor.id)).scalar() or 0
+    visitor_counter = db.query(VisitorCounter).first()
+    total_page_visits = visitor_counter.total_visits if visitor_counter else 0
 
     return {
         "totalUsers": total_users or 0,
@@ -455,7 +457,7 @@ def get_dashboard(db: Session = Depends(get_db), _admin: User = Depends(require_
         "patients": patients,
         "pharmacies": pharmacies,
         "dailyConsultations": daily_consultations or 0,
-        "totalVisitors": total_visitors,
+        "totalVisitors": total_page_visits,  # 🔥 Use page visit counter instead of unique IPs
         "recentUsers": [_serialize_user(u) for u in recent_users],
         "recentRegistrations": [_serialize_user(u) for u in recent_users],
         "userGrowth": user_growth,

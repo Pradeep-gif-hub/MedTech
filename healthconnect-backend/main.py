@@ -7,7 +7,7 @@ import json
 import os
 
 from database import SessionLocal
-from models import Prescription, User, Visitor
+from models import Prescription, User, Visitor, VisitorCounter
 
 # Backend deployment fix - reverted to stable version
 # required routers
@@ -288,6 +288,31 @@ def track_visitor(request: Request):
         db.close()
 
 
+@app.post("/api/track-visit")
+def track_visit():
+    """
+    Track total page visits. Increments global visitor counter.
+    Called on every page load/refresh from frontend.
+    """
+    db = SessionLocal()
+    try:
+        counter = db.query(VisitorCounter).first()
+        if not counter:
+            counter = VisitorCounter(total_visits=0)
+            db.add(counter)
+
+        counter.total_visits += 1
+        db.commit()
+        db.refresh(counter)
+
+        return {"totalVisitors": counter.total_visits}
+    except Exception as e:
+        print(f"[TRACK-VISIT] Error incrementing counter: {e}")
+        return {"totalVisitors": 0}
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def log_email_config_startup():
     print("SMTP_SERVER loaded:", bool(settings.SMTP_SERVER))
@@ -475,6 +500,23 @@ try:
                 db.close()
         except Exception as e:
             print(f"[startup] Failed to force activate configured users: {e}")
+
+        # Initialize visitor counter if not exists
+        try:
+            db = SessionLocal()
+            try:
+                counter = db.query(VisitorCounter).first()
+                if not counter:
+                    counter = VisitorCounter(total_visits=0)
+                    db.add(counter)
+                    db.commit()
+                    print("[startup] ✅ VisitorCounter initialized with total_visits=0")
+                else:
+                    print(f"[startup] ✅ VisitorCounter exists with total_visits={counter.total_visits}")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[startup] Failed to initialize VisitorCounter: {e}")
 
         # Enforce single trusted admin account at startup.
         try:
