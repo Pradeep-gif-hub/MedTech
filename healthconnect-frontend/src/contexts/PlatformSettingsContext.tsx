@@ -51,7 +51,12 @@ export const PlatformSettingsProvider: React.FC<{ children: React.ReactNode }> =
   const [loading, setLoading] = useState(true);
 
   const refreshSettings = async () => {
-    const res = await fetch(buildApiUrl('/api/admin/settings'));
+    const token = localStorage.getItem('token') || '';
+    const res = await fetch(buildApiUrl('/api/admin/settings'), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     if (!res.ok) {
       throw new Error(`Settings fetch failed (${res.status})`);
     }
@@ -65,9 +70,13 @@ export const PlatformSettingsProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const saveSettings = async (next: Partial<PlatformSettings>) => {
+    const token = localStorage.getItem('token') || '';
     const res = await fetch(buildApiUrl('/api/admin/settings'), {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(next),
     });
 
