@@ -797,7 +797,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         hospital: hospitalAffiliation,
         qualifications: qualifications,
         languages: languages,
-        specialization: specialization,
         abhaId:abhaId,
         clinicAddress: clinicAddress,
         
@@ -1490,8 +1489,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           name: String(effectiveDoctorName || doctorName || 'Doctor').trim(),
           specialization: String(specialization || 'General Physician').trim(),
         },
-        date: prescriptionForm.date,
-        diagnosis: String(prescriptionForm.diagnosis || '').trim(),
         medicines: mappedMedications,
       };
 
@@ -1523,9 +1520,16 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+        const rawText = await response.text().catch(() => '');
+        let error: any = {};
+        try {
+          error = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          error = {};
+        }
         const details = Array.isArray(error.errors) ? error.errors.join(', ') : '';
-        throw new Error(error.message || error.detail || details || 'Failed to create prescription');
+        const fallback = rawText || response.statusText || 'Failed to create prescription';
+        throw new Error(error.message || error.detail || details || fallback);
       }
 
       const result = await response.json();
@@ -1547,7 +1551,10 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
     } catch (error) {
       console.error('Error:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      let errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      if (errorMsg === 'Failed to fetch') {
+        errorMsg = 'Cannot reach backend API. Ensure backend is running on http://localhost:8000 and check CORS/network.';
+      }
       setErrorMessage(`Failed to send prescription: ${errorMsg}`);
       alert(`Failed: ${errorMsg}`);
     } finally {
@@ -1598,7 +1605,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             <button
               type="button"
               onClick={() => {
-                console.log('Share button clicked');
                 generateAndEmailPrescription();
               }}
               className={`${isGenerating ? 'bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-3 rounded-lg`}

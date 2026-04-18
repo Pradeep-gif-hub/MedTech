@@ -360,6 +360,37 @@ try:
             print(f"❌ create_all failed: {e}")
             raise
 
+        # Ensure required columns exist in existing PostgreSQL tables (create_all does not alter tables)
+        print("[startup] Verifying critical prescription columns...")
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'pending'"))
+                conn.execute(text("ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS pharmacy_status VARCHAR DEFAULT 'pending'"))
+            print("✅ Prescription columns verified (status, pharmacy_status)")
+        except Exception as e:
+            print(f"⚠️  Failed to verify prescription columns: {e}")
+
+        # Sync PostgreSQL sequences with max(id) to prevent duplicate key errors after migrations/imports
+        print("[startup] Verifying PostgreSQL sequences...")
+        try:
+            with engine.begin() as conn:
+                for table_name in ["users", "prescriptions", "inventory", "notifications", "visitors", "visitor_counters"]:
+                    conn.execute(
+                        text(
+                            """
+                            SELECT setval(
+                                pg_get_serial_sequence(:table_name, 'id'),
+                                COALESCE((SELECT MAX(id) FROM public.""" + table_name + """), 0) + 1,
+                                false
+                            )
+                            """
+                        ),
+                        {"table_name": f"public.{table_name}"},
+                    )
+            print("✅ PostgreSQL sequences synced")
+        except Exception as e:
+            print(f"⚠️  Failed to sync PostgreSQL sequences: {e}")
+
         # Force activate selected users for admin recovery scenarios
         print("[startup] Configuring admin accounts...")
         try:
@@ -423,7 +454,7 @@ try:
             print(f"⚠️  Failed to enforce admin policy: {e}")
         
         print("="*70)
-        print("✅ DATABASE STARTUP COMPLETE - POSTGRESQL ACTIVE")
+        print("🚀 DATABASE STARTUP COMPLETE - POSTGRESQL ACTIVE")
         print("="*70 + "\n")
 
 except Exception as e:
