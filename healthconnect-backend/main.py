@@ -341,163 +341,27 @@ try:
 
     @app.on_event("startup")
     def create_tables_on_startup():
-        print("[startup] Ensuring database tables exist (create_all)...")
+        print("\n" + "="*70)
+        print("🚀 DATABASE STARTUP SEQUENCE")
+        print("="*70)
+        
+        # Verify PostgreSQL is being used
+        dialect_name = engine.dialect.name
+        print(f"📍 Database Dialect: {dialect_name.upper()}")
+        if dialect_name != "postgresql":
+            raise Exception(f"❌ CRITICAL: Expected PostgreSQL, got {dialect_name}! SQLite fallback detected!")
+        
+        # Create all tables
+        print("[startup] Creating database tables...")
         try:
             Base.metadata.create_all(bind=engine)
+            print("✅ Tables created/verified in PostgreSQL")
         except Exception as e:
-            print(f"[startup] create_all failed: {e}")
+            print(f"❌ create_all failed: {e}")
+            raise
 
-        # If using SQLite (common in dev), add missing columns with ALTER TABLE (create_all won't alter existing tables)
-        try:
-            dialect_name = engine.dialect.name
-            print(f"[startup] DB dialect: {dialect_name}")
-            if dialect_name == "sqlite":
-                with engine.connect() as conn:
-                    # get existing column names for users table
-                    pragma = conn.execute(text("PRAGMA table_info('users')"))
-                    existing = {row['name'] for row in pragma.mappings()}
-                    added = []
-                    if 'age' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN age INTEGER"))
-                        added.append('age')
-                    if 'gender' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN gender VARCHAR"))
-                        added.append('gender')
-                    if 'bloodgroup' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN bloodgroup VARCHAR"))
-                        added.append('bloodgroup')
-                    if 'allergy' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN allergy VARCHAR"))
-                        added.append('allergy')
-                    if 'abha_id' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN abha_id VARCHAR"))
-                        added.append('abha_id')
-                    if 'dob' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN dob VARCHAR"))
-                        added.append('dob')
-                    if 'location' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR"))
-                        added.append('location')
-                    if 'phone' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR"))
-                        added.append('phone')
-                    if 'emergency_contact' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN emergency_contact VARCHAR"))
-                        added.append('emergency_contact')
-                    if 'profile_picture_url' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_picture_url VARCHAR"))
-                        added.append('profile_picture_url')
-                    if 'profile_pic' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_pic VARCHAR"))
-                        added.append('profile_pic')
-                    if 'status' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR"))
-                        added.append('status')
-                    if 'reset_token' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
-                        added.append('reset_token')
-                    if 'reset_token_expiry' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry DATETIME"))
-                        added.append('reset_token_expiry')
-                    # New doctor profile fields
-                    if 'full_name' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR"))
-                        added.append('full_name')
-                    if 'specialization' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN specialization VARCHAR"))
-                        added.append('specialization')
-                    if 'years_of_experience' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN years_of_experience INTEGER"))
-                        added.append('years_of_experience')
-                    if 'languages_spoken' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN languages_spoken VARCHAR"))
-                        added.append('languages_spoken')
-                    if 'license_number' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN license_number VARCHAR"))
-                        added.append('license_number')
-                    if 'registration_number' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN registration_number VARCHAR"))
-                        added.append('registration_number')
-                    if 'hospital_name' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN hospital_name VARCHAR"))
-                        added.append('hospital_name')
-                    if 'license_status' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN license_status VARCHAR"))
-                        added.append('license_status')
-                    if 'license_valid_till' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN license_valid_till VARCHAR"))
-                        added.append('license_valid_till')
-                    if 'date_of_birth' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN date_of_birth VARCHAR"))
-                        added.append('date_of_birth')
-                    if 'blood_group' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN blood_group VARCHAR"))
-                        added.append('blood_group')
-                    if 'created_at' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
-                        added.append('created_at')
-                    if 'updated_at' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN updated_at DATETIME"))
-                        added.append('updated_at')
-                    if 'last_login' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME"))
-                        added.append('last_login')
-                    conn.commit()
-                    if added:
-                        print(f"[startup] Added missing user columns: {added}")
-                    else:
-                        print("[startup] No missing user columns")
-                    # Ensure prescription table has latest columns
-                    pragma_presc = conn.execute(text("PRAGMA table_info('prescriptions')"))
-                    existing_presc = {row['name'] for row in pragma_presc.mappings()}
-                    presc_added = []
-                    if 'pdf_url' not in existing_presc:
-                        conn.execute(text("ALTER TABLE prescriptions ADD COLUMN pdf_url VARCHAR"))
-                        presc_added.append('pdf_url')
-                    if 'created_at' not in existing_presc:
-                        conn.execute(text("ALTER TABLE prescriptions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
-                        presc_added.append('created_at')
-                    if presc_added:
-                        print(f"[startup] Added missing prescription columns: {presc_added}")
-            elif dialect_name in ("postgresql", "postgres"):
-                with engine.connect() as conn:
-                    rows = conn.execute(
-                        text(
-                            "SELECT column_name FROM information_schema.columns "
-                            "WHERE table_name = 'users'"
-                        )
-                    ).fetchall()
-                    existing = {row[0] for row in rows}
-                    added = []
-                    if 'reset_token' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
-                        added.append('reset_token')
-                    if 'reset_token_expiry' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry TIMESTAMP"))
-                        added.append('reset_token_expiry')
-                    if 'profile_pic' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN profile_pic VARCHAR"))
-                        added.append('profile_pic')
-                    if 'status' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR"))
-                        added.append('status')
-                    if 'location' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR"))
-                        added.append('location')
-                    if 'last_login' not in existing:
-                        conn.execute(text("ALTER TABLE users ADD COLUMN last_login TIMESTAMP"))
-                        added.append('last_login')
-                    conn.commit()
-                    if added:
-                        print(f"[startup] Added missing user reset columns (postgres): {added}")
-                    else:
-                        print("[startup] Postgres reset columns already present")
-            else:
-                print("[startup] Non-sqlite/non-postgres DB detected — run Alembic migrations to update schema if needed.")
-        except Exception as e:
-            print(f"[startup] Failed to ensure user columns: {e}")
-
-        # Force activate selected users for admin recovery scenarios.
+        # Force activate selected users for admin recovery scenarios
+        print("[startup] Configuring admin accounts...")
         try:
             force_activate_emails = [
                 "pradeepkumarawasthi67@gmail.com",
@@ -511,13 +375,14 @@ try:
                     if user and hasattr(user, "status"):
                         user.status = "active"
                 db.commit()
-                print("[startup] Forced active status for configured users")
+                print("✅ Admin accounts configured")
             finally:
                 db.close()
         except Exception as e:
-            print(f"[startup] Failed to force activate configured users: {e}")
+            print(f"⚠️  Failed to configure admin accounts: {e}")
 
         # Initialize visitor counter if not exists
+        print("[startup] Initializing visitor counter...")
         try:
             db = SessionLocal()
             try:
@@ -526,19 +391,20 @@ try:
                     counter = VisitorCounter(total_visits=0)
                     db.add(counter)
                     db.commit()
-                    print("[startup] ✅ VisitorCounter initialized with total_visits=0")
+                    print("✅ VisitorCounter initialized (total_visits=0)")
                 else:
-                    print(f"[startup] ✅ VisitorCounter exists with total_visits={counter.total_visits}")
+                    print(f"✅ VisitorCounter exists (total_visits={counter.total_visits})")
             finally:
                 db.close()
         except Exception as e:
-            print(f"[startup] Failed to initialize VisitorCounter: {e}")
+            print(f"⚠️  Failed to initialize VisitorCounter: {e}")
 
-        # Enforce single trusted admin account at startup.
+        # Enforce single trusted admin account at startup
+        print("[startup] Enforcing admin policy...")
         try:
             trusted_admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
             if not trusted_admin_email:
-                print("[startup] ADMIN_EMAIL not configured; skipping single-admin enforcement")
+                print("[startup] ADMIN_EMAIL not configured; skipping enforcement")
             else:
                 db = SessionLocal()
                 try:
@@ -550,11 +416,15 @@ try:
                             updated += 1
                     if updated:
                         db.commit()
-                    print(f"[startup] Single-admin enforcement completed (downgraded={updated})")
+                    print(f"✅ Single-admin enforcement completed (adjusted={updated})")
                 finally:
                     db.close()
         except Exception as e:
-            print(f"[startup] Failed to enforce single-admin policy: {e}")
+            print(f"⚠️  Failed to enforce admin policy: {e}")
+        
+        print("="*70)
+        print("✅ DATABASE STARTUP COMPLETE - POSTGRESQL ACTIVE")
+        print("="*70 + "\n")
 
 except Exception as e:
     print(f"[startup] Warning: create_all failed or skipped: {e}")

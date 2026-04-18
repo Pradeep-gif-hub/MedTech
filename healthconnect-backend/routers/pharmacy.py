@@ -175,7 +175,13 @@ def get_pharmacy_inventory(
     Get inventory for the logged-in pharmacy user.
     Each pharmacy only sees their own inventory.
     """
-    print(f"\n📦 [GET INVENTORY] User {user_id} requesting inventory")
+    # Verify database engine
+    db_dialect = db.bind.dialect.name if db.bind else "UNKNOWN"
+    print(f"\n📦 [GET INVENTORY] user_id={user_id} | DB={db_dialect.upper()}")
+    if db_dialect != "postgresql":
+        error = f"❌ CRITICAL: Expected PostgreSQL, got {db_dialect}!"
+        print(error)
+        raise HTTPException(status_code=500, detail=error)
     
     # Verify user is a pharmacy
     user = db.query(User).filter(User.id == user_id).first()
@@ -213,13 +219,27 @@ def create_inventory_item(
 ):
     """
     Add a new medicine to pharmacy inventory.
+    Must use PostgreSQL (no SQLite fallback).
     """
-    print("\n" + "="*60)
-    print("🔥 [INVENTORY POST] Incoming request")
-    print("="*60)
+    print("\n" + "="*70)
+    print("🔥 [INVENTORY POST] Creating inventory item")
+    print("="*70)
+    
+    # Verify database engine
+    db_dialect = db.bind.dialect.name if db.bind else "UNKNOWN"
+    print(f"🐘 Database Engine: {db_dialect.upper()}")
+    if db_dialect != "postgresql":
+        error = f"❌ CRITICAL: Expected PostgreSQL, got {db_dialect}!"
+        print(error)
+        raise HTTPException(status_code=500, detail=error)
+    
     print(f"📍 User ID: {user_id}")
-    print(f"📦 Item data: medicine_name={item.medicine_name}, category={item.category}")
-    print(f"   current_stock={item.current_stock}, min_stock={item.min_stock}, price={item.price}")
+    print(f"📦 Item data:")
+    print(f"   - medicine_name: {item.medicine_name}")
+    print(f"   - category: {item.category}")
+    print(f"   - current_stock: {item.current_stock}")
+    print(f"   - min_stock: {item.min_stock}")
+    print(f"   - price: {item.price}")
     
     # Verify user is a pharmacy
     user = db.query(User).filter(User.id == user_id).first()
@@ -238,9 +258,10 @@ def create_inventory_item(
     ).first()
     
     if existing:
-        print(f"⚠️  Medicine '{item.medicine_name}' already exists in inventory")
+        print(f"⚠️  Medicine '{item.medicine_name}' already exists in inventory (ID: {existing.id})")
         raise HTTPException(status_code=400, detail="Medicine already exists in inventory")
     
+    # Create and commit item
     new_item = Inventory(
         pharmacy_id=user_id,
         medicine_name=item.medicine_name,
@@ -255,9 +276,25 @@ def create_inventory_item(
     
     status = _compute_inventory_status(new_item.current_stock, new_item.min_stock)
     
-    print(f"✅ Item created successfully")
+    # Verify item was saved by re-querying
+    verify = db.query(Inventory).filter(Inventory.id == new_item.id).first()
+    print(f"✅ Item created in PostgreSQL")
     print(f"   ID: {new_item.id}")
     print(f"   Medicine: {new_item.medicine_name}")
+    print(f"   Status: {status}")
+    print(f"   Verified in DB: {verify is not None}")
+    
+    # Count total items for this pharmacy
+    total_items = db.query(Inventory).filter(Inventory.pharmacy_id == user_id).count()
+    print(f"📊 Total items for pharmacy {user_id}: {total_items}")
+    print("="*70 + "\n")
+    
+    return {
+        "message": "Inventory item created",
+        "id": new_item.id,
+        "medicine_name": new_item.medicine_name,
+        "status": status
+    }
     print(f"   Status: {status}")
     print("="*60 + "\n")
     
@@ -366,9 +403,18 @@ def get_inventory_stats(
     - out_of_stock_count: items where stock == 0
     - inventory_value: sum(stock * price)
     """
+    # Verify database engine
+    db_dialect = db.bind.dialect.name if db.bind else "UNKNOWN"
+    print(f"\n📊 [GET STATS] user_id={user_id} | DB={db_dialect.upper()}")
+    if db_dialect != "postgresql":
+        error = f"❌ CRITICAL: Expected PostgreSQL, got {db_dialect}!"
+        print(error)
+        raise HTTPException(status_code=500, detail=error)
+    
     # Verify user is a pharmacy
     user = db.query(User).filter(User.id == user_id).first()
     if not user or user.role != "pharmacy":
+        print(f"❌ Access denied - User {user_id} is not a pharmacy user")
         raise HTTPException(status_code=403, detail="Only pharmacy users can access stats")
     
     items = db.query(Inventory).filter(Inventory.pharmacy_id == user_id).all()
@@ -377,6 +423,8 @@ def get_inventory_stats(
     low_stock_count = sum(1 for item in items if item.current_stock < item.min_stock and item.current_stock > 0)
     out_of_stock_count = sum(1 for item in items if item.current_stock == 0)
     inventory_value = sum(item.current_stock * item.price for item in items)
+    
+    print(f"   Total: {total_items} | Low Stock: {low_stock_count} | Out of Stock: {out_of_stock_count} | Value: Rs {inventory_value}")
     
     return {
         "total_items": total_items,
