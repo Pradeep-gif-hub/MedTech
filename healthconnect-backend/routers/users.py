@@ -88,6 +88,7 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
             role=role,
             password="",
             created_at=datetime.now(timezone.utc),
+            last_login=datetime.now(timezone.utc),  # Set last_login on creation
         )
 
         if hasattr(user, "status"):
@@ -101,6 +102,7 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
         db.commit()
         db.refresh(user)
         created_now = True
+        print(f"[GOOGLE] 📝 New user created: id={user.id}, email={email}")
     else:
         print(f"[GOOGLE] Existing user login: {email}")
         should_commit = False
@@ -122,9 +124,14 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
             setattr(user, "profile_pic", picture)
             should_commit = True
 
+        # Always update last_login on login
+        user.last_login = datetime.now(timezone.utc)
+        should_commit = True
+
         if should_commit:
             db.commit()
             db.refresh(user)
+            print(f"[GOOGLE] ✅ Updated user last_login: {user.last_login}")
 
     backfill_changed = False
     if not getattr(user, "created_at", None):
@@ -229,6 +236,17 @@ async def resolve_current_user(request: Request, db: Session) -> models.User:
 
 
 def serialize_user(user: models.User) -> dict:
+    """
+    Serialize user to dict for JSON response.
+    Handles avatar from multiple field sources for compatibility.
+    """
+    # Avatar priority: profile_picture_url > profile_pic > None
+    avatar = (
+        user.profile_picture_url 
+        or getattr(user, 'profile_pic', None)
+        or None
+    )
+    
     return {
         "id": user.id,
         "user_id": user.id,
@@ -246,16 +264,17 @@ def serialize_user(user: models.User) -> dict:
         "bloodgroup": user.bloodgroup,
         "abha_id": user.abha_id,
         "allergy": user.allergy,
-        "profile_picture_url": user.profile_picture_url,
-        "picture": user.profile_picture_url,
-        "avatar": user.profile_picture_url,
+        "profile_picture_url": avatar,
+        "picture": avatar,
+        "avatar": avatar,
+        "profile_pic": avatar,
         "token": build_local_token(user.id),
     }
 
 # Sign Up
 @router.post("/signup", response_model=schemas.UserResponse)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    print(f"Received signup: {user}")  # Debug print
+    print(f"[SIGNUP] Received signup: {user}")  # Debug print
     if not user.email:
         raise HTTPException(status_code=400, detail="Email is required")
     if not user.name:
@@ -283,11 +302,13 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         abha_id=user.abha_id,
         allergy=user.allergy,
         profile_picture_url=user.profile_picture_url or user.picture,
+        created_at=datetime.now(timezone.utc),
+        last_login=datetime.now(timezone.utc),  # Set last_login on creation
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    print(f"User created: {new_user}")  # Debug print
+    print(f"[SIGNUP] ✅ User created: id={new_user.id}, email={new_user.email}")
     return serialize_user(new_user)
 
 
@@ -501,8 +522,12 @@ async def complete_profile(
             meta.is_google_user = True
         if not meta.profile_completed:
             meta.profile_completed = True
+        
+        # Update last_login when profile is completed
+        user.last_login = datetime.now(timezone.utc)
         db.commit()
         db.refresh(user)
+        print(f"[COMPLETE_PROFILE] ✅ Profile completed for user: {user.id}, last_login={user.last_login}")
         
         return {
             "success": True,
@@ -580,9 +605,15 @@ async def login(
         if hasattr(user, "status") and not (getattr(user, "status", "") or "").strip():
             setattr(user, "status", "active")
             user_changed = True
+        
+        # Always update last_login on successful login
+        user.last_login = datetime.now(timezone.utc)
+        user_changed = True
+        
         if user_changed:
             db.commit()
             db.refresh(user)
+            print(f"[LOGIN] ✅ Updated user login time: {user.last_login}")
 
         # Successful login: return user data
         return {
@@ -618,6 +649,26 @@ async def login(
 async def get_current_user_profile(request: Request, db: Session = Depends(get_db)):
     user = await resolve_current_user(request, db)
     return serialize_user(user)
+
+
+@router.get("/me/avatar-debug")
+async def get_avatar_debug_info(request: Request, db: Session = Depends(get_db)):
+    """Debug endpoint to diagnose avatar issues after PostgreSQL migration"""
+    user = await resolve_current_user(request, db)
+    
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "avatar_sources": {
+            "profile_picture_url": user.profile_picture_url,
+            "profile_pic": getattr(user, 'profile_pic', 'NOT_FOUND'),
+            "final_avatar": user.profile_picture_url or getattr(user, 'profile_pic', None),
+        },
+        "database_type": "postgresql" if "postgres" in str(db.get_bind()) else "sqlite",
+        "message": "Use this to debug avatar issues. Check all sources above."
+    }
 
 
 @router.put("/update-profile")

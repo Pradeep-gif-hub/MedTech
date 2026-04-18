@@ -125,7 +125,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     age: profile?.age || sessionUser?.age,
     bloodgroup: bloodGroup,
     phone: phone,
-    picture: profile?.picture || profile?.profile_picture_url || sessionUser?.picture || sessionUser?.profile_picture_url,
+    picture: profile?.picture || profile?.profile_picture_url || profile?.profile_pic || sessionUser?.picture || sessionUser?.profile_picture_url || null,
+    avatar: profile?.avatar || profile?.picture || profile?.profile_picture_url || profile?.profile_pic || sessionUser?.avatar || sessionUser?.picture || sessionUser?.profile_picture_url || null,
   } as any;
 
   // Format date/time to IST timezone
@@ -417,8 +418,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   }, [profile?.id]);
 
   useEffect(() => {
-    setAvatarSrc((signedUser?.picture as string) || '/default-avatar.png');
-  }, [signedUser?.picture]);
+    const avatar = 
+      signedUser?.picture || 
+      signedUser?.avatar ||
+      profile?.avatar || 
+      profile?.picture || 
+      profile?.profile_picture_url || 
+      profile?.profile_pic ||
+      sessionUser?.picture ||
+      sessionUser?.avatar ||
+      sessionUser?.profile_picture_url ||
+      '/default-avatar.png';
+    
+    setAvatarSrc(avatar);
+  }, [signedUser?.picture, signedUser?.avatar, profile?.avatar, profile?.picture, profile?.profile_picture_url, profile?.profile_pic, sessionUser?.picture, sessionUser?.avatar, sessionUser?.profile_picture_url]);
 
   // Camera preview for waiting state
   useEffect(() => {
@@ -554,8 +567,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   const handleAvatarError = (e: any) => {
     const el = e.currentTarget as HTMLImageElement;
     if (!el.src.includes('/default-avatar.png')) {
+      console.warn('[DoctorDashboard] Avatar image failed to load:', el.src);
       el.src = '/default-avatar.png';
     }
+  };
+
+  const cleanAvatarUrl = (url: string | null | undefined): string => {
+    if (!url) return '/default-avatar.png';
+    
+    // Fix Google profile images - they break with incorrect size params
+    if (url.includes('googleusercontent')) {
+      // Remove existing size params and add correct one
+      const baseUrl = url.split('=')[0];
+      return `${baseUrl}=s200-c`;
+    }
+    
+    return url;
   };
 
   // If showing profile page, render it instead (AFTER hooks but BEFORE main content)
@@ -786,7 +813,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               {/* Header with Photo */}
               <div className="flex items-center gap-3 p-2 bg-gradient-to-r from-gray-50 to-white border-b">
                 <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-emerald-400 shadow-lg flex-shrink-0">
-                  <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
+                  <img src={cleanAvatarUrl(doctorDetails.image)} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Dr. {doctorDetails.name}</h2>
@@ -870,7 +897,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                       {/* Card Body */}
                       <div className="flex items-center gap-2 my-1">
                         <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-white/30 shadow-lg">
-                          <img src={doctorDetails.image} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
+                          <img src={cleanAvatarUrl(doctorDetails.image)} alt="Doctor" className="w-full h-full object-cover" onError={handleAvatarError} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="text-white text-xs font-semibold leading-tight tracking-wide truncate">{doctorDetails.name}</h4>
@@ -2040,7 +2067,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             </div>
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
               <img
-                src={avatarSrc}
+                src={cleanAvatarUrl(avatarSrc)}
                 alt="Profile"
                 className="w-full h-full object-cover"
                 onError={handleAvatarError}
