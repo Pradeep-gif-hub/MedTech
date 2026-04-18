@@ -7,9 +7,11 @@ export const GOOGLE_CLIENT_ID =
 	"693090706948-2d1jp6de9otm6u70b6u7n196tn0mdepg.apps.googleusercontent.com";
 
 // Backend API endpoint - deterministic local/prod switching
+// For production, set VITE_API_BASE_URL environment variable
+// Example: VITE_API_BASE_URL=https://medtech-backend.onrender.com
 export const API_BASE_URL =
 	window.location.hostname === 'localhost'
 		? 'http://localhost:8000'
-		: 'https://medtech-4rjc.onrender.com';
+		: (import.meta.env.VITE_API_BASE_URL || 'https://medtech-hcmo.onrender.com');
 
 

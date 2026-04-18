@@ -86,7 +86,8 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
         const data = await response.json();
         setPrescriptions(data);
       } else {
-        console.error('Failed to fetch prescriptions:', response.statusText);
+        const errorText = await response.text();
+        console.error('Failed to fetch prescriptions:', response.status, errorText);
       }
     } catch (error) {
       console.error('Failed to fetch prescriptions:', error);
@@ -107,13 +108,21 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
         fetch(apiUrl),
         fetch(statsUrl),
       ]);
+      
       if (inventoryRes.ok) {
         const data = await inventoryRes.json();
         setInventory(data);
+      } else {
+        const errorText = await inventoryRes.text();
+        console.error('Failed to fetch inventory:', inventoryRes.status, errorText);
       }
+      
       if (statsRes.ok) {
         const stats = await statsRes.json();
         setInventoryStats(stats);
+      } else {
+        const errorText = await statsRes.text();
+        console.error('Failed to fetch inventory stats:', statsRes.status, errorText);
       }
     } catch (error) {
       console.error('Failed to fetch inventory:', error);
@@ -142,8 +151,15 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
         alert('✓ Prescription approved!');
         fetchPrescriptions();
       } else {
-        const data = await response.json();
-        alert(`✗ Failed: ${data.detail || response.statusText}`);
+        const errorText = await response.text();
+        let errorMsg = `Status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.detail || errorData.message || errorMsg;
+        } catch {
+          // If not JSON, use status
+        }
+        alert(`✗ Failed: ${errorMsg}`);
       }
     } catch (error: any) {
       console.error('Failed to approve prescription:', error);
@@ -162,8 +178,15 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
         alert('✓ Prescription rejected!');
         fetchPrescriptions();
       } else {
-        const data = await response.json();
-        alert(`✗ Failed: ${data.detail || response.statusText}`);
+        const errorText = await response.text();
+        let errorMsg = `Status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.detail || errorData.message || errorMsg;
+        } catch {
+          // If not JSON, use status
+        }
+        alert(`✗ Failed: ${errorMsg}`);
       }
     } catch (error: any) {
       console.error('Failed to reject prescription:', error);
@@ -212,16 +235,25 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
       });
 
       console.log('[Pharmacy] Response status:', response.status);
-      const responseData = await response.json();
-      console.log('[Pharmacy] Response data:', responseData);
-
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('[Pharmacy] Response data:', responseData);
         alert('✓ Medicine added successfully!');
         setNewInventoryItem({ medicine_name: '', category: '', current_stock: 0, min_stock: 0, price: 0 });
         setShowAddInventoryModal(false);
         fetchInventory();
       } else {
-        alert(`✗ Failed to add medicine: ${responseData.detail || response.statusText}`);
+        const errorText = await response.text();
+        console.error('[Pharmacy] Error response:', response.status, errorText);
+        let errorMsg = `Status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.detail || errorData.message || errorMsg;
+        } catch {
+          // If not JSON, use status
+        }
+        alert(`✗ Failed to add medicine: ${errorMsg}`);
       }
     } catch (error: any) {
       console.error('[Pharmacy] Failed to add inventory item:', error);
@@ -242,8 +274,15 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
         alert('✓ Inventory updated successfully!');
         fetchInventory();
       } else {
-        const data = await response.json();
-        alert(`✗ Failed to update: ${data.detail || response.statusText}`);
+        const errorText = await response.text();
+        let errorMsg = `Status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.detail || errorData.message || errorMsg;
+        } catch {
+          // If not JSON, use status
+        }
+        alert(`✗ Failed to update: ${errorMsg}`);
       }
     } catch (error: any) {
       console.error('Failed to update inventory item:', error);
