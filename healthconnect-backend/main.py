@@ -32,6 +32,7 @@ prescriptions = None
 appointments = None
 webrtc = None
 analytics = None
+pharmacy = None
 try:
     from routers import prescriptions
 except Exception:
@@ -49,6 +50,12 @@ try:
     from routers import analytics
 except Exception:
     analytics = None
+try:
+    from routers import pharmacy
+    print("[STARTUP] Pharmacy router imported successfully")
+except Exception as e:
+    print(f"[STARTUP] Pharmacy router import failed: {e}")
+    pharmacy = None
 try:
     from routers import webrtc
     print("[STARTUP] WebRTC router imported successfully")
@@ -216,6 +223,9 @@ if notifications and hasattr(notifications, "router"):
     app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 if appointments and hasattr(appointments, "router"):
     app.include_router(appointments.router, prefix="/appointments", tags=["Appointments"])
+if pharmacy and hasattr(pharmacy, "router"):
+    app.include_router(pharmacy.router)
+    print("[STARTUP] Pharmacy router mounted at /api/pharmacy/*")
 if analytics and hasattr(analytics, "router"):
     app.include_router(analytics.router, tags=["Analytics"])
 if webrtc and hasattr(webrtc, "router"):
