@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -30,12 +31,31 @@ def _verify_pharmacy_user(db: Session, user_id: int) -> User:
 
 
 def _extract_quantity(medicine: dict) -> int:
-    raw_value = medicine.get("quantity", medicine.get("qty", medicine.get("count", 1)))
-    try:
-        quantity = int(raw_value)
-    except (TypeError, ValueError):
-        quantity = 1
-    return quantity if quantity > 0 else 1
+    """
+    Resolve inventory stock units from prescription.
+
+    Rules:
+    - If quantity/qty/count is present, use it as stock units.
+    - If missing, assume 10 doses by default, where 10 doses = 1 stock unit.
+    """
+    raw_value = medicine.get("quantity", medicine.get("qty", medicine.get("count")))
+    if raw_value is not None:
+        try:
+            quantity = int(raw_value)
+        except (TypeError, ValueError):
+            quantity = 1
+        return quantity if quantity > 0 else 1
+
+    dose_value = medicine.get("doses", medicine.get("dose", medicine.get("dosage")))
+    inferred_doses = 10
+    if isinstance(dose_value, (int, float)):
+        inferred_doses = max(1, int(dose_value))
+    elif isinstance(dose_value, str):
+        digits = "".join(ch for ch in dose_value if ch.isdigit())
+        if digits:
+            inferred_doses = max(1, int(digits))
+
+    return max(1, math.ceil(inferred_doses / 10))
 
 
 def _parse_prescription_medicines(raw_medicines: str | None) -> list[dict]:
@@ -182,6 +202,27 @@ def create_order_from_prescription(
                     total=item["total"],
                 )
             )
+
+        # Approved + accepted order should reduce inventory stock by sold units.
+        if order_status == "READY_FOR_PICKUP":
+            for item in resolved_items:
+                inv_item = (
+                    db.query(Inventory)
+                    .filter(
+                        Inventory.pharmacy_id == user_id,
+                        func.lower(Inventory.medicine_name) == item["medicine_name"].lower(),
+                    )
+                    .first()
+                )
+                if not inv_item:
+                    raise HTTPException(status_code=400, detail=f"Inventory item missing during stock update: {item['medicine_name']}")
+
+                available = int(inv_item.current_stock or 0)
+                required = int(item["quantity"])
+                if available < required:
+                    raise HTTPException(status_code=400, detail=f"Insufficient stock for {item['medicine_name']}: need {required}, available {available}")
+
+                inv_item.current_stock = available - required
 
         db.commit()
     except Exception:

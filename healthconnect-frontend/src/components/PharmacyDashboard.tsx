@@ -84,6 +84,7 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string>('');
 
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
   const [newInventoryItem, setNewInventoryItem] = useState({
@@ -205,7 +206,10 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
 
   const fetchAnalytics = async () => {
     if (!userId) return;
-    setAnalyticsLoading(true);
+    if (!analyticsData) {
+      setAnalyticsLoading(true);
+    }
+    setAnalyticsError('');
     try {
       const apiUrl = `${API_BASE_URL}/api/analytics?user_id=${userId}`;
       const response = await fetch(apiUrl);
@@ -215,9 +219,11 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch analytics:', response.status, errorText);
+        setAnalyticsError(`Analytics unavailable (${response.status})`);
       }
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
+      setAnalyticsError('Unable to load analytics right now');
     } finally {
       setAnalyticsLoading(false);
     }
@@ -981,10 +987,12 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
 
     {analyticsView === 'top-selling' ? (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {analyticsLoading ? (
+        {analyticsLoading && !analyticsData ? (
           <p className="text-sm text-gray-600">Loading analytics...</p>
+        ) : analyticsError ? (
+          <p className="text-sm text-red-600">{analyticsError}</p>
         ) : (analyticsData?.top_selling_medicines || []).length === 0 ? (
-          <p className="text-sm text-gray-600">No medicine sales yet</p>
+          <p className="text-sm text-gray-600">No medicine sales yet. Orders will appear after approved prescriptions are converted.</p>
         ) : (analyticsData?.top_selling_medicines || []).map((item, index) => (
           <div
             key={index}
