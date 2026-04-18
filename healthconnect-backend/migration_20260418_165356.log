@@ -1,0 +1,26 @@
+
+Migration Log: migration_20260418_165356.log
+
+
+
+╔====================================================================╗
+║               SQLite → PostgreSQL Migration                        ║
+╚====================================================================╝
+
+======================================================================
+  PRE-MIGRATION CHECKS
+======================================================================
+
+✅ SQLite database found: ./healthconnect.db
+
+======================================================================
+  CONNECTING TO DATABASES
+======================================================================
+
+✅ Connected to SQLite: version 3.45.3
+❌ ERROR: DATABASE_URL environment variable not set
+Set it with: export DATABASE_URL='postgresql://user:pass@host/dbname'
+❌ Cannot continue without PostgreSQL: DATABASE_URL not configured
+
+💡 To set DATABASE_URL, run:
+   export DATABASE_URL='postgresql://user:password@localhost/medtech'

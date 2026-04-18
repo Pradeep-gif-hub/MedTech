@@ -292,17 +292,41 @@ def migrate_other_tables(sqlite_engine, pg_engine):
                     rows = result.fetchall()
                     
                     if rows:
-                        # Insert into PostgreSQL
+                        # Get column names
                         column_names = list(result.keys())
-                        placeholders = ", ".join([f":{col}" for col in column_names])
-                        insert_query = f"INSERT INTO {table_name} ({', '.join(column_names)}) VALUES ({placeholders})"
+                        inserted = 0
+                        errors_in_table = []
                         
                         for row in rows:
-                            row_dict = dict(row)
-                            pg_conn.execute(text(insert_query), row_dict)
+                            try:
+                                # Convert SQLAlchemy Row to dict properly
+                                # Use _mapping attribute which is the proper way to convert Row to dict
+                                if hasattr(row, '_mapping'):
+                                    row_dict = dict(row._mapping)
+                                else:
+                                    # Fallback: manually zip column names with values
+                                    row_dict = dict(zip(column_names, row))
+                                
+                                # Create parameterized INSERT query with proper placeholders
+                                placeholders = ", ".join([f":{col}" for col in column_names])
+                                insert_query = f"INSERT INTO {table_name} ({', '.join(column_names)}) VALUES ({placeholders})"
+                                
+                                # Execute with parameters
+                                pg_conn.execute(text(insert_query), row_dict)
+                                inserted += 1
+                            
+                            except Exception as row_error:
+                                error_msg = f"{table_name} row: {str(row_error)}"
+                                errors_in_table.append(error_msg)
                         
+                        # Commit after all rows
                         pg_conn.commit()
-                        print(f"✅ {table_name}: {len(rows)} rows inserted")
+                        
+                        if inserted > 0:
+                            print(f"✅ {table_name}: {inserted}/{len(rows)} rows inserted")
+                        
+                        if errors_in_table:
+                            print(f"⚠️  {table_name}: {len(errors_in_table)} row errors (skipped)")
         
         except Exception as e:
             print(f"⚠️  WARNING: Could not migrate {table_name}: {e}")

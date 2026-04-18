@@ -82,28 +82,40 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
 
     if not user:
         print(f"[GOOGLE] Creating NEW user: {email} with role={role}")
-        user = models.User(
-            name=name or None,
-            email=email,
-            role=role,
-            password="",
-            created_at=datetime.now(timezone.utc),
-            last_login=datetime.now(timezone.utc),  # Set last_login on creation
-        )
+        try:
+            user = models.User(
+                name=name or None,
+                email=email,
+                role=role,
+                password="",
+                created_at=datetime.now(timezone.utc),
+                last_login=datetime.now(timezone.utc),  # Set last_login on creation
+            )
 
-        if hasattr(user, "status"):
-            setattr(user, "status", "active")
-        if picture and hasattr(user, "profile_picture_url"):
-            setattr(user, "profile_picture_url", picture)
-        if picture and hasattr(user, "profile_pic"):
-            setattr(user, "profile_pic", picture)
+            if hasattr(user, "status"):
+                setattr(user, "status", "active")
+            if picture and hasattr(user, "profile_picture_url"):
+                setattr(user, "profile_picture_url", picture)
+            if picture and hasattr(user, "profile_pic"):
+                setattr(user, "profile_pic", picture)
 
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        created_now = True
-        print(f"[GOOGLE] 📝 New user created: id={user.id}, email={email}")
-    else:
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            created_now = True
+            print(f"[GOOGLE] 📝 New user created: id={user.id}, email={email}")
+        except Exception as create_error:
+            db.rollback()
+            # If creation fails (e.g., duplicate constraint), try to find existing user
+            print(f"[GOOGLE] ⚠️ User creation failed: {str(create_error)}")
+            user = db.query(models.User).filter(models.User.email == email).first()
+            if user:
+                print(f"[GOOGLE] ✅ Found existing user after creation attempt: {email}")
+            else:
+                print(f"[GOOGLE] ❌ Could not create or find user: {email}")
+                raise HTTPException(status_code=500, detail=f"Failed to authenticate user: {str(create_error)}")
+    
+    if user:
         print(f"[GOOGLE] Existing user login: {email}")
         should_commit = False
 
@@ -129,9 +141,13 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
         should_commit = True
 
         if should_commit:
-            db.commit()
-            db.refresh(user)
-            print(f"[GOOGLE] ✅ Updated user last_login: {user.last_login}")
+            try:
+                db.commit()
+                db.refresh(user)
+                print(f"[GOOGLE] ✅ Updated user last_login: {user.last_login}")
+            except Exception as update_error:
+                db.rollback()
+                print(f"[GOOGLE] ⚠️ Update failed but continuing: {str(update_error)}")
 
     backfill_changed = False
     if not getattr(user, "created_at", None):
@@ -141,8 +157,12 @@ def handle_google_login(user_data: dict, db: Session, requested_role: str | None
         setattr(user, "status", "active")
         backfill_changed = True
     if backfill_changed:
-        db.commit()
-        db.refresh(user)
+        try:
+            db.commit()
+            db.refresh(user)
+        except Exception as backfill_error:
+            db.rollback()
+            print(f"[GOOGLE] ⚠️ Backfill failed but continuing: {str(backfill_error)}")
 
     return user, created_now, google_id, picture, email, name
 
