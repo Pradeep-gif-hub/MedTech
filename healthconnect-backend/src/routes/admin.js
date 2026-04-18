@@ -182,7 +182,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       getAsync('SELECT COUNT(*) AS count FROM users'),
       getAsync("SELECT COUNT(*) AS count FROM users WHERE role = 'doctor' AND status = 'active'"),
       getAsync("SELECT COUNT(*) AS count FROM consultations WHERE DATE(created_at) = DATE('now', 'localtime')"),
-      allAsync('SELECT id, name, email, role, location, status, created_at, profile_pic, picture, avatar FROM users ORDER BY datetime(created_at) DESC LIMIT 5'),
+      allAsync("SELECT id, name, email, role, location, status, created_at, profile_pic, picture, avatar FROM users WHERE created_at >= datetime('now', '-7 days') ORDER BY datetime(created_at) DESC"),
       allAsync('SELECT id, message, type, created_at FROM alerts ORDER BY datetime(created_at) DESC LIMIT 10'),
     ]);
 
@@ -190,6 +190,8 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     const activeDoctorsValue = Number(activeDoctors?.count || 0);
     const dailyConsultationsValue = Number(dailyConsultations?.count || 0);
     const uptimeValue = Math.round(process.uptime());
+
+    console.log(`[ADMIN] Dashboard: Total users = ${totalUsersValue}, Active doctors = ${activeDoctorsValue}, Recent registrations (7d) = ${recentRegistrations.length}`);
 
     return res.json({
       success: true,
@@ -236,10 +238,13 @@ router.get('/users', adminAuth, async (req, res) => {
 
     const users = await allAsync(query, params);
 
+    console.log(`[ADMIN] Fetched users: count=${users.length}${roleFilter ? `, role=${roleFilter}` : ''}`);
+
     return res.json({
       success: true,
       users: users.map(formatUser),
       data: users.map(formatUser),
+      total: users.length,
     });
   } catch (error) {
     console.error('[ADMIN] get users failed:', error.message);

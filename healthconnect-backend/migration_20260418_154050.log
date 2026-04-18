@@ -1,0 +1,173 @@
+
+Migration Log: migration_20260418_154050.log
+
+
+
+╔====================================================================╗
+║               SQLite → PostgreSQL Migration                        ║
+╚====================================================================╝
+
+======================================================================
+  PRE-MIGRATION CHECKS
+======================================================================
+
+✅ SQLite database found: ./healthconnect.db
+
+======================================================================
+  CONNECTING TO DATABASES
+======================================================================
+
+✅ Connected to SQLite: version 3.45.3
+🔗 Connecting to PostgreSQL: postgresql://neondb_owner:npg_px6sOVNDH9gS@***
+✅ Connected to PostgreSQL: PostgreSQL 17.8 (a48d9ca)
+
+======================================================================
+  STEP 1: Creating PostgreSQL Tables
+======================================================================
+
+📝 Creating tables from models...
+✅ All tables created in PostgreSQL
+
+======================================================================
+  STEP 2: Migrating Users Table
+======================================================================
+
+📊 Found 45 users in SQLite
+✅ MIGRATE: awasthi@nitj.ac.in (ID: 1, Role: patient)
+✅ MIGRATE: paarthl.ic.24@nitj (ID: 2, Role: doctor)
+✅ MIGRATE: pharmacy@nitj.ac.in (ID: 3, Role: pharmacy)
+✅ MIGRATE: admin@nitj.ac.in (ID: 4, Role: patient)
+✅ MIGRATE: shivam.me.24@nitj.ac.in (ID: 5, Role: patient)
+✅ MIGRATE: raushan@nitj.ac.in (ID: 6, Role: patient)
+✅ MIGRATE: awasthi@nitj.ac.n (ID: 7, Role: patient)
+✅ MIGRATE: pradeepka.ic.24@nitj.ac.in (ID: 8, Role: patient)
+✅ MIGRATE: vanshish@nitj.ac.in (ID: 9, Role: patient)
+✅ MIGRATE: vanshish@nitja.ac.in (ID: 10, Role: patient)
+✅ MIGRATE: rahul56@gmail.com (ID: 11, Role: patient)
+✅ MIGRATE: shivani@nitj.ac.in (ID: 12, Role: patient)
+✅ MIGRATE: amarjeet@nitj.ac.in (ID: 13, Role: patient)
+✅ MIGRATE: justin.fucku@nitj.ac.in (ID: 14, Role: patient)
+✅ MIGRATE: kk@nitj.ac.in (ID: 15, Role: patient)
+✅ MIGRATE: vishal.ic.24@nitj.ac.in (ID: 16, Role: patient)
+✅ MIGRATE: vinay.ic.24@nitj.ac.in (ID: 17, Role: patient)
+✅ MIGRATE: hardik.ic.24@nitj.ac.in (ID: 18, Role: patient)
+✅ MIGRATE: aman.ic.24@nitj.ac.in (ID: 19, Role: patient)
+✅ MIGRATE: shivam.ic.24@nitj.ac.in (ID: 20, Role: patient)
+✅ MIGRATE: amang.ic.24@nitj.ac.in (ID: 21, Role: patient)
+✅ MIGRATE: demo.ic.24@nitj (ID: 22, Role: doctor)
+✅ MIGRATE: mohan.ic.24@nitj.ac.in (ID: 23, Role: patient)
+✅ MIGRATE: prade.ic.24@nitj.ac.in (ID: 24, Role: patient)
+✅ MIGRATE: pawsthi063.ic.24@nitj.ac.in (ID: 25, Role: patient)
+✅ MIGRATE: awasthi.ic.24@nitj.ac.in (ID: 26, Role: patient)
+✅ MIGRATE: shivam.c.24@nitj.ac.in (ID: 27, Role: patient)
+✅ MIGRATE: mohit.ic.24@nitj.ac.in (ID: 28, Role: patient)
+✅ MIGRATE: mohan@gmail.com (ID: 29, Role: patient)
+✅ MIGRATE: meenakshi@nitj (ID: 30, Role: doctor)
+✅ MIGRATE: tanishqa@nitj.ac.in (ID: 31, Role: patient)
+✅ MIGRATE: pawasthi063@gmail.com (ID: 32, Role: patient)
+✅ MIGRATE: shivamg.me.24@nitj.ac.in (ID: 33, Role: patient)
+✅ MIGRATE: pradeepkumarawasthi67@gmail.com (ID: 34, Role: doctor)
+✅ MIGRATE: guptashivan977@gmail.com (ID: 35, Role: doctor)
+✅ MIGRATE: newuser_860378005@example.com (ID: 36, Role: patient)
+✅ MIGRATE: persist_1470263159@example.com (ID: 37, Role: patient)
+✅ MIGRATE: persist_1526903478@example.com (ID: 38, Role: patient)
+✅ MIGRATE: persist_875874948@example.com (ID: 39, Role: patient)
+✅ MIGRATE: test@test.com (ID: 40, Role: patient)
+✅ MIGRATE: medtech_profile_test_20260409@example.com (ID: 41, Role: patient)
+✅ MIGRATE: pradeep240818@gmail.com (ID: 42, Role: admin)
+✅ MIGRATE: pawasthi5010@gmail.com (ID: 43, Role: patient)
+✅ MIGRATE: admin@medtech.com (ID: 44, Role: patient)
+✅ MIGRATE: awasthi240818@gmail.com (ID: 45, Role: pharmacy)
+
+──────────────────────────────────────────────────────────────────────
+📊 MIGRATION SUMMARY - USERS TABLE:
+  Total found:     45
+  Migrated:        45 ✅
+  Skipped (dups):  0 ⏭️
+  Errors:          0 ❌
+
+======================================================================
+  STEP 3: Migrating Other Tables
+======================================================================
+
+📋 Tables to migrate: appointments, consultations, feedback, notifications, otp_verification_attempts, otps, password_reset_tokens, platform_settings, prescriptions, user_auth_meta, visitor_counter, visitors
+
+⚙️  Copying appointments (10 rows)...
+⚠️  WARNING: Could not migrate appointments: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying consultations (32 rows)...
+⚠️  WARNING: Could not migrate consultations: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying feedback (12 rows)...
+⚠️  WARNING: Could not migrate feedback: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying notifications (25 rows)...
+⚠️  WARNING: Could not migrate notifications: cannot convert dictionary update sequence element #0 to a sequence
+⏭️  SKIP: otp_verification_attempts (empty)
+⚙️  Copying otps (49 rows)...
+⚠️  WARNING: Could not migrate otps: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying password_reset_tokens (7 rows)...
+⚠️  WARNING: Could not migrate password_reset_tokens: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying platform_settings (1 rows)...
+⚠️  WARNING: Could not migrate platform_settings: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying prescriptions (6 rows)...
+⚠️  WARNING: Could not migrate prescriptions: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying user_auth_meta (4 rows)...
+⚠️  WARNING: Could not migrate user_auth_meta: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying visitor_counter (1 rows)...
+⚠️  WARNING: Could not migrate visitor_counter: cannot convert dictionary update sequence element #0 to a sequence
+⏭️  SKIP: visitors (empty)
+
+======================================================================
+  STEP 4: Verification
+======================================================================
+
+📊 Row Counts Comparison:
+
+Table                     SQLite       PostgreSQL   Status
+----------------------------------------------------------------------
+appointments              10           0            ⚠️  DIFF (-10)
+consultations             32           0            ⚠️  DIFF (-32)
+feedback                  12           0            ⚠️  DIFF (-12)
+notifications             25           0            ⚠️  DIFF (-25)
+otp_verification_attempts 0            0            ✅ MATCH
+otps                      49           0            ⚠️  DIFF (-49)
+password_reset_tokens     7            0            ⚠️  DIFF (-7)
+platform_settings         1            0            ⚠️  DIFF (-1)
+prescriptions             6            0            ⚠️  DIFF (-6)
+user_auth_meta            4            0            ⚠️  DIFF (-4)
+users                     45           45           ✅ MATCH
+visitor_counter           1            0            ⚠️  DIFF (-1)
+visitors                  0            0            ✅ MATCH
+----------------------------------------------------------------------
+⚠️  Some tables have differences. Review above.
+
+======================================================================
+  MIGRATION COMPLETE
+======================================================================
+
+
+✅ Migration finished!
+
+📋 Next Steps:
+  1. Verify PostgreSQL has all your users:
+     psql -d medtech -c "SELECT COUNT(*) FROM users;"
+  
+  2. Set environment variable on production:
+     export DATABASE_URL='postgresql://user:pass@host/dbname'
+  
+  3. Restart backend:
+     python -m uvicorn main:app --reload
+  
+  4. Test admin dashboard:
+     - Verify all users appear
+     - Check recent users (last 7 days)
+     - Test login (email + Google OAuth)
+  
+  5. Keep SQLite backup:
+     - Rename healthconnect.db to healthconnect.db.backup
+     - Keep safe for 1-2 weeks
+
+⚠️  IMPORTANT:
+  - DO NOT delete healthconnect.db yet
+  - Test in staging first
+  - Ensure all users migrated correctly
+  - Monitor logs for errors
+

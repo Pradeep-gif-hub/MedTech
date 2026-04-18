@@ -78,6 +78,7 @@ class User(Base):
     # Timestamps
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
+    last_login = Column(DateTime, nullable=True)  # Track last login for persistence validation
 
 
 class UserAuthMeta(Base):

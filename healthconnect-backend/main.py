@@ -429,6 +429,9 @@ try:
                     if 'updated_at' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN updated_at DATETIME"))
                         added.append('updated_at')
+                    if 'last_login' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME"))
+                        added.append('last_login')
                     conn.commit()
                     if added:
                         print(f"[startup] Added missing user columns: {added}")
@@ -471,6 +474,9 @@ try:
                     if 'location' not in existing:
                         conn.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR"))
                         added.append('location')
+                    if 'last_login' not in existing:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN last_login TIMESTAMP"))
+                        added.append('last_login')
                     conn.commit()
                     if added:
                         print(f"[startup] Added missing user reset columns (postgres): {added}")

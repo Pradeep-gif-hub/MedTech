@@ -624,9 +624,6 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
           <p className="text-sm text-emerald-100">
             Welcome back, {profile?.name || signedUser?.name || 'Pharmacy User'}!
           </p>
-          <p className="text-xs text-emerald-100/90">
-            Age: {profile?.age ?? '-'} | Gender: {profile?.gender || '-'} | Blood Group: {profile?.bloodgroup || '-'} | DOB: {profile?.dob || '-'} | Phone: {profile?.phone || '-'}
-          </p>
         </div>
       </div>
 

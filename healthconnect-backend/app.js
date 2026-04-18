@@ -28,6 +28,12 @@ let createUser = async () => {
 let updateUser = async () => {
   throw new Error('Database module unavailable');
 };
+let updateUserLastLogin = async () => {
+  throw new Error('Database module unavailable');
+};
+let getAllUsers = async () => {
+  throw new Error('Database module unavailable');
+};
 
 try {
   ({
@@ -38,6 +44,8 @@ try {
     getUserByGoogleId,
     createUser,
     updateUser,
+    updateUserLastLogin,
+    getAllUsers,
   } = require('./database'));
   console.log('[DB] Database module loaded successfully');
 } catch (dbLoadError) {
@@ -724,7 +732,21 @@ app.post('/api/users/google-login', async (req, res) => {
         }
       }
 
+      // Update last_login timestamp for existing users
+      try {
+        await updateUserLastLogin(user.id);
+        console.log('[GOOGLE-LOGIN] ✅ Updated user last_login timestamp');
+      } catch (loginError) {
+        console.error('[GOOGLE-LOGIN] ⚠️ Could not update last_login:', loginError.message);
+      }
+
       console.log('[GOOGLE-LOGIN] ℹ️ Using existing user');
+    }
+
+    // Fetch fresh user data from database
+    const freshUser = await getUserById(user.id);
+    if (freshUser) {
+      user = freshUser;
     }
 
     // Generate JWT token
@@ -732,6 +754,14 @@ app.post('/api/users/google-login', async (req, res) => {
 
     console.log(`[GOOGLE-LOGIN] ✅ Authentication successful`);
     console.log(`[GOOGLE-LOGIN] 📊 User: ${isNewUser ? 'NEW' : 'EXISTING'} (ID: ${user.id})`);
+
+    // Debug: Log total users in database
+    try {
+      const allUsersResult = await getAllUsers({ status: 'active' });
+      console.log(`[GOOGLE-LOGIN] 📊 TOTAL USERS IN DB: ${allUsersResult.length}`);
+    } catch (countError) {
+      console.error('[GOOGLE-LOGIN] ⚠️ Could not count users:', countError.message);
+    }
 
     res.json({
       success: true,

@@ -172,6 +172,9 @@ def get_users(
 
     users = query.order_by(User.created_at.desc()).all()
 
+    # Debug logging
+    print(f"[ADMIN-USERS] Fetched users: count={len(users)}{f', search={search}' if search else ''}{f', role={role}' if role else ''}{f', status={status}' if status else ''}")
+
     return [
         {
             "id": u.id,
@@ -396,6 +399,13 @@ def get_dashboard(db: Session = Depends(get_db), _admin: User = Depends(require_
         .limit(5)
         .all()
     )
+
+    # Debug logging for user persistence
+    print(f"[ADMIN-DASHBOARD] 📊 TOTAL USERS IN DB: {total_users}")
+    print(f"[ADMIN-DASHBOARD] 👨‍⚕️ Active Doctors: {active_doctors}")
+    print(f"[ADMIN-DASHBOARD] 👥 Patients: {patients}")
+    print(f"[ADMIN-DASHBOARD] 💊 Pharmacies: {pharmacies}")
+    print(f"[ADMIN-DASHBOARD] 📅 Recent registrations (7 days): {len(recent_users)}")
 
     user_growth = []
     for days_back in range(6, -1, -1):

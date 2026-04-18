@@ -337,6 +337,7 @@ function initializeDatabase() {
               await ensureUserColumn('profile_pic', 'TEXT');
               await ensureUserColumn('location', 'TEXT');
               await ensureUserColumn("status", "TEXT", "DEFAULT 'active'");
+              await ensureUserColumn('last_login', 'DATETIME');
               await seedAdminUser();
               resolve();
             } catch (migrationError) {
@@ -400,13 +401,13 @@ function getUserByGoogleId(googleId) {
  */
 function createUser(userData) {
   return new Promise((resolve, reject) => {
-    const { name, email, profile_pic, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, role, location, status, googleId, password } = userData;
+    const { name, email, profile_pic, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, role, location, status, googleId, password, lastLogin } = userData;
     
     const query = `
       INSERT INTO users (
         name, email, profile_pic, avatar, picture, phone, age, gender,
-        bloodgroup, allergy, dob, location, status, role, google_id, password, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        bloodgroup, allergy, dob, location, status, role, google_id, password, last_login, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `;
 
     const params = [
@@ -426,6 +427,7 @@ function createUser(userData) {
       role || 'patient',
       googleId || null,
       password || null,
+      lastLogin || new Date().toISOString(),
     ];
 
     db.run(query, params, function (err) {
@@ -446,7 +448,7 @@ function createUser(userData) {
  */
 function updateUser(id, userData) {
   return new Promise((resolve, reject) => {
-    const { name, email, profile_pic, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, location, status, role, googleId, password } = userData;
+    const { name, email, profile_pic, avatar, picture, phone, age, gender, bloodgroup, allergy, dob, location, status, role, googleId, password, lastLogin } = userData;
     
     const fields = [];
     const params = [];
@@ -513,6 +515,10 @@ function updateUser(id, userData) {
       fields.push('password = ?');
       params.push(password);
     }
+    if (lastLogin !== undefined) {
+      fields.push('last_login = ?');
+      params.push(lastLogin);
+    }
 
     if (fields.length === 0) {
       resolve(null);
@@ -534,6 +540,52 @@ function updateUser(id, userData) {
   });
 }
 
+/**
+ * Update last login timestamp for user
+ */
+function updateUserLastLogin(id) {
+  return new Promise((resolve, reject) => {
+    const query = 'UPDATE users SET last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    
+    db.run(query, [id], function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ id });
+      }
+    });
+  });
+}
+
+/**
+ * Get all users (with optional time filter)
+ */
+function getAllUsers(filters = {}) {
+  return new Promise((resolve, reject) => {
+    let query = 'SELECT * FROM users WHERE status = ?';
+    const params = [filters.status || 'active'];
+
+    if (filters.role) {
+      query += ' AND role = ?';
+      params.push(filters.role);
+    }
+
+    if (filters.createdInDays) {
+      query += ` AND created_at >= datetime('now', '-${filters.createdInDays} days')`;
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows || []);
+      }
+    });
+  });
+}
+
 module.exports = {
   db,
   runAsync,
@@ -545,4 +597,6 @@ module.exports = {
   getUserByGoogleId,
   createUser,
   updateUser,
+  updateUserLastLogin,
+  getAllUsers,
 };

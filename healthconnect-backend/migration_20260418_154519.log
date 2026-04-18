@@ -1,0 +1,176 @@
+
+Migration Log: migration_20260418_154519.log
+
+
+
+╔====================================================================╗
+║               SQLite → PostgreSQL Migration                        ║
+╚====================================================================╝
+
+======================================================================
+  PRE-MIGRATION CHECKS
+======================================================================
+
+✅ SQLite database found: ./healthconnect.db
+
+======================================================================
+  CONNECTING TO DATABASES
+======================================================================
+
+✅ Connected to SQLite: version 3.45.3
+🔗 Connecting to PostgreSQL: postgresql://neondb_owner:npg_px6sOVNDH9gS@***
+✅ Connected to PostgreSQL: PostgreSQL 17.8 (a48d9ca)
+
+======================================================================
+  STEP 1: Creating PostgreSQL Tables
+======================================================================
+
+📝 Creating tables from models...
+✅ All tables created in PostgreSQL
+
+======================================================================
+  STEP 2: Migrating Users Table
+======================================================================
+
+📊 Found 45 users in SQLite
+⏭️  SKIP: awasthi@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: paarthl.ic.24@nitj (already exists in PostgreSQL)
+⏭️  SKIP: pharmacy@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: admin@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: shivam.me.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: raushan@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: awasthi@nitj.ac.n (already exists in PostgreSQL)
+⏭️  SKIP: pradeepka.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: vanshish@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: vanshish@nitja.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: rahul56@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: shivani@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: amarjeet@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: justin.fucku@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: kk@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: vishal.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: vinay.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: hardik.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: aman.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: shivam.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: amang.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: demo.ic.24@nitj (already exists in PostgreSQL)
+⏭️  SKIP: mohan.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: prade.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: pawsthi063.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: awasthi.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: shivam.c.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: mohit.ic.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: mohan@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: meenakshi@nitj (already exists in PostgreSQL)
+⏭️  SKIP: tanishqa@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: pawasthi063@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: shivamg.me.24@nitj.ac.in (already exists in PostgreSQL)
+⏭️  SKIP: pradeepkumarawasthi67@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: guptashivan977@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: newuser_860378005@example.com (already exists in PostgreSQL)
+⏭️  SKIP: persist_1470263159@example.com (already exists in PostgreSQL)
+⏭️  SKIP: persist_1526903478@example.com (already exists in PostgreSQL)
+⏭️  SKIP: persist_875874948@example.com (already exists in PostgreSQL)
+⏭️  SKIP: test@test.com (already exists in PostgreSQL)
+⏭️  SKIP: medtech_profile_test_20260409@example.com (already exists in PostgreSQL)
+⏭️  SKIP: pradeep240818@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: pawasthi5010@gmail.com (already exists in PostgreSQL)
+⏭️  SKIP: admin@medtech.com (already exists in PostgreSQL)
+⏭️  SKIP: awasthi240818@gmail.com (already exists in PostgreSQL)
+
+──────────────────────────────────────────────────────────────────────
+📊 MIGRATION SUMMARY - USERS TABLE:
+  Total found:     45
+  Migrated:        0 ✅
+  Skipped (dups):  45 ⏭️
+  Errors:          0 ❌
+
+======================================================================
+  STEP 3: Migrating Other Tables
+======================================================================
+
+📋 Tables to migrate: appointments, consultations, feedback, notifications, otp_verification_attempts, otps, password_reset_tokens, platform_settings, prescriptions, user_auth_meta, visitor_counter, visitors
+
+⚙️  Copying appointments (10 rows)...
+⚠️  WARNING: Could not migrate appointments: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying consultations (32 rows)...
+⚠️  WARNING: Could not migrate consultations: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying feedback (12 rows)...
+⚠️  WARNING: Could not migrate feedback: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying notifications (25 rows)...
+⚠️  WARNING: Could not migrate notifications: cannot convert dictionary update sequence element #0 to a sequence
+⏭️  SKIP: otp_verification_attempts (empty)
+⚙️  Copying otps (49 rows)...
+⚠️  WARNING: Could not migrate otps: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying password_reset_tokens (7 rows)...
+⚠️  WARNING: Could not migrate password_reset_tokens: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying platform_settings (1 rows)...
+⚠️  WARNING: Could not migrate platform_settings: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying prescriptions (6 rows)...
+⚠️  WARNING: Could not migrate prescriptions: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying user_auth_meta (4 rows)...
+⚠️  WARNING: Could not migrate user_auth_meta: cannot convert dictionary update sequence element #0 to a sequence
+⚙️  Copying visitor_counter (1 rows)...
+⚠️  WARNING: Could not migrate visitor_counter: cannot convert dictionary update sequence element #0 to a sequence
+⏭️  SKIP: visitors (empty)
+
+======================================================================
+  STEP 4: Verification
+======================================================================
+
+📊 Row Counts Comparison:
+
+Table                     SQLite       PostgreSQL   Status
+----------------------------------------------------------------------
+appointments              10           0            ⚠️  DIFF (-10)
+consultations             32           0            ⚠️  DIFF (-32)
+feedback                  12           0            ⚠️  DIFF (-12)
+notifications             25           0            ⚠️  DIFF (-25)
+otp_verification_attempts 0            0            ✅ MATCH
+otps                      49           0            ⚠️  DIFF (-49)
+password_reset_tokens     7            0            ⚠️  DIFF (-7)
+platform_settings         1            0            ⚠️  DIFF (-1)
+prescriptions             6            0            ⚠️  DIFF (-6)
+user_auth_meta            4            0            ⚠️  DIFF (-4)
+users                     45           45           ✅ MATCH
+visitor_counter           1            0            ⚠️  DIFF (-1)
+visitors                  0            0            ✅ MATCH
+----------------------------------------------------------------------
+⚠️  Some tables have differences. Review above.
+
+======================================================================
+  MIGRATION COMPLETE
+======================================================================
+
+
+✅ Migration finished!
+
+📋 Next Steps:
+  1. Verify PostgreSQL has all your users:
+     psql -d medtech -c "SELECT COUNT(*) FROM users;"
+  
+  2. Set environment variable on production:
+     export DATABASE_URL='postgresql://user:pass@host/dbname'
+  
+  3. Restart backend:
+     python -m uvicorn main:app --reload
+  
+  4. Test admin dashboard:
+     - Verify all users appear
+     - Check recent users (last 7 days)
+     - Test login (email + Google OAuth)
+  
+  5. Keep SQLite backup:
+     - Rename healthconnect.db to healthconnect.db.backup
+     - Keep safe for 1-2 weeks
+
+⚠️  IMPORTANT:
+  - DO NOT delete healthconnect.db yet
+  - Test in staging first
+  - Ensure all users migrated correctly
+  - Monitor logs for errors
+
+
+Migration Log: migration_20260418_154603.log
+
