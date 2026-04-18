@@ -36,8 +36,36 @@ interface InventoryStats {
   inventory_value: number;
 }
 
+type OrderStatus = 'PROCESSING' | 'READY_FOR_PICKUP' | 'COMPLETED';
+
+interface PharmacyOrder {
+  id: number;
+  order_id: string;
+  pharmacy_id: number;
+  prescription_id: number | null;
+  patient_name: string | null;
+  total_items: number;
+  total_amount: number;
+  status: OrderStatus;
+  created_at: string | null;
+}
+
+interface TopMedicine {
+  medicine_name: string;
+  total_sold: number;
+}
+
+interface AnalyticsData {
+  monthly_revenue: number;
+  total_orders: number;
+  average_order_value: number;
+  completed_orders: number;
+  top_selling_medicines: TopMedicine[];
+}
+
 const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('prescriptions' as 'prescriptions' | 'inventory' | 'orders' | 'analytics');
+  const [analyticsView, setAnalyticsView] = useState<'top-selling' | 'order-status'>('top-selling');
   const [filterStatus, setFilterStatus] = useState('all' as 'all' | 'pending' | 'approved');
   const signedUser = useStoredUser();
   const { profile } = useBackendProfile();
@@ -50,6 +78,12 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryStats, setInventoryStats] = useState<InventoryStats | null>(null);
   const [inventoryLoading, setInventoryLoading] = useState(false);
+
+  // Orders + Analytics state
+  const [orders, setOrders] = useState<PharmacyOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const [showAddInventoryModal, setShowAddInventoryModal] = useState(false);
   const [newInventoryItem, setNewInventoryItem] = useState({
@@ -135,10 +169,80 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
     fetchPrescriptions();
     fetchInventory();
+    fetchOrders();
+    fetchAnalytics();
     // Poll for new prescriptions every 5 seconds
-    const interval = setInterval(fetchPrescriptions, 5000);
-    return () => clearInterval(interval);
+    const prescriptionInterval = setInterval(fetchPrescriptions, 5000);
+    const orderInterval = setInterval(() => {
+      fetchOrders();
+      fetchAnalytics();
+    }, 10000);
+    return () => {
+      clearInterval(prescriptionInterval);
+      clearInterval(orderInterval);
+    };
   }, [userId]);
+
+  const fetchOrders = async () => {
+    if (!userId) return;
+    setOrdersLoading(true);
+    try {
+      const apiUrl = `${API_BASE_URL}/api/orders?user_id=${userId}`;
+      const response = await fetch(apiUrl);
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(Array.isArray(data) ? data : []);
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to fetch orders:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    if (!userId) return;
+    setAnalyticsLoading(true);
+    try {
+      const apiUrl = `${API_BASE_URL}/api/analytics?user_id=${userId}`;
+      const response = await fetch(apiUrl);
+      if (response.ok) {
+        const data = await response.json();
+        setAnalyticsData(data);
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to fetch analytics:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  const createOrderFromPrescription = async (prescriptionId: number) => {
+    if (!userId) return;
+    try {
+      const apiUrl = `${API_BASE_URL}/api/orders/from-prescription/${prescriptionId}?user_id=${userId}`;
+      const response = await fetch(apiUrl, { method: 'POST' });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Order creation failed:', response.status, errorText);
+      }
+      fetchOrders();
+      fetchAnalytics();
+    } catch (error) {
+      console.error('Order creation failed:', error);
+    }
+  };
+
+  const formatCurrency = (value: number) => `₹${(value || 0).toFixed(2)}`;
+  const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString() : 'N/A');
+  const statusLabel = (status: string) => status.replaceAll('_', ' ');
+  const approvedOrders = orders.filter((order) => order.status === 'READY_FOR_PICKUP' || order.status === 'COMPLETED');
 
   const handleApprovePrescription = async (prescriptionId: number) => {
     if (!userId) return;
@@ -149,6 +253,7 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
       });
       if (response.ok) {
         alert('✓ Prescription approved!');
+        await createOrderFromPrescription(prescriptionId);
         fetchPrescriptions();
       } else {
         const errorText = await response.text();
@@ -287,6 +392,37 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
     } catch (error: any) {
       console.error('Failed to update inventory item:', error);
       alert(`✗ Error: ${error.message}`);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderPrimaryId: number, status: OrderStatus) => {
+    if (!userId) return;
+    try {
+      const apiUrl = `${API_BASE_URL}/api/orders/${orderPrimaryId}/status?user_id=${userId}`;
+      const response = await fetch(apiUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = `Status ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMsg = errorData.detail || errorData.message || errorMsg;
+        } catch {
+          // If not JSON, use status
+        }
+        alert(`✗ Failed to update order: ${errorMsg}`);
+        return;
+      }
+
+      fetchOrders();
+      fetchAnalytics();
+    } catch (error: any) {
+      console.error('Failed to update order status:', error);
+      alert(`✗ Error updating order: ${error.message}`);
     }
   };
 
@@ -688,38 +824,22 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
     </h2>
 
     <div className="space-y-4">
-      {[
-        { 
-          orderId: 'ORD001', 
-          patient: 'Priya Sharma', 
-          items: 2, 
-          status: 'ready-for-pickup', 
-          total: 245.50,
-          date: 'Dec 15, 2024'
-        },
-        { 
-          orderId: 'ORD002', 
-          patient: 'Rajesh Patel', 
-          items: 3, 
-          status: 'processing', 
-          total: 892.75,
-          date: 'Dec 15, 2024'
-        },
-        { 
-          orderId: 'ORD003', 
-          patient: 'Meera Singh', 
-          items: 1, 
-          status: 'completed', 
-          total: 156.25,
-          date: 'Dec 14, 2024'
-        },
-      ].map((order, index) => (
+      {ordersLoading ? (
+        <div className="text-center py-8 text-gray-600">Loading orders...</div>
+      ) : approvedOrders.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">No approved orders found for this pharmacy</div>
+      ) : approvedOrders.map((order) => {
+        const baseTotal = Number(order.total_amount || 0);
+        const gstAmount = baseTotal * 0.18;
+        const finalTotal = baseTotal + gstAmount;
+
+        return (
         <div 
-          key={index} 
+          key={order.id} 
           className={`rounded-lg p-5 shadow-md border-l-4 transition transform hover:scale-[1.01] ${
-            order.status === 'ready-for-pickup'
+            order.status === 'READY_FOR_PICKUP'
               ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-400'
-              : order.status === 'processing'
+              : order.status === 'PROCESSING'
               ? 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-400'
               : 'bg-gradient-to-r from-green-50 to-green-100 border-green-400'
           }`}
@@ -728,33 +848,44 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
             {/* Left Side */}
             <div>
               <h3 className="font-semibold text-gray-900 text-lg">
-                Order #{order.orderId}
+                Order #{order.order_id}
               </h3>
               <p className="text-sm text-gray-700 mt-1">
-                👤 {order.patient} • 🧾 {order.items} items • 📅 {order.date}
+                👤 {order.patient_name || 'Unknown'} • 🧾 {order.total_items} items • 📅 {formatDate(order.created_at)}
               </p>
             </div>
 
             {/* Right Side */}
             <div className="text-right">
               <p className="font-bold text-gray-900 text-lg">
-                ₹{order.total.toFixed(2)}
+                {formatCurrency(finalTotal)}
               </p>
+              <p className="text-xs text-gray-600">Base {formatCurrency(baseTotal)} + GST 18% {formatCurrency(gstAmount)}</p>
               <span
                 className={`inline-block mt-1 text-xs font-semibold px-3 py-1 rounded-full shadow-sm ${
-                  order.status === 'ready-for-pickup'
+                  order.status === 'READY_FOR_PICKUP'
                     ? 'bg-blue-200 text-blue-900'
-                    : order.status === 'processing'
+                    : order.status === 'PROCESSING'
                     ? 'bg-orange-200 text-orange-900'
                     : 'bg-green-200 text-green-900'
                 }`}
               >
-                {order.status.replace('-', ' ').toUpperCase()}
+                {statusLabel(order.status)}
               </span>
+              {order.status !== 'COMPLETED' && (
+                <div className="mt-2">
+                  <button
+                    onClick={() => handleUpdateOrderStatus(order.id, 'COMPLETED')}
+                    className="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full hover:bg-emerald-700"
+                  >
+                    Mark Completed
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      ))}
+      )})}
     </div>
   </div>
 </div>
@@ -762,23 +893,23 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
   );
 
   const renderAnalytics = () => (
-    <div className="space-y-6">
+    <div className="space-y-4 h-[calc(100vh-220px)] overflow-hidden">
   {/* Stats Section */}
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 overflow-x-hidden">
     {[
       {
         title: "Monthly Revenue",
-        value: "₹4.2L",
-        change: "+15% from last month",
+        value: formatCurrency(analyticsData?.monthly_revenue || 0),
+        change: "Current month",
         changeType: "positive",
         gradient: "from-cyan-50 to-blue-100",
         border: "border-cyan-400",
         icon: "💰",
       },
       {
-        title: "Prescriptions Filled",
-        value: "342",
-        change: "+8% from last month",
+        title: "Total Orders",
+        value: String(analyticsData?.total_orders || 0),
+        change: "All-time",
         changeType: "positive",
         gradient: "from-emerald-50 to-green-100",
         border: "border-emerald-400",
@@ -786,17 +917,17 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
       },
       {
         title: "Average Order Value",
-        value: "₹425",
-        change: "-3% from last month",
-        changeType: "negative",
+        value: formatCurrency(analyticsData?.average_order_value || 0),
+        change: "Across all orders",
+        changeType: "positive",
         gradient: "from-orange-50 to-yellow-100",
         border: "border-orange-400",
         icon: "📊",
       },
       {
-        title: "Customer Satisfaction",
-        value: "4.7/5",
-        change: "+0.1 from last month",
+        title: "Completed Orders",
+        value: String(analyticsData?.completed_orders || 0),
+        change: "Marked completed",
         changeType: "positive",
         gradient: "from-purple-50 to-pink-100",
         border: "border-purple-400",
@@ -823,58 +954,70 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
     ))}
   </div>
 
-  {/* Medicines & Reviews */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 overflow-x-hidden">
-    {/* Top Selling Medicines */}
-    <div className="bg-gradient-to-br from-blue-50 to-cyan-100 rounded-xl shadow-md p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Top Selling Medicines</h3>
-      <div className="space-y-3">
-        {[
-          { name: "Paracetamol 500mg", sales: 120, revenue: 300 },
-          { name: "Amoxicillin 250mg", sales: 85, revenue: 743.75 },
-          { name: "Metformin 500mg", sales: 65, revenue: 406.25 },
-          { name: "Vitamin D3", sales: 45, revenue: 234 },
-        ].map((item, index) => (
-          <div
-            key={index}
-            className="flex justify-between items-center p-3 bg-white border border-blue-200 rounded-lg shadow-sm hover:shadow-md transition"
-          >
-            <div>
-              <p className="font-medium text-gray-900">{item.name}</p>
-              <p className="text-sm text-gray-600">{item.sales} units sold</p>
-            </div>
-            <p className="font-bold text-emerald-600">₹{item.revenue}</p>
-          </div>
-        ))}
-      </div>
+  {/* Horizontal Tabs */}
+  <div className="bg-white rounded-xl shadow-md p-4">
+    <div className="flex gap-3 mb-4">
+      <button
+        onClick={() => setAnalyticsView('top-selling')}
+        className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+          analyticsView === 'top-selling'
+            ? 'bg-blue-600 text-white'
+            : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+        }`}
+      >
+        Top Selling Medicines
+      </button>
+      <button
+        onClick={() => setAnalyticsView('order-status')}
+        className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+          analyticsView === 'order-status'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+        }`}
+      >
+        Order Status Snapshot
+      </button>
     </div>
 
-    {/* Recent Customer Reviews */}
-    <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-xl shadow-md p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Customer Reviews</h3>
-      <div className="space-y-4">
-        {[
-          { customer: "Priya Sharma", rating: 5, review: "Quick service and accurate fulfillment." },
-          { customer: "Rajesh Patel", rating: 4, review: "Good experience, medicines were ready on time." },
-          { customer: "Meera Singh", rating: 5, review: "Excellent service and friendly staff." },
-        ].map((review, index) => (
+    {analyticsView === 'top-selling' ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {analyticsLoading ? (
+          <p className="text-sm text-gray-600">Loading analytics...</p>
+        ) : (analyticsData?.top_selling_medicines || []).length === 0 ? (
+          <p className="text-sm text-gray-600">No medicine sales yet</p>
+        ) : (analyticsData?.top_selling_medicines || []).map((item, index) => (
           <div
             key={index}
-            className="border border-emerald-200 bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition"
+            className="flex justify-between items-center p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-sm"
           >
-            <div className="flex justify-between items-start mb-2">
-              <h4 className="font-semibold text-gray-900">{review.customer}</h4>
-              <div className="flex">
-                {[...Array(review.rating)].map((_, i) => (
-                  <span key={i} className="text-yellow-400">★</span>
-                ))}
-              </div>
+            <div>
+              <p className="font-medium text-gray-900">{item.medicine_name}</p>
+              <p className="text-sm text-gray-600">{item.total_sold} units sold</p>
             </div>
-            <p className="text-sm text-gray-600">{review.review}</p>
+            <p className="font-bold text-emerald-600">#{index + 1}</p>
           </div>
         ))}
       </div>
-    </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {[
+          { label: 'Processing', count: orders.filter((o) => o.status === 'PROCESSING').length },
+          { label: 'Ready For Pickup', count: orders.filter((o) => o.status === 'READY_FOR_PICKUP').length },
+          { label: 'Completed', count: orders.filter((o) => o.status === 'COMPLETED').length },
+        ].map((entry, index) => (
+          <div
+            key={index}
+            className="border border-emerald-200 bg-emerald-50 rounded-lg p-4 shadow-sm"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <h4 className="font-semibold text-gray-900">{entry.label}</h4>
+              <div className="font-bold text-emerald-700">{entry.count}</div>
+            </div>
+            <p className="text-sm text-gray-600">Real-time count from pharmacy orders</p>
+          </div>
+        ))}
+      </div>
+    )}
   </div>
 </div>
 
@@ -973,7 +1116,7 @@ const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ onLogout }) => {
 
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${activeTab === 'analytics' ? 'h-[calc(100vh-140px)] overflow-hidden' : ''}`}>
         {activeTab === 'prescriptions' && renderPrescriptions()}
         {activeTab === 'inventory' && renderInventory()}
         {activeTab === 'orders' && renderOrders()}

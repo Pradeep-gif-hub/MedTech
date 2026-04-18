@@ -281,3 +281,51 @@ class InventoryStatsResponse(BaseModel):
     low_stock_count: int
     out_of_stock_count: int
     inventory_value: float
+
+
+class OrderItemResponse(BaseModel):
+    medicine_name: str
+    quantity: int
+    price: float
+    total: float
+
+
+class OrderResponse(BaseModel):
+    id: int
+    order_id: str
+    pharmacy_id: int
+    prescription_id: Optional[int] = None
+    patient_name: Optional[str] = None
+    total_items: int
+    total_amount: float
+    status: str
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+    @field_serializer('created_at')
+    def serialize_created_at(self, value: Optional[datetime]) -> Optional[str]:
+        return value.isoformat() if value else None
+
+
+class OrderCreateFromPrescriptionResponse(BaseModel):
+    message: str
+    order: OrderResponse
+    items: list[OrderItemResponse]
+
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+
+
+class AnalyticsTopMedicine(BaseModel):
+    medicine_name: str
+    total_sold: int
+
+
+class PharmacyAnalyticsResponse(BaseModel):
+    monthly_revenue: float
+    total_orders: int
+    average_order_value: float
+    completed_orders: int
+    top_selling_medicines: list[AnalyticsTopMedicine]

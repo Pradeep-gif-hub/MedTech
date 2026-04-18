@@ -33,6 +33,7 @@ appointments = None
 webrtc = None
 analytics = None
 pharmacy = None
+orders = None
 try:
     from routers import prescriptions
 except Exception:
@@ -56,6 +57,12 @@ try:
 except Exception as e:
     print(f"[STARTUP] Pharmacy router import failed: {e}")
     pharmacy = None
+try:
+    from routers import orders
+    print("[STARTUP] Orders router imported successfully")
+except Exception as e:
+    print(f"[STARTUP] Orders router import failed: {e}")
+    orders = None
 try:
     from routers import webrtc
     print("[STARTUP] WebRTC router imported successfully")
@@ -226,6 +233,9 @@ if appointments and hasattr(appointments, "router"):
 if pharmacy and hasattr(pharmacy, "router"):
     app.include_router(pharmacy.router)
     print("[STARTUP] Pharmacy router mounted at /api/pharmacy/*")
+if orders and hasattr(orders, "router"):
+    app.include_router(orders.router)
+    print("[STARTUP] Orders router mounted at /api/orders, /api/analytics")
 if analytics and hasattr(analytics, "router"):
     app.include_router(analytics.router, tags=["Analytics"])
 if webrtc and hasattr(webrtc, "router"):
@@ -374,7 +384,7 @@ try:
         print("[startup] Verifying PostgreSQL sequences...")
         try:
             with engine.begin() as conn:
-                for table_name in ["users", "prescriptions", "inventory", "notifications", "visitors", "visitor_counters"]:
+                for table_name in ["users", "prescriptions", "inventory", "notifications", "visitors", "visitor_counter", "orders", "order_items"]:
                     conn.execute(
                         text(
                             """

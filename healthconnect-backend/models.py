@@ -219,3 +219,39 @@ class Inventory(Base):
     
     # Relationships
     pharmacy = relationship("User", foreign_keys=[pharmacy_id], backref="inventory_items")
+
+
+class Order(Base):
+    """
+    Pharmacy order generated from filled prescriptions.
+    """
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(String(20), unique=True, nullable=False, index=True)
+    pharmacy_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=True, index=True)
+    patient_name = Column(String, nullable=True)
+    total_items = Column(Integer, default=0, nullable=False)
+    total_amount = Column(Float, default=0.0, nullable=False)
+    status = Column(String(20), default="PROCESSING", nullable=False)  # PROCESSING | READY_FOR_PICKUP | COMPLETED
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    pharmacy = relationship("User", foreign_keys=[pharmacy_id], backref="orders")
+    prescription = relationship("Prescription", foreign_keys=[prescription_id])
+
+
+class OrderItem(Base):
+    """
+    Line items for each pharmacy order.
+    """
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    medicine_name = Column(String, nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    price = Column(Float, nullable=False, default=0.0)
+    total = Column(Float, nullable=False, default=0.0)
+
+    order = relationship("Order", foreign_keys=[order_id], backref="items")
