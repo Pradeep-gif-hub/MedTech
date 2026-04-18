@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pill, FileText, Package, BarChart3, Check, X, Clock, Search, Filter } from 'lucide-react';
+import { Pill, FileText, Package, BarChart3, Check, X, Clock, Filter } from 'lucide-react';
 import { useStoredUser } from '../hooks/useStoredUser';
 import { useBackendProfile } from '../hooks/useBackendProfile';
 import { API_BASE_URL } from '../firebaseConfig';

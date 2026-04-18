@@ -288,8 +288,13 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
   // Google Auth - handles both login and signup
   const handleGoogleAuth = async (credential: string, isSignUp: boolean = false) => {
     try {
+      const apiUrl = buildApiUrl('/api/users/google-login');
+      console.log('[Google Auth] Attempting login at:', apiUrl);
+      console.log('[Google Auth] Using role:', selectedRole);
+      console.log('[Google Auth] Token first 50 chars:', credential.substring(0, 50) + '...');
+      
       // Send the Google ID token to the dedicated Google login endpoint
-      const res = await fetch(buildApiUrl('/api/users/google-login'), {
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,6 +304,8 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
           role: selectedRole
         })
       });
+
+      console.log('[Google Auth] Response status:', res.status, res.statusText);
 
       if (res.ok) {
         const response = await parseJsonSafe(res);
@@ -360,19 +367,13 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
         }
       } else {
         const error = await extractError(res);
-        if (isSignUp) {
-          alert(`Google sign up failed: ${error}`);
-        } else {
-          alert(`Google login failed: ${error}`);
-        }
+        console.log('[Google Auth] Backend error:', res.status, error);
+        alert(`Google login failed: ${res.status} - ${error}`);
       }
-    } catch (error) {
-      console.error('Google auth error:', error);
-      if (isSignUp) {
-        alert('Google sign up failed. Please check your internet connection and try again.');
-      } else {
-        alert('Google login failed. Please check your internet connection and try again.');
-      }
+    } catch (error: any) {
+      console.error('[Google Auth] Network/fetch error:', error);
+      console.error('[Google Auth] Error details:', error.message || error);
+      alert(`Google login failed: ${error.message || 'Network error - ensure backend is running at ' + buildApiUrl('')}`);
     }
   };
 

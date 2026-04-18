@@ -220,3 +220,64 @@ class DoctorProfileResponse(BaseModel):
     @field_serializer('created_at', 'updated_at')
     def serialize_datetime(self, value: Optional[datetime]) -> Optional[str]:
         return value.isoformat() if value else None
+
+
+# Pharmacy Schemas
+class PharmacyPrescriptionResponse(BaseModel):
+    id: int
+    patient_id: int
+    patient_name: str
+    doctor_id: int
+    doctor_name: str
+    date: Optional[str] = None
+    diagnosis: str
+    medicines: list[dict]
+    pharmacy_status: str  # pending / approved / rejected
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+    
+    @field_serializer('created_at')
+    def serialize_created_at(self, value: Optional[datetime]) -> Optional[str]:
+        return value.isoformat() if value else None
+
+
+class InventoryBase(BaseModel):
+    medicine_name: str
+    category: str
+    current_stock: int
+    min_stock: int
+    price: float
+
+
+class InventoryCreate(InventoryBase):
+    pass
+
+
+class InventoryUpdate(BaseModel):
+    medicine_name: Optional[str] = None
+    category: Optional[str] = None
+    current_stock: Optional[int] = None
+    min_stock: Optional[int] = None
+    price: Optional[float] = None
+
+
+class InventoryResponse(InventoryBase):
+    id: int
+    pharmacy_id: int
+    status: str  # in-stock / low-stock / out-of-stock (computed)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, value: Optional[datetime]) -> Optional[str]:
+        return value.isoformat() if value else None
+
+
+class InventoryStatsResponse(BaseModel):
+    total_items: int
+    low_stock_count: int
+    out_of_stock_count: int
+    inventory_value: float

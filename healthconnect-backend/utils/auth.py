@@ -11,6 +11,9 @@ load_dotenv()
 DEFAULT_GOOGLE_CLIENT_ID = "693090706948-2d1jp6de9otm6u70b6u7n196tn0mdepg.apps.googleusercontent.com"
 LEGACY_GOOGLE_CLIENT_ID = "354042134567-1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6.apps.googleusercontent.com"
 
+# Export GOOGLE_CLIENT_ID for use in other modules
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID") or DEFAULT_GOOGLE_CLIENT_ID
+
 
 def _get_allowed_google_client_ids() -> list[str]:
     """

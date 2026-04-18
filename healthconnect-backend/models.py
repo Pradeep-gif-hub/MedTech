@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, func
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, func, Float
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -117,6 +117,8 @@ class Prescription(Base):
     instruction = Column(String)
     medications = Column(String)  # JSON string
     pdf_url = Column(String, nullable=True)
+    status = Column(String, default="pending", nullable=False)  # pending / approved / rejected / dispensed
+    pharmacy_status = Column(String, default="pending", nullable=False)  # NEW: pending / approved / rejected
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     patient = relationship("User", foreign_keys=[patient_id])
@@ -196,3 +198,24 @@ class VisitorCounter(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     total_visits = Column(Integer, default=0, nullable=False)
+
+
+class Inventory(Base):
+    """
+    Pharmacy inventory management.
+    Each pharmacy (user with role='pharmacy') has their own inventory items.
+    """
+    __tablename__ = "inventory"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pharmacy_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    medicine_name = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    current_stock = Column(Integer, default=0, nullable=False)
+    min_stock = Column(Integer, default=0, nullable=False)
+    price = Column(Float, nullable=False, default=0.0)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    pharmacy = relationship("User", foreign_keys=[pharmacy_id], backref="inventory_items")
