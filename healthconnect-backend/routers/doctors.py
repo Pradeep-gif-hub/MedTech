@@ -16,6 +16,29 @@ def get_db():
         db.close()
 
 
+async def resolve_current_user(request: Request, db: Session) -> models.User:
+    auth_header = request.headers.get("Authorization") or ""
+    user = None
+
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+
+        if token.startswith("local:"):
+            raw_user_id = token.replace("local:", "", 1)
+            if raw_user_id.isdigit():
+                user = db.query(models.User).filter(models.User.id == int(raw_user_id)).first()
+
+    if not user:
+        user_id_header = request.headers.get("X-User-Id")
+        if user_id_header and str(user_id_header).isdigit():
+            user = db.query(models.User).filter(models.User.id == int(user_id_header)).first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    return user
+
+
 async def resolve_current_doctor(request: Request, db: Session) -> models.User:
     """Extract doctor from JWT token and verify role"""
     auth_header = request.headers.get("Authorization") or ""
@@ -95,6 +118,38 @@ async def get_doctor_profile(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"[GET_DOCTOR_PROFILE] Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch profile: {str(e)}")
+
+
+@router.get("/{doctor_id}")
+async def get_doctor_by_id(doctor_id: int, request: Request, db: Session = Depends(get_db)):
+    """Return public doctor details for consultation cards."""
+    try:
+        # Require an authenticated user (patient/doctor/admin/pharmacy).
+        await resolve_current_user(request, db)
+
+        doctor = db.query(models.User).filter(
+            models.User.id == doctor_id,
+            models.User.role == "doctor"
+        ).first()
+
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+
+        return {
+            "id": doctor.id,
+            "name": doctor.full_name or doctor.name,
+            "full_name": doctor.full_name or doctor.name,
+            "specialization": doctor.specialization,
+            "email": doctor.email,
+            "avatar": doctor.profile_picture_url,
+            "profile_picture_url": doctor.profile_picture_url,
+            "hospital_name": doctor.hospital_name,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[GET_DOCTOR_BY_ID] Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch doctor details: {str(e)}")
 
 
 @router.put("/profile/update")

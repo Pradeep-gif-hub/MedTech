@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./healthconnect-backend
+      dockerfile: Dockerfile
+    container_name: medtech-backend
+    restart: unless-stopped
+    env_file:
+      - ./healthconnect-backend/.env
+    environment:
+      # Backend listens on 5000 inside the container.
+      PORT: 5000
+      # Frontend public URL used by backend-generated links (emails/reset flows).
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "5000:5000"
+    networks:
+      - medtech-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./healthconnect-frontend
+      dockerfile: Dockerfile
+      args:
+        # Use Docker service DNS name for container-to-container calls.
+        VITE_API_URL: ${VITE_API_URL:-http://backend:5000}
+    container_name: medtech-frontend
+    restart: unless-stopped
+    env_file:
+      - ./healthconnect-frontend/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - medtech-net
+
+networks:
+  medtech-net:
+    driver: bridge

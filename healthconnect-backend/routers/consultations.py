@@ -8,11 +8,15 @@ from disease_specialization_map import DISEASE_SPECIALIZATION_MAP
 router = APIRouter(tags=["Consultations"], prefix="/api")
 
 SPECIALIZATION_ALIASES = {
-    "General Medicine": ["general medicine", "general physician", "family medicine", "internal medicine"],
-    "Cardiology": ["cardiology", "cardiologist", "heart specialist"],
-    "Respiratory": ["respiratory", "pulmonology", "pulmonologist", "chest specialist"],
-    "Neurology": ["neurology", "neurologist", "brain specialist"],
-    "Dermatology": ["dermatology", "dermatologist", "skin specialist"],
+    "General Medicine": [
+        "general medicine", "general physician", "family medicine", "internal medicine", "general practice"
+    ],
+    "Cardiology": ["cardiology", "cardiologist", "heart specialist", "cardiac"],
+    "Respiratory": ["respiratory", "pulmonology", "pulmonologist", "chest specialist", "pulmonary"],
+    "Neurology": ["neurology", "neurologist", "brain specialist", "neuro"],
+    "Dermatology": [
+        "dermatology", "dermatologist", "skin specialist", "dermatologist/skin", "dermitology", "dermatolgy"
+    ],
 }
 
 def get_db():
@@ -65,11 +69,35 @@ def _match_specialization(condition: str | None) -> str | None:
     return "General Medicine"
 
 
+def _canonical_specialization(value: str | None) -> str | None:
+    normalized_value = _normalize_text(value)
+    if not normalized_value:
+        return None
+
+    for canonical, aliases in SPECIALIZATION_ALIASES.items():
+        canonical_norm = _normalize_text(canonical)
+        alias_norms = [canonical_norm] + [_normalize_text(alias) for alias in aliases]
+
+        if normalized_value in alias_norms:
+            return canonical
+
+        # Handle cases like "dermitology specialist" or "cardiology consultant".
+        if any(alias and alias in normalized_value for alias in alias_norms):
+            return canonical
+
+    return None
+
+
 def _is_specialization_match(doctor_specialization: str | None, target_specialization: str | None) -> bool:
     doctor_norm = _normalize_text(doctor_specialization)
     target_norm = _normalize_text(target_specialization)
     if not doctor_norm or not target_norm:
         return False
+
+    doctor_canonical = _canonical_specialization(doctor_specialization)
+    target_canonical = _canonical_specialization(target_specialization)
+    if doctor_canonical and target_canonical and doctor_canonical == target_canonical:
+        return True
 
     if doctor_norm == target_norm:
         return True
@@ -83,6 +111,10 @@ def _is_specialization_match(doctor_specialization: str | None, target_specializ
         if doctor_norm in alias_norms and target_norm == _normalize_text(canonical):
             return True
 
+    # Final tolerant fallback for near matches with extra qualifiers.
+    if target_norm in doctor_norm or doctor_norm in target_norm:
+        return True
+
     return False
 
 
@@ -95,8 +127,22 @@ def _find_doctor_for_specialization(db: Session, specialization: str | None) -> 
         return None
 
     matched_doctors = [d for d in doctors if _is_specialization_match(d.specialization, specialization)]
+    
+    # If no exact match, try to find a doctor with the same specialization (case-insensitive)
+    if not matched_doctors and specialization:
+        norm_spec = _normalize_text(specialization)
+        matched_doctors = [
+            d for d in doctors 
+            if d.specialization and _normalize_text(d.specialization) == norm_spec
+        ]
+    
+    # If still no match, fallback to finding ANY doctor with a non-empty specialization
     if not matched_doctors:
-        return None
+        matched_doctors = [d for d in doctors if d.specialization and d.specialization.strip()]
+    
+    # Last resort: return ANY doctor
+    if not matched_doctors:
+        matched_doctors = doctors
 
     # Basic load balancing: doctor with least active consultations is picked.
     def active_count(doctor_id: int) -> int:
@@ -220,12 +266,16 @@ def create_consultation(
 
         specialization = _match_specialization(disease)
         matching_doctor = _find_doctor_for_specialization(db, specialization)
-        print(f"[CONSULTATION] Requested condition={disease}, mapped_specialization={specialization}")
-        print("Assigned doctor:", {
-            "id": matching_doctor.id,
-            "name": matching_doctor.full_name or matching_doctor.name,
-            "specialization": matching_doctor.specialization,
-        } if matching_doctor else None)
+        
+        # Debug logging
+        all_doctors = db.query(User).filter(User.role == "doctor").all()
+        print(f"\n[CONSULTATION] Disease selection: {disease}")
+        print(f"[CONSULTATION] Mapped specialization: {specialization}")
+        print(f"[CONSULTATION] Total doctors in DB: {len(all_doctors)}")
+        for doc in all_doctors:
+            print(f"  - Doctor {doc.id}: {doc.full_name or doc.name}, Specialization: {doc.specialization}")
+        print(f"[CONSULTATION] Assigned doctor: {matching_doctor.id} ({matching_doctor.full_name or matching_doctor.name}) - {matching_doctor.specialization}" if matching_doctor else "[CONSULTATION] Assigned doctor: NONE")
+        print()
 
         # Create consultation
         new_consultation = Consultation(

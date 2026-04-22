@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+gunicorn>=21.2.0
 websockets
 sqlalchemy
 pydantic

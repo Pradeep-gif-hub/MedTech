@@ -1198,16 +1198,6 @@ const headerHTML = `
     if (profile.abhaId) setAbhaId(profile.abhaId);
   }, [profile]);
 
-
-
-
-  // Recent consultations sample (was referenced but not defined)
-  const recentConsultations = [
-    { doctor: 'Dr Paarth Lalit', date: 'Dec 15, 2024', rating: 5, status: 'Completed' },
-    { doctor: 'Dr. Vishal Buttler', date: 'Dec 10, 2024', rating: 4, status: 'Completed' },
-  ];
-
-
   // NEW: represent blood pressure as systolic/diastolic so it can vary smoothly
   const parseBP = (bp: string) => {
     const m = String(bp).match(/(\d+)\s*\/\s*(\d+)/);
@@ -1370,18 +1360,45 @@ const headerHTML = `
             >
               <option value="">Select the Disease</option>
               <option>Fever</option>
+              <option>Cold</option>
+              <option>Flu</option>
               <option>Cardiac Arrest</option>
-              <option>Cold & Cough</option>
-              <option>Asthma</option>
-              <option>Diabetes</option>
+              <option>Cardiomyopathy</option>
+              <option>Heart Attack</option>
+              <option>Arrhythmia</option>
               <option>Hypertension</option>
-              <option>Heart Disease</option>
-              <option>Liver Issues</option>
-              <option>Kidney Problems</option>
-              <option>Arthritis</option>
+              <option>Angina</option>
+              <option>Heart Block</option>
+              <option>Valve Disease</option>
+              <option>Asthma</option>
+              <option>COPD</option>
+              <option>Pneumonia</option>
+              <option>Bronchitis</option>
+              <option>Respiratory Failure</option>
+              <option>Respiratory Infection</option>
+              <option>Lung Disease</option>
+              <option>Shortness of Breath</option>
+              <option>Migraine</option>
+              <option>Epilepsy</option>
+              <option>Stroke</option>
+              <option>Parkinson</option>
+              <option>Alzheimer</option>
+              <option>Neuropathy</option>
+              <option>Neurological Disorder</option>
+              <option>Neuralgic Pain</option>
+              <option>Dermatitis</option>
+              <option>Eczema</option>
+              <option>Psoriasis</option>
+              <option>Acne</option>
+              <option>Fungal Infection</option>
+              <option>Skin Allergy</option>
+              <option>Rash</option>
               <option>Skin Disorders</option>
-              <option>Neurological Problems</option>
-              <option>Mental Health</option>
+              <option>Dermatological Issue</option>
+              <option>General Checkup</option>
+              <option>Infection</option>
+              <option>Weakness</option>
+              <option>Fatigue</option>
               <option>Other</option>
             </select>
           </div>
