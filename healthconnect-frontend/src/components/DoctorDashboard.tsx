@@ -132,23 +132,25 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // Format date/time to IST timezone
   const formatIST = (date: any) => {
     if (!date) return '';
-    console.log('[DoctorDashboard formatIST] Input date:', date);
-    const utcDate = new Date(date);
-    console.log('[DoctorDashboard formatIST] UTC Date:', utcDate.toISOString());
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(utcDate.getTime() + istOffset);
-    const formatted = istDate.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-    console.log('[DoctorDashboard formatIST] IST Date:', istDate.toISOString());
-    console.log('[DoctorDashboard formatIST] Formatted:', formatted);
-    return formatted;
+    try {
+      const dateObj = new Date(date);
+      // Use proper timezone conversion via Intl API
+      const istFormatted = new Intl.DateTimeFormat('en-IN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+      }).format(dateObj);
+      console.log('[DoctorDashboard formatIST] Input:', date, '-> Formatted IST:', istFormatted);
+      return istFormatted;
+    } catch (err) {
+      console.error('[DoctorDashboard formatIST] Error:', err);
+      return String(date);
+    }
   };
 
   // Helper to log messages with IST timestamp

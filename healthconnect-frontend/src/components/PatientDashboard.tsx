@@ -225,25 +225,27 @@ const PatientDashboard = ({ onLogout, onNavigateToChatbot }: PatientDashboardPro
 
 
   const formatIST = (date: any) => {
-  if (!date) return "";
-  console.log('[formatIST] Input date:', date);
-  const utcDate = new Date(date);
-  console.log('[formatIST] UTC Date:', utcDate.toISOString());
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istDate = new Date(utcDate.getTime() + istOffset);
-  const formatted = istDate.toLocaleString("en-IN", {
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true
-  });
-  console.log('[formatIST] IST Date:', istDate.toISOString());
-  console.log('[formatIST] Formatted:', formatted);
-  return formatted;
-};
+    if (!date) return "";
+    try {
+      const dateObj = new Date(date);
+      // Use proper timezone conversion via Intl API
+      const istFormatted = new Intl.DateTimeFormat('en-IN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+      }).format(dateObj);
+      console.log('[formatIST] Input:', date, '-> Formatted IST:', istFormatted);
+      return istFormatted;
+    } catch (err) {
+      console.error('[formatIST] Error:', err);
+      return String(date);
+    }
+  };
 
   // Styled multi-page-aware PDF
   const handleDownloadPDF = async (prescription: any) => {
