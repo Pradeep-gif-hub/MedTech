@@ -1357,13 +1357,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                 {renderConsultationLeft(currentPatient)}
               </div>
 
-              {/* Right: Patient Info + Vitals (1 column, split vertically) */}
+              {/* Right: Vitals + Patient Info (1 column, split vertically) */}
               <div className="flex flex-col h-full gap-3 min-h-0">
                 <div className="flex-1 min-h-0">
-                  {renderConsultationRightTop(currentPatient)}
+                  {renderConsultationRightBottom(currentPatient)}
                 </div>
                 <div className="flex-1 min-h-0">
-                  {renderConsultationRightBottom(currentPatient)}
+                  {renderConsultationRightTop(currentPatient)}
                 </div>
               </div>
             </div>
