@@ -85,8 +85,8 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
   ];
 
   const renderRoleTabs = () => (
-    <div className="mb-6">
-      <div className="grid grid-cols-4 gap-2">
+    <div className="mb-4 sm:mb-5 lg:mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-2 lg:gap-3">
         {roleTabs.map((tab) => {
           const isActive = selectedRole === tab.key;
           return (
@@ -94,7 +94,7 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
               key={tab.key}
               type="button"
               onClick={() => setSelectedRole(tab.key)}
-              className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+              className={`rounded-lg px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 lg:py-2.5 text-xs sm:text-xs lg:text-sm font-semibold transition ${
                 isActive
                   ? `${roleData[tab.key].bgColor} text-white shadow`
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
@@ -512,37 +512,37 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
  if (loggedIn) return null;
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-2 sm:p-3 lg:p-4">
       {showForgotPassword ? (
         // Forgot Password Layout - Left aligned
-        <div className="max-w-md w-full bg-emerald-50 rounded-2xl shadow-xl p-8">
+        <div className="w-full max-w-xs sm:max-w-sm lg:max-w-md bg-emerald-50 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-lg lg:shadow-xl p-3 sm:p-5 lg:p-8">
           <button 
             onClick={onBack} 
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+            className="flex items-center gap-2 sm:gap-3 text-gray-600 hover:text-gray-900 mb-4 sm:mb-5 lg:mb-6 transition-colors text-xs sm:text-sm"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             <span>Back to Home</span>
           </button>
 
           {renderRoleTabs()}
 
           {noticeMessage && (
-            <div className="mb-6 p-3 rounded-lg border border-emerald-200 bg-emerald-100 text-sm text-emerald-900">
+            <div className="mb-4 sm:mb-5 lg:mb-6 p-2 sm:p-3 rounded-lg border border-emerald-200 bg-emerald-100 text-xs sm:text-sm text-emerald-900">
               {noticeMessage}
             </div>
           )}
 
             {forgotPasswordStep === 'email' && (
-              <form onSubmit={handleForgotPasswordRequest} className="space-y-6">
+              <form onSubmit={handleForgotPasswordRequest} className="space-y-4 sm:space-y-5 lg:space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Forgot Password?</h2>
-                  <p className="text-gray-600 text-sm">We'll help you reset it</p>
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1 sm:mb-2 lg:mb-3">Forgot Password?</h2>
+                  <p className="text-gray-600 text-xs sm:text-sm">We'll help you reset it</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Email Address *</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 lg:mb-4">Email Address *</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                     <input 
                       type="email" 
                       placeholder={`Enter the email address associated with your ${settings.platform_name} account.`}

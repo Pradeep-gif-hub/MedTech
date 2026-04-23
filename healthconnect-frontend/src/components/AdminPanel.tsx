@@ -797,12 +797,12 @@ setAdminAvatar(finalAvatar);
             <motion.section key="users" variants={tabSlide} initial="hidden" animate="visible" exit="exit">
               <motion.div className="mb-6" variants={fadeInUp} initial="hidden" animate="visible">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-semibold">User Management</h2>
-                  <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold">User Management</h2>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:gap-4">
                     <input
-  className="bg-white/5 px-3 py-2 rounded-md text-white w-64 max-w-full 
+  className="bg-white/5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-white w-full max-w-xs sm:max-w-sm lg:max-w-md
              border border-white/10 
-             placeholder-gray-400 
+             placeholder-gray-400 text-xs sm:text-sm
              outline-none focus:outline-none focus-visible:outline-none
              focus:ring-2 focus:ring-blue-500 
              focus:ring-offset-2 focus:ring-offset-[#0f172a]
@@ -1088,15 +1088,15 @@ setAdminAvatar(finalAvatar);
       </main>
 
       {showModal && selectedUser && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-xl bg-[#0f172a] border border-white/10 rounded-2xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold">{modalMode === 'view' ? 'User Details' : 'Edit User'}</h3>
-              <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white"><X /></button>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 lg:p-6">
+          <div className="w-full max-w-xs sm:max-w-md lg:max-w-xl bg-[#0f172a] border border-white/10 rounded-lg sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
+              <h3 className="text-base sm:text-lg lg:text-xl font-semibold">{modalMode === 'view' ? 'User Details' : 'Edit User'}</h3>
+              <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white flex-shrink-0"><X className="h-4 w-4 sm:h-5 sm:w-5" /></button>
             </div>
 
             {modalMode === 'view' ? (
-              <div className="space-y-3 text-sm">
+              <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
                 <div><span className="opacity-70">Name:</span> {selectedUser.name}</div>
                 <div><span className="opacity-70">Email:</span> {selectedUser.email}</div>
                 <div><span className="opacity-70">Role:</span> {roleLabel(selectedUser.role)}</div>

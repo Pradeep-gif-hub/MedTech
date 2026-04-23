@@ -1226,115 +1226,113 @@ const headerHTML = `
 
   // Replace the consultation renderer with a richer, doctor-like UI but for the patient
   const renderHome = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start overflow-x-hidden">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-8 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 items-start overflow-x-hidden">
       {/* LEFT HALF - Info */}
-      <div className="space-y-6 md:col-start-1 md:col-span-1">
+      <div className="space-y-4 sm:space-y-6 lg:space-y-8 sm:col-start-1 sm:col-span-1">
 
         {/* Existing Profile Card */}
-        <div className="bg-emerald-50 rounded-xl shadow-md p-5">
+        <div className="bg-emerald-50 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-md p-3 sm:p-4 lg:p-6">
           {/* Compact Modern Profile Card */}
-          <div className="flex justify-center mt-6">
-<div className="relative bg-gradient-to-br from-blue-50 via-blue-100 to-white rounded-3xl shadow-xl p-5 w-full max-w-full transform transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
+          <div className="flex justify-center mt-4 sm:mt-5 lg:mt-6">
+<div className="relative bg-gradient-to-br from-blue-50 via-blue-100 to-white rounded-2xl sm:rounded-3xl shadow-xl p-3 sm:p-4 lg:p-5 w-full max-w-sm sm:max-w-md transform transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
 
               {/* Header - Profile Image + Name */}
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105">
+              <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6 lg:mb-8">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-full overflow-hidden border-4 border-emerald-300 shadow-lg transform transition-transform duration-300 hover:scale-105 flex-shrink-0">
                   <img
                     src={profile?.avatar || profile?.picture || profile?.profile_picture_url || sessionUser?.avatar || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div>
-                  <h2 className="text-10xl font-extrabold text-emerald-900">
-                    <p className="text-sm opacity-500">{profile?.name || sessionUser?.name || 'Patient'}</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-emerald-900">
+                    <p className="text-xs sm:text-sm opacity-500 font-normal">{profile?.name || sessionUser?.name || 'Patient'}</p>
                   </h2>
-                  <p className="text-sm text-gray-600 mt-1">{email || 'No email provided'}</p>
-                  <p className="text-xs text-emerald-700 mt-1 font-medium">Your Health Summary</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1 truncate">{email || 'No email provided'}</p>
+                  <p className="text-xs text-emerald-700 mt-1 font-medium hidden sm:block">Your Health Summary</p>
                 </div>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5 lg:gap-3 mb-3 sm:mb-5 lg:mb-6 text-xs sm:text-sm">
                 {/* Age */}
-                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-2.5 lg:p-3 shadow hover:shadow-lg flex items-center gap-2 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
                     🎂
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-gray-800">Age</div>
-                    <div className="text-gray-500 font-medium">
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-bold text-gray-800">Age</div>
+                    <div className="text-gray-500 font-medium text-xs sm:text-sm truncate">
                       {dob ? Math.max(0, Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))) : '—'}
                     </div>
                   </div>
                 </div>
 
                 {/* Gender (dynamic from signedUser/localStorage) */}
-                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-2.5 lg:p-3 shadow hover:shadow-lg flex items-center gap-2 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
                     ⚥
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-gray-800">Gender</div>
-                    <div className="text-gray-500 font-medium">
-                      <div className="text-gray-500 font-medium">{Gender || '—'}</div>
-                    </div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-bold text-gray-800">Gender</div>
+                    <div className="text-gray-500 font-medium text-xs sm:text-sm truncate">{Gender || '—'}</div>
                   </div>
                 </div>
 
                 {/* Blood Group */}
-                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-2.5 lg:p-3 shadow hover:shadow-lg flex items-center gap-2 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
                     🩸
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-gray-800">Blood Group</div>
-                    <div className="text-gray-500 font-medium">{bloodGroup || '—'}</div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-bold text-gray-800">Blood Group</div>
+                    <div className="text-gray-500 font-medium text-xs sm:text-sm truncate">{bloodGroup || '—'}</div>
                   </div>
                 </div>
 
                 {/* DOB */}
-                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer">
-                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-2.5 lg:p-3 shadow hover:shadow-lg flex items-center gap-2 cursor-pointer">
+                  <div className="bg-emerald-100 text-emerald-700 w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
                     📅
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-gray-800">Date of Birth</div>
-                    <div className="text-gray-500 font-medium">{dob || '—'}</div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-bold text-gray-800">Date of Birth</div>
+                    <div className="text-gray-500 font-medium text-xs sm:text-sm truncate">{dob || '—'}</div>
                   </div>
                 </div>
 
                 {/* Phone */}
-                <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer col-span-1 md:col-span-2">
-                  <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+                <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-2.5 lg:p-3 shadow hover:shadow-lg flex items-center gap-2 cursor-pointer col-span-1 md:col-span-2">
+                  <div className="bg-emerald-100 text-emerald-700 w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
                     📞
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-gray-800">Phone</div>
-                    <div className="text-gray-500 font-medium">{phone || '—'}</div>
+                  <div className="min-w-0">
+                    <div className="text-xs sm:text-sm font-bold text-gray-800">Phone</div>
+                    <div className="text-gray-500 font-medium text-xs sm:text-sm truncate">{phone || '—'}</div>
                   </div>
                 </div>
               </div>
 
               {/* ABHA ID */}
-            <div className="bg-white rounded-xl p-2.5 shadow hover:shadow-lg flex items-center gap-2.5 cursor-pointer col-span-1 md:col-span-2">
-            <div className="bg-emerald-100 text-emerald-700 w-9 h-9 rounded-full flex items-center justify-center text-base font-bold">
+            <div className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-2.5 lg:p-3 shadow hover:shadow-lg flex items-center gap-2 cursor-pointer col-span-1 md:col-span-2">
+            <div className="bg-emerald-100 text-emerald-700 w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold flex-shrink-0">
              🏥
              </div>
  
-             <div>
-             <div className="text-sm font-bold text-gray-800">ABHA ID</div>
-             <div className="text-gray-500 font-medium">
+             <div className="min-w-0">
+             <div className="text-xs sm:text-sm font-bold text-gray-800">ABHA ID</div>
+             <div className="text-gray-500 font-medium text-xs sm:text-sm truncate">
              {abhaId || '—'}
             </div>
            </div>
            </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-2 mt-2">
+              <div className="flex justify-end gap-2 mt-3 sm:mt-4 lg:mt-5">
                 <button
                   onClick={() => setActiveTab('profile')}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+                  className="px-3 sm:px-4 lg:px-5 py-1.5 sm:py-2 lg:py-2.5 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
                 >
                   View Profile
                 </button>
@@ -1347,18 +1345,18 @@ const headerHTML = `
 
       </div>
       {/* RIGHT HALF - Form */}
-      <div className="bg-gray-50 rounded-xl shadow-md p-6 md:col-start-2 md:col-span-1 self-start">
-        <h3 className="text-xl font-semibold text-gray-900 mb-6">
+      <div className="bg-gray-50 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-md p-3 sm:p-4 lg:p-6 sm:col-start-2 sm:col-span-1 self-start">
+        <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 mb-4 sm:mb-5 lg:mb-6">
           Consultation Form
         </h3>
-        <div className="space-y-5">
+        <div className="space-y-3 sm:space-y-4 lg:space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
               Select Disease
             </label>
             <select
               id="diseaseSelect"  // added ID here
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-black text-xs sm:text-sm"
             >
               <option value="">Select the Disease</option>
               <option>Fever</option>
@@ -1479,11 +1477,11 @@ const headerHTML = `
   );
 
   const renderConsultation = () => (
-    <div className="bg-slate-950 rounded-3xl shadow-sm overflow-hidden p-4">
-      <div className="grid lg:grid-cols-2 gap-4">
+    <div className="bg-slate-950 rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-sm overflow-hidden p-2 sm:p-3 lg:p-4 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
         {/* LEFT: Doctor's video / placeholder */}
-        <div className="p-4 bg-white rounded-3xl shadow-xl border border-gray-200">
-          <div className="bg-gray-50 rounded-2xl relative flex items-center justify-center overflow-hidden h-[430px]">
+        <div className="p-2 sm:p-3 lg:p-4 bg-white rounded-lg sm:rounded-2xl lg:rounded-3xl shadow-lg lg:shadow-xl border border-gray-200">
+          <div className="bg-gray-50 rounded-lg sm:rounded-xl lg:rounded-2xl relative flex items-center justify-center overflow-hidden h-64 sm:h-80 md:h-96 lg:h-[430px] aspect-video sm:aspect-auto">
             {inConsultation ? (
               <>
                 <video
@@ -1494,7 +1492,7 @@ const headerHTML = `
                 />
               </>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 px-6">
+              <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6">
                 {(() => {
                   // Get pending consultation data
                   const pendingConsultationStr = localStorage.getItem('pendingConsultation');
@@ -1507,31 +1505,31 @@ const headerHTML = `
                   } : null);
 
                   return consultationPreview ? (
-<div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-200 w-full max-w-md">
-                      <h3 className="text-xl font-semibold mb-4 text-gray-900">Your Consultation Request</h3>
+<div className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-2xl lg:rounded-3xl shadow-lg border border-gray-200 w-full max-w-xs sm:max-w-sm lg:max-w-md">
+                      <h3 className="text-base sm:text-lg lg:text-xl font-semibold mb-3 sm:mb-4 lg:mb-6 text-gray-900">Your Consultation Request</h3>
                       
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         <div>
-                          <div className="text-sm text-gray-600">Condition</div>
-                          <div className="text-gray-900 font-medium">{consultationPreview.disease || 'Not provided'}</div>
+                          <div className="text-xs sm:text-sm text-gray-600">Condition</div>
+                          <div className="text-sm sm:text-base text-gray-900 font-medium">{consultationPreview.disease || 'Not provided'}</div>
                         </div>
                         
                         <div>
-                          <div className="text-sm text-gray-600">Symptoms</div>
-                          <div className="text-gray-900 font-medium">{consultationPreview.symptoms || 'Not provided'}</div>
+                          <div className="text-xs sm:text-sm text-gray-600">Symptoms</div>
+                          <div className="text-sm sm:text-base text-gray-900 font-medium">{consultationPreview.symptoms || 'Not provided'}</div>
                         </div>
                         
                         <div>
-                          <div className="text-sm text-gray-600">Duration</div>
-                          <div className="text-gray-900 font-medium">{consultationPreview.duration || 'Not provided'}</div>
+                          <div className="text-xs sm:text-sm text-gray-600">Duration</div>
+                          <div className="text-sm sm:text-base text-gray-900 font-medium">{consultationPreview.duration || 'Not provided'}</div>
                         </div>
 
-                        <div className="text-sm text-gray-600 pt-2">
+                        <div className="text-xs sm:text-sm text-gray-600 pt-2">
                           Submitted on: {consultationPreview.timestamp ? formatIST(consultationPreview.timestamp) : 'Unknown'}
                         </div>
                       </div>
 
-                      <div className="mt-6 text-center text-sm text-gray-600">
+                      <div className="mt-4 sm:mt-5 lg:mt-6 text-center text-xs sm:text-sm text-gray-600">
                         {loadingConsultation
                           ? 'Looking for available doctor...'
                           : currentConsultation?.doctor
@@ -1544,13 +1542,13 @@ const headerHTML = `
                         </div>
                       </div>
 
-                      <div className="mt-6">
+                      <div className="mt-4 sm:mt-5 lg:mt-6">
                         <button
                           onClick={startLiveSender}
                           disabled={loadingConsultation || !currentConsultation?.doctor}
-                          className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="inline-flex items-center justify-center gap-2 sm:gap-3 bg-emerald-600 text-white px-3 sm:px-5 py-2 sm:py-3 rounded-lg text-xs sm:text-sm font-semibold shadow hover:bg-emerald-700 transition-all w-full disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          <Video className="h-5 w-5" />
+                          <Video className="h-4 w-4 sm:h-5 sm:w-5" />
                           {currentConsultation?.doctor ? 'Start Video Consultation' : 'Waiting for Doctor Assignment'}
                         </button>
                       </div>
@@ -1558,7 +1556,7 @@ const headerHTML = `
                   ) : (
                     <>
                       <svg
-                        className="h-24 w-24 text-gray-400 animate-spin mb-4"
+                        className="h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 text-gray-400 animate-spin mb-3 sm:mb-4 lg:mb-6"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -1580,17 +1578,17 @@ const headerHTML = `
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <div className="text-xl font-semibold mb-2 text-gray-900">
+                      <div className="text-base sm:text-lg lg:text-xl font-semibold mb-2 sm:mb-3 lg:mb-4 text-gray-900">
                         No Active Consultation
                       </div>
-                      <div className="text-sm opacity-80 mb-6 text-center">
+                      <div className="text-xs sm:text-sm opacity-80 mb-4 sm:mb-6 text-center">
                         Please fill out the consultation form on the home page
                       </div>
                       <button
                         onClick={() => setActiveTab('home')}
-                        className="inline-flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-all"
+                        className="inline-flex items-center gap-2 sm:gap-3 bg-emerald-600 text-white px-3 sm:px-5 py-2 sm:py-3 rounded-lg text-xs sm:text-sm font-semibold shadow hover:bg-emerald-700 transition-all"
                       >
-                        <Home className="h-5 w-5" />
+                        <Home className="h-4 w-4 sm:h-5 sm:w-5" />
                         Go to Home
                       </button>
                     </>
@@ -1602,20 +1600,20 @@ const headerHTML = `
         </div>
 
         {/* RIGHT: Doctor Info / Live Vitals */}
-        <div className="p-2">
-          <div className="bg-white p-6 rounded-3xl min-h-[420px] flex flex-col justify-between shadow-lg border border-gray-200">
+        <div className="p-2 sm:p-3 lg:p-4">
+          <div className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-2xl lg:rounded-3xl min-h-96 sm:min-h-[420px] flex flex-col justify-between shadow-lg border border-gray-200">
             <div className="flex-1">
               {!inConsultation ? (
                 <>
-                  <h3 className="font-bold text-gray-900 mb-6 text-2xl">Doctor Information</h3>
+                  <h3 className="font-bold text-gray-900 mb-4 sm:mb-6 text-base sm:text-lg lg:text-2xl">Doctor Information</h3>
                   {loadingConsultation ? (
-                    <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md text-gray-600">
+                    <div className="bg-gray-50 p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-2xl lg:rounded-3xl border border-gray-200 shadow-md text-xs sm:text-sm text-gray-600">
                       Finding a matching doctor based on your condition...
                     </div>
                   ) : currentConsultation?.doctor ? (
-                    <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md">
-                      <div className="flex items-start gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-semibold shadow-lg">
+                    <div className="bg-gray-50 p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-2xl lg:rounded-3xl border border-gray-200 shadow-md">
+                      <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center text-white text-lg sm:text-xl font-semibold shadow-lg flex-shrink-0">
                           {currentConsultation.doctor.avatar ? (
                             <img
                               src={currentConsultation.doctor.avatar}
@@ -1626,78 +1624,78 @@ const headerHTML = `
                             <span>DR</span>
                           )}
                         </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 text-lg mb-1">{currentConsultation.doctor.name}</h3>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                        <div className="flex-1 w-full">
+                          <h3 className="font-semibold text-gray-900 text-sm sm:text-base lg:text-lg mb-1">{currentConsultation.doctor.name}</h3>
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                            <span className="px-2 sm:px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs sm:text-sm font-medium">
                               {currentConsultation.doctor.specialization || 'General Medicine'}
                             </span>
                           </div>
-                          <div className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+                          <div className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 flex items-center gap-2">
                             Assigned based on your consultation condition
                           </div>
-                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                          <p className="text-xs sm:text-sm text-gray-700 bg-white p-2 sm:p-3 rounded-lg border border-gray-200">
                             Consultation status: {currentConsultation.status || 'assigned'}
                           </p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-md text-gray-600">
+                    <div className="bg-gray-50 p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-2xl lg:rounded-3xl border border-gray-200 shadow-md text-xs sm:text-sm text-gray-600">
                       {consultationError || 'Submit consultation details to get an assigned doctor.'}
                     </div>
                   )}
                 </>
               ) : (
                 <>
-                  <h3 className="font-bold text-gray-800 mb-6 text-2xl text-center bg-white/90 py-3 rounded-lg shadow-sm">Live Vitals Monitor</h3>
-                  <div className="grid grid-cols-2 gap-6 px-4">
+                  <h3 className="font-bold text-gray-800 mb-4 sm:mb-6 text-base sm:text-lg lg:text-2xl text-center bg-white/90 py-2 sm:py-3 lg:py-4 rounded-lg shadow-sm">Live Vitals Monitor</h3>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4 px-2 sm:px-4">
                     {/* Heart Rate Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-red-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-red-500 rounded-full">
-                            <Heart className="h-5 w-5 text-white" />
+                    <div className="bg-white p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-xl border-2 border-red-500 shadow-lg hover:shadow-xl transition-all duration-300">
+                      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="p-1.5 sm:p-2 bg-red-500 rounded-full flex-shrink-0">
+                            <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                           </span>
-                          <span className="text-base font-semibold text-gray-900">Heart Rate</span>
+                          <span className="text-xs sm:text-sm font-semibold text-gray-900">Heart Rate</span>
                         </div>
-                        <span className="text-xs font-bold bg-red-500 text-white px-3 py-1 rounded-full">BPM</span>
+                        <span className="text-xs font-bold bg-red-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full flex-shrink-0">BPM</span>
                       </div>
-                      <div className="text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
                         {liveHeartRate}
                         <div className="flex gap-1">
-                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse delay-100"></div>
-                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse delay-200"></div>
-                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse delay-300"></div>
+                          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-red-500 rounded-full animate-pulse delay-100"></div>
+                          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-red-500 rounded-full animate-pulse delay-200"></div>
+                          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-red-500 rounded-full animate-pulse delay-300"></div>
                         </div>
                       </div>
                     </div>
 
                     {/* Blood Pressure Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-blue-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 bg-blue-500 rounded-full">
-                            <Activity className="h-5 w-5 text-white" />
+                    <div className="bg-white p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-xl border-2 border-blue-500 shadow-lg hover:shadow-xl transition-all duration-300">
+                      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="p-1.5 sm:p-2 bg-blue-500 rounded-full flex-shrink-0">
+                            <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                           </span>
-                          <span className="text-base font-semibold text-gray-900">Blood Pressure</span>
+                          <span className="text-xs sm:text-sm font-semibold text-gray-900">Blood Pressure</span>
                         </div>
-                        <span className="text-xs font-bold bg-blue-500 text-white px-3 py-1 rounded-full">mmHg</span>
+                        <span className="text-xs font-bold bg-blue-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full flex-shrink-0">mmHg</span>
                       </div>
-                      <div className="text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 ml-2 flex items-baseline gap-2">
                         {liveBP.sys}/{liveBP.dia}
                         <div className="flex gap-1">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse delay-100"></div>
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse delay-200"></div>
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse delay-300"></div>
+                          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-500 rounded-full animate-pulse delay-100"></div>
+                          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-500 rounded-full animate-pulse delay-200"></div>
+                          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-500 rounded-full animate-pulse delay-300"></div>
                         </div>
                       </div>
                     </div>
 
                     {/* Temperature Card */}
-                    <div className="bg-white p-5 rounded-xl border-2 border-amber-500 shadow-lg hover:shadow-xl transition-all duration-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                    <div className="bg-white p-3 sm:p-4 lg:p-5 rounded-lg sm:rounded-xl border-2 border-amber-500 shadow-lg hover:shadow-xl transition-all duration-300">
+                      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span className="p-2 bg-amber-500 rounded-full">
                             <Clock className="h-5 w-5 text-white" />
                           </span>

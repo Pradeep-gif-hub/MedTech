@@ -291,9 +291,9 @@ const DoctorProfilePage: React.FC<DoctorProfilePageProps> = ({ onBack }) => {
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-8 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-6">Personal Information</h2>
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">Full Name *</label>
+                  <label className="block text-xs sm:text-sm font-medium text-white/80 mb-1.5 sm:mb-2">Full Name *</label>
                   <input
                     type="text"
                     value={fullName}
@@ -400,9 +400,9 @@ const DoctorProfilePage: React.FC<DoctorProfilePageProps> = ({ onBack }) => {
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-8 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-6">Professional Information</h2>
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">Specialization</label>
+                  <label className="block text-xs sm:text-sm font-medium text-white/80 mb-1.5 sm:mb-2">Specialization</label>
                   <input
                     type="text"
                     value={specialization}

@@ -101,13 +101,13 @@ const DoctorAnalytics = ({ onLogout }: DoctorAnalyticsProps) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white flex items-center justify-center p-4">
-        <div className="bg-red-900 border-2 border-red-600 rounded-xl p-8 max-w-md text-center">
-          <h2 className="text-2xl font-bold text-red-200 mb-4">⚠️ Error Loading Analytics</h2>
-          <p className="text-red-100 mb-6 font-mono text-sm break-words">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white flex items-center justify-center p-2 sm:p-3 lg:p-4">
+        <div className="bg-red-900 border-2 border-red-600 rounded-lg sm:rounded-xl p-3 sm:p-4 lg:p-8 max-w-xs sm:max-w-sm lg:max-w-md text-center">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-red-200 mb-3 sm:mb-4 lg:mb-6">⚠️ Error Loading Analytics</h2>
+          <p className="text-red-100 mb-4 sm:mb-6 font-mono text-xs sm:text-sm break-words">{error}</p>
           <button
             onClick={fetchAnalytics}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+            className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 lg:py-3 rounded-lg text-xs sm:text-sm font-semibold transition-colors"
           >
             Try Again
           </button>
@@ -172,16 +172,16 @@ const DoctorAnalytics = ({ onLogout }: DoctorAnalyticsProps) => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
         {/* Key Metrics Row 1 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
           {/* Total Patients */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 lg:p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Total Patients This Month</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{analytics.total_patients_this_month}</p>
-                <p className={`text-sm mt-2 ${analytics.patient_change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className="text-gray-600 text-xs sm:text-sm font-medium">Total Patients This Month</p>
+                <p className="text-2xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mt-1 sm:mt-2 lg:mt-3">{analytics.total_patients_this_month}</p>
+                <p className={`text-xs sm:text-sm mt-1 sm:mt-2 ${analytics.patient_change_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {analytics.patient_change_percent >= 0 ? '+' : ''}{analytics.patient_change_percent}% from last month
                 </p>
               </div>

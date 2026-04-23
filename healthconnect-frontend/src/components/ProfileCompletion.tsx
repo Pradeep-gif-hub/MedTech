@@ -134,23 +134,23 @@ const ProfileCompletion = ({ user, onComplete }: ProfileCompletionProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-4 sm:p-8">
-        <div className="mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Complete Your Profile</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-2">Welcome to MedTech! Please provide your information to get started.</p>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-2 sm:p-3 lg:p-4">
+      <div className="w-full max-w-xs sm:max-w-sm lg:max-w-md bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-lg lg:shadow-xl p-3 sm:p-5 lg:p-8">
+        <div className="mb-4 sm:mb-6 lg:mb-8">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Complete Your Profile</h1>
+          <p className="text-xs sm:text-sm lg:text-base text-gray-600 mt-1 sm:mt-2 lg:mt-3">Welcome to MedTech! Please provide your information to get started.</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">{error}</p>
+          <div className="mb-3 sm:mb-4 lg:mb-6 p-2 sm:p-3 lg:p-4 bg-red-50 border border-red-200 rounded-lg text-xs sm:text-sm">
+            <p className="text-red-700">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 lg:space-y-5">
           {/* Full Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1 sm:mb-2">
               Full Name *
             </label>
             <input

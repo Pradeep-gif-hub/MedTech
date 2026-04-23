@@ -806,9 +806,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       };
 
       return (
-        <div className="grid md:grid-cols-2 gap-2 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 items-start px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 max-w-7xl mx-auto">
           {/* Left side - Details */}
-          <div className="md:col-span-1 space-y-0">
+          <div className="col-span-1 space-y-0 order-2 sm:order-1">
             {/* Details table */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden sticky top-0">
               {/* Header with Photo */}
@@ -865,11 +865,11 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           </div>
 
           {/* Right side */}
-          <div className="md:col-span-1 space-y-3">
+          <div className="col-span-1 space-y-2 sm:space-y-3 order-1 sm:order-2">
             {/* Digital Card moved up */}
-            <div className="flex justify-center mb-2">
-              <div className="w-[280px] h-[150px] perspective-1000 animate-float">
-                <div className="relative w-full h-full transition-transform duration-500 transform hover:scale-105 hover:rotate-1">
+            <div className="flex justify-center mb-1 sm:mb-2">
+              <div className="w-full max-w-sm sm:max-w-md perspective-1000 animate-float aspect-video sm:aspect-auto sm:h-auto">
+                <div className="relative w-full h-40 sm:h-48 transition-transform duration-500 transform hover:scale-105 hover:rotate-1">
                   <div className="absolute w-full h-full bg-gradient-to-br from-indigo-600 via-blue-700 to-blue-800 rounded-2xl p-3 shadow-2xl border border-white/20">
                     {/* Medical Pattern Background */}
                     <div className="absolute inset-0 opacity-5">
@@ -943,18 +943,18 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             </div>
 
             {/* New Credentials Display */}
-            <div className="bg-white rounded-xl shadow-sm p-3">
-              <h3 className="text-base font-bold text-gray-800 mb-2 flex items-center">
-                <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3 rounded-lg mr-2">
-                  <FileText className="w-4 h-4" />
+            <div className="bg-white rounded-xl shadow-sm p-2.5 sm:p-3 lg:p-4">
+              <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-2 flex items-center">
+                <span className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-2 sm:p-2.5 rounded-lg mr-2">
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
                 </span>
-                <span className="text-sm">Professional Credentials</span>
+                <span className="text-xs sm:text-sm">Professional Credentials</span>
               </h3>
               
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:gap-3">
                 {/* Animated Credential Cards */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-2.5 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 border border-indigo-100">
-                  <div className="text-xs text-indigo-500 font-semibold mb-0.5">License Status</div>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-1.5 sm:p-2 lg:p-2.5 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 border border-indigo-100">
+                  <div className="text-xs sm:text-xs lg:text-sm text-indigo-500 font-semibold mb-0.5">License Status</div>
                   <div className="text-xs text-gray-800 truncate">{licenseStatus}</div>
                   <div className="mt-1 flex items-center">
                     <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse mr-1"></div>
@@ -962,8 +962,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-2.5 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 border border-emerald-100">
-                  <div className="text-xs text-emerald-500 font-semibold mb-0.5">Experience</div>
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-1.5 sm:p-2 lg:p-2.5 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 border border-emerald-100">
+                  <div className="text-xs sm:text-xs lg:text-sm text-emerald-500 font-semibold mb-0.5">Experience</div>
                   <div className="text-xs text-gray-800 truncate">{yearsOfExperience} years</div>
                   <div className="mt-1 text-[10px] text-gray-500 truncate">Specialist Verified</div>
                 </div>
@@ -971,25 +971,25 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             </div>
 
             {/* Quick Actions */}
-<div className="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-8">
-  <h4 className="text-xs font-semibold text-gray-800 mb-1.5">Diagnose</h4>
-  <div className="grid grid-cols-2 gap-4">
-    <button 
-      onClick={() => setActiveTab('consultation')}
-      className="flex items-center justify-center gap-3 bg-white/80 hover:bg-green p-2 rounded-lg text-xs font-medium text-gray-700 transition-all hover:shadow-md"
-    >
-      <Video className="w-3.5 h-4.5 text-purple-600" />
-      <span className="hidden sm:inline">Consultation</span>
-    </button>
-    <button 
-      onClick={() => setActiveTab('prescriptions')}
-      className="flex items-center justify-center gap-1 bg-white/80 hover:bg-white p-2 rounded-lg text-xs font-medium text-gray-700 transition-all hover:shadow-md"
-    >
-      <FileText className="w-3.5 h-4.5 text-purple-600" />
-      <span className="hidden sm:inline">Prescription</span>
-    </button>
-  </div>
-</div>
+            <div className="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-xl p-3 sm:p-4 lg:p-6">
+              <h4 className="text-xs sm:text-sm font-semibold text-gray-800 mb-2 sm:mb-3">Diagnose</h4>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
+                <button 
+                  onClick={() => setActiveTab('consultation')}
+                  className="flex items-center justify-center gap-2 bg-white/80 hover:bg-white p-2 sm:p-2.5 lg:p-3 rounded-lg text-xs sm:text-sm font-medium text-gray-700 transition-all hover:shadow-md w-full"
+                >
+                  <Video className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600 flex-shrink-0" />
+                  <span className="hidden sm:inline">Consultation</span>
+                </button>
+                <button 
+                  onClick={() => setActiveTab('prescriptions')}
+                  className="flex items-center justify-center gap-2 bg-white/80 hover:bg-white p-2 sm:p-2.5 lg:p-3 rounded-lg text-xs sm:text-sm font-medium text-gray-700 transition-all hover:shadow-md w-full"
+                >
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600 flex-shrink-0" />
+                  <span className="hidden sm:inline">Prescription</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -1013,53 +1013,53 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   const renderOverviewCards = () => {
     return (
-      <div className="grid md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6 mb-4 sm:mb-6 px-3 sm:px-4 lg:px-0">
         {/* Card 1 */}
-        <div className="bg-gradient-to-r from-[#ff7ab6] to-[#ff6a88] rounded-2xl p-6 shadow-xl text-white transition-transform transform hover:scale-105">
+        <div className="bg-gradient-to-r from-[#ff7ab6] to-[#ff6a88] rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg lg:shadow-xl text-white transition-transform transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Today's Patients</p>
-              <p className="text-2xl font-bold">34</p>
+              <p className="text-xs sm:text-sm opacity-90">Today's Patients</p>
+              <p className="text-xl sm:text-2xl lg:text-2xl font-bold">34</p>
             </div>
-            <Users className="h-8 w-8 opacity-90" />
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 opacity-90 flex-shrink-0" />
           </div>
-          <p className="mt-3 text-sm opacity-80">Updated just now</p>
+          <p className="mt-2 sm:mt-3 text-xs sm:text-sm opacity-80">Updated just now</p>
         </div>
 
         {/* Card 2 */}
-        <div className="bg-gradient-to-r from-[#34d399] to-[#10b981] rounded-2xl p-6 shadow-xl text-white transition-transform transform hover:scale-105">
+        <div className="bg-gradient-to-r from-[#34d399] to-[#10b981] rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg lg:shadow-xl text-white transition-transform transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Consultations Done</p>
-              <p className="text-2xl font-bold">28</p>
+              <p className="text-xs sm:text-sm opacity-90">Consultations Done</p>
+              <p className="text-xl sm:text-2xl lg:text-2xl font-bold">28</p>
             </div>
-            <Video className="h-8 w-8 opacity-90" />
+            <Video className="h-6 w-6 sm:h-8 sm:w-8 opacity-90 flex-shrink-0" />
           </div>
-          <p className="mt-3 text-sm opacity-80">This session</p>
+          <p className="mt-2 sm:mt-3 text-xs sm:text-sm opacity-80">This session</p>
         </div>
 
         {/* Card 3 */}
-        <div className="bg-gradient-to-r from-[#fb923c] to-[#fb7185] rounded-2xl p-6 shadow-xl text-white transition-transform transform hover:scale-105">
+        <div className="bg-gradient-to-r from-[#fb923c] to-[#fb7185] rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg lg:shadow-xl text-white transition-transform transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">In Queue</p>
-              <p className="text-2xl font-bold">4</p>
+              <p className="text-xs sm:text-sm opacity-90">In Queue</p>
+              <p className="text-xl sm:text-2xl lg:text-2xl font-bold">4</p>
             </div>
-            <Clock className="h-8 w-8 opacity-90" />
+            <Clock className="h-6 w-6 sm:h-8 sm:w-8 opacity-90 flex-shrink-0" />
           </div>
-          <p className="mt-3 text-sm opacity-80">Average wait time: 8m</p>
+          <p className="mt-2 sm:mt-3 text-xs sm:text-sm opacity-80">Average wait time: 8m</p>
         </div>
 
         {/* Card 4 */}
-        <div className="bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] rounded-2xl p-6 shadow-xl text-white transition-transform transform hover:scale-105">
+        <div className="bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-lg lg:shadow-xl text-white transition-transform transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm opacity-90">Avg. Time</p>
-              <p className="text-2xl font-bold">15m</p>
+              <p className="text-xs sm:text-sm opacity-90">Avg. Time</p>
+              <p className="text-xl sm:text-2xl lg:text-2xl font-bold">15m</p>
             </div>
-            <BarChart3 className="h-8 w-8 opacity-90" />
+            <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 opacity-90 flex-shrink-0" />
           </div>
-          <p className="mt-3 text-sm opacity-80">Per consultation</p>
+          <p className="mt-2 sm:mt-3 text-xs sm:text-sm opacity-80">Per consultation</p>
         </div>
       </div>
     );
@@ -1070,15 +1070,15 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     const queueToDisplay = patientQueue || [];
 
     return (
-      <div className="bg-white/6 rounded-2xl p-6 shadow-xl">
-        <h2 className="text-xl font-semibold mb-6">Patient Queue {queueLoading && '(Loading...)'}</h2>
+      <div className="bg-white/6 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-xl px-3 sm:px-4 lg:px-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Patient Queue {queueLoading && '(Loading...)'}</h2>
 
         {queueToDisplay.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-white/60 text-lg">No patients currently in queue</p>
+          <div className="text-center py-8 sm:py-12">
+            <p className="text-white/60 text-sm sm:text-lg">No patients currently in queue</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-3 lg:space-y-4 overflow-x-hidden">
             {queueToDisplay.map((patient) => {
               // Support both real and dummy data formats
               const patientName = patient.patient_name || patient.name;
@@ -1126,42 +1126,40 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               return (
                 <div
                   key={consultationId}
-                  className="border border-white/8 rounded-lg p-4 hover:shadow-2xl transition-shadow bg-white/4"
+                  className="border border-white/8 rounded-lg p-2.5 sm:p-3 lg:p-4 hover:shadow-2xl transition-shadow bg-white/4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3"
                 >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
-                        <User className="h-6 w-6 text-white/80" />
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold">{patientName}</h3>
-                        <p className="text-sm opacity-80">
-                          Age: {patientAge} &nbsp;|&nbsp; Scheduled: {appointmentTime} &nbsp;|&nbsp; {disease}
-                        </p>
-                      </div>
+                  <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="h-5 w-5 sm:h-6 sm:w-6 text-white/80" />
                     </div>
 
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <span className={`inline-block w-2 h-2 rounded-full ${urgencyColor}`} />
-                        <span className="text-sm opacity-90 capitalize">{urgency}</span>
-                      </div>
-
-                      <span className={`text-xs font-medium px-2 py-1 rounded ${statusBadgeColor}`}>
-                        {status}
-                      </span>
-
-                      <div>
-                        <button
-                          onClick={() => startConsultation(patient)}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
-                          disabled={status === 'in-progress' || status === 'completed' || inConsultation}
-                        >
-                          {status === 'in-progress' ? 'In Progress' : status === 'completed' ? 'Completed' : 'Start'}
-                        </button>
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base truncate">{patientName}</h3>
+                      <p className="text-xs sm:text-sm opacity-80 truncate">
+                        Age: {patientAge} &nbsp;|&nbsp; <span className="hidden sm:inline">{disease}</span>
+                      </p>
+                      <p className="text-xs opacity-70 truncate sm:hidden">{disease}</p>
+                      <p className="text-xs opacity-70 truncate">Scheduled: {appointmentTime}</p>
                     </div>
+                  </div>
+
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="flex items-center space-x-1 hidden sm:flex">
+                      <span className={`inline-block w-2 h-2 rounded-full ${urgencyColor}`} />
+                      <span className="text-xs opacity-90 capitalize">{urgency}</span>
+                    </div>
+
+                    <span className={`text-xs font-medium px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap ${statusBadgeColor}`}>
+                      {status}
+                    </span>
+
+                    <button
+                      onClick={() => startConsultation(patient)}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-2 sm:px-3 lg:px-4 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg transition-colors disabled:opacity-60 flex-shrink-0 whitespace-nowrap"
+                      disabled={status === 'in-progress' || status === 'completed' || inConsultation}
+                    >
+                      {status === 'in-progress' ? 'In Progress' : status === 'completed' ? 'Completed' : 'Start'}
+                    </button>
                   </div>
                 </div>
               );
@@ -1364,22 +1362,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     return (
       <div>
         {inConsultation && currentPatient ? (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-[calc(100vh-120px)]">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm overflow-hidden flex flex-col h-full sm:h-auto lg:h-[calc(100vh-140px)]">
             <ConsultationHeader patient={currentPatient} />
 
-            {/* Main content grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 flex-1 min-h-0 gap-3 p-3">
-              {/* Left: Video (2 columns) */}
-              <div className="lg:col-span-2 min-h-0">
+            {/* Main content grid - mobile stacks vertically, desktop shows 2 col layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 flex-1 min-h-0 gap-2 sm:gap-3 lg:gap-3 p-2 sm:p-3 lg:p-4 auto-rows-max sm:auto-rows-auto lg:auto-rows-max overflow-y-auto lg:overflow-y-hidden">
+              {/* Left: Video (full width on mobile, 2 columns on desktop) */}
+              <div className="col-span-1 lg:col-span-2 min-h-0 aspect-video sm:aspect-auto">
                 {renderConsultationLeft(currentPatient)}
               </div>
 
-              {/* Right: Vitals + Patient Info (1 column, split vertically) */}
-              <div className="flex flex-col h-full gap-3 min-h-0">
-                <div className="flex-[2] min-h-0">
+              {/* Right: Vitals + Patient Info (stacks on mobile, 1 column on desktop) */}
+              <div className="col-span-1 flex flex-col gap-2 sm:gap-3 lg:gap-3 min-h-0 max-h-96 sm:max-h-full">
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   {renderConsultationRightBottom(currentPatient)}
                 </div>
-                <div className="flex-1 min-h-0">
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   {renderConsultationRightTop(currentPatient)}
                 </div>
               </div>
@@ -2070,20 +2068,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
         </div>
       )}
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#7c3aed] to-[#ec4899] shadow-2xl">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-white/10 rounded-full drop-shadow-lg">
-              <Activity className="h-8 w-8 text-white" />
+      <header className="bg-gradient-to-r from-[#7c3aed] to-[#ec4899] shadow-2xl sticky top-0 z-40 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 min-w-0 flex-1">
+            <div className="p-1.5 sm:p-2 lg:p-2 bg-white/10 rounded-full drop-shadow-lg flex-shrink-0">
+              <Activity className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-white" />
             </div>
 
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Doctor Dashboard</h1>
-              <p className="text-sm opacity-80">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight truncate">Doctor Dashboard</h1>
+              <p className="text-xs sm:text-sm opacity-80 truncate">
                 {sessionUser || signedUser ? (
                   <>
                     Welcome back,{' '}
-                    {(sessionUser?.role || signedUser?.role) === 'doctor' ? `Dr ${sessionUser?.name || signedUser?.name || 'Doctor'}` : sessionUser?.name || signedUser?.name || 'User'} !
+                    {(sessionUser?.role || signedUser?.role) === 'doctor' ? `Dr ${(sessionUser?.name || signedUser?.name || 'Doctor').split(' ')[0]}` : (sessionUser?.name || signedUser?.name || 'User').split(' ')[0]} !
                   </>
                 ) : (
                   'Welcome back!'
@@ -2092,11 +2090,11 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-sm opacity-90 text-right">
-              <div>Signed in as <span className="font-semibold">{profile?.email || sessionUser?.email || signedUser?.email || 'Not signed in'}</span></div>
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 flex-shrink-0">
+            <div className="text-xs sm:text-sm opacity-90 text-right hidden sm:block max-w-xs">
+              <div className="truncate">Signed in as <span className="font-semibold truncate">{profile?.email || sessionUser?.email || signedUser?.email || 'Not signed in'}</span></div>
             </div>
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-full overflow-hidden border-2 border-white/20 flex-shrink-0">
               <img
                 src={cleanAvatarUrl(avatarSrc)}
                 alt="Profile"
@@ -2121,85 +2119,85 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
       </header>
 
       {/* Navigation Tabs */}
-      <div className="bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-6">
-          <nav className="flex gap-6 py-3">
+      <div className="bg-white/10 backdrop-blur-md border-b border-white/20 overflow-x-auto">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
+          <nav className="flex gap-1 sm:gap-3 lg:gap-6 py-2 sm:py-3 whitespace-nowrap">
             <button
               onClick={() => setActiveTab('home')}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 lg:gap-3 px-2 sm:px-3 lg:px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-all flex-shrink-0 ${
                 activeTab === 'home'
                   ? 'bg-white/6 ring-1 ring-white/20 text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/3'
               }`}
             >
-              <BarChart3 className="h-5 w-5" />
-              <span>Home</span>
+              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Home</span>
             </button>
             <button
               onClick={() => setActiveTab('queue')}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 lg:gap-3 px-2 sm:px-3 lg:px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-all flex-shrink-0 ${
                 activeTab === 'queue'
                   ? 'bg-white/6 ring-1 ring-white/20 text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/3'
               }`}
             >
-              <Users className="h-5 w-5" />
-              <span>Patient Queue</span>
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Queue</span>
             </button>
 
             <button
               onClick={() => setActiveTab('consultation')}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 lg:gap-3 px-2 sm:px-3 lg:px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-all flex-shrink-0 ${
                 activeTab === 'consultation'
                   ? 'bg-white/6 ring-1 ring-white/20 text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/3'
               }`}
             >
-              <Video className="h-5 w-5" />
-              <span>Consultation</span>
+              <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Consult</span>
             </button>
 
             <button
               onClick={() => setActiveTab('prescriptions')}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 lg:gap-3 px-2 sm:px-3 lg:px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-all flex-shrink-0 ${
                 activeTab === 'prescriptions'
                   ? 'bg-white/6 ring-1 ring-white/20 text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/3'
               }`}
             >
-              <FileText className="h-5 w-5" />
-              <span>Prescriptions</span>
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Rx</span>
             </button>
 
             <button
               onClick={handleEditProfile}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 lg:gap-3 px-2 sm:px-3 lg:px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-all flex-shrink-0 ${
                 showProfilePage
                   ? 'bg-white/6 ring-1 ring-white/20 text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/3'
               }`}
             >
-              <User className="h-5 w-5" />
-              <span>Profile</span>
+              <User className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Profile</span>
             </button>
 
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 lg:gap-3 px-2 sm:px-3 lg:px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-all flex-shrink-0 ${
                 activeTab === 'analytics'
                   ? 'bg-white/6 ring-1 ring-white/20 text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/3'
               }`}
             >
-              <BarChart3 className="h-5 w-5" />
-              <span>Analytics</span>
+              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Analytics</span>
             </button>
           </nav>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6 overflow-x-hidden">
         {/* Render based on active tab */}
         {activeTab === 'home' && renderHome()}
         {activeTab === 'queue' && renderQueue()}
