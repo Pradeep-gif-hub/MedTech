@@ -1404,25 +1404,25 @@ const headerHTML = `
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
               Symptoms
             </label>
             <textarea
               id="symptomsTextarea"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg h-16 sm:h-20 lg:h-24 text-xs sm:text-sm text-black"
               placeholder="Describe your symptoms..."
             ></textarea>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
               Duration of Illness
             </label>
             <input
               id="durationInput"
               type="text"
               placeholder="e.g. 2 weeks"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
             />
           </div>
 
@@ -1467,7 +1467,7 @@ const headerHTML = `
               // Switch to consultation tab
               setActiveTab('consultation');
             }}
-            className="w-full bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+            className="w-full bg-emerald-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold hover:bg-emerald-700 transition-colors"
           >
             Submit Consultation
           </button>
@@ -1765,55 +1765,55 @@ const headerHTML = `
   );
 
   const renderProfile = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 text-gray-700">
+    <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+      <div className="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm p-3 sm:p-4 lg:p-6">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-3 sm:mb-4 lg:mb-6">Personal Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 text-gray-700">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Full Name</label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Date of Birth</label>
             <input
               type="date"
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Phone Number</label>
             <input
   type="tel"
   value={phone}
   onChange={(e) => {
-    const value = e.target.value.replace(/\D/g, ""); // remove non-digits
+    const value = e.target.value.replace(/\D/g, "");
     if (value.length <= 10) {
       setPhone(value);
     }
   }}
-  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+  className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
 />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Blood Group</label>
             <select
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
               value={bloodGroup}
               onChange={(e) => setBloodGroup(e.target.value)}
             >
@@ -1826,27 +1826,27 @@ const headerHTML = `
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Emergency Contact</label>
             <input
               type="tel"
               value={emergencyContact}
               onChange={(e) => setEmergencyContact(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Abha-ID</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Abha-ID</label>
             <input
               type="tel"
               value={abhaId}
               onChange={(e) => setAbhaId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
             />
           </div>
          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Gender</label>
             <select
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-black"
               value={Gender}
               onChange={(e) => setGender(e.target.value)}
             >
@@ -1857,36 +1857,36 @@ const headerHTML = `
           </div>
           <div></div>
         </div>
-        <button onClick={updateProfile} className="mt-6 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
+        <button onClick={updateProfile} className="mt-4 sm:mt-5 lg:mt-6 bg-emerald-600 text-white px-3 sm:px-4 lg:px-6 py-2 rounded-lg text-xs sm:text-sm font-semibold hover:bg-emerald-700 transition-colors">
           Update Profile
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Medical History</h2>
-        <div className="space-y-4">
+      <div className="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm p-3 sm:p-4 lg:p-6">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-3 sm:mb-4 lg:mb-6">Medical History</h2>
+        <div className="space-y-2 sm:space-y-3 lg:space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Allergies</label>
             <textarea
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg h-16 sm:h-20 text-xs sm:text-sm text-black"
               placeholder="List any known allergies..."
               value={allergies}
               onChange={(e) => setAllergies(e.target.value)}
             ></textarea>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Current Medications</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Current Medications</label>
             <textarea
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg h-16 sm:h-20 text-xs sm:text-sm text-black"
               placeholder="List current medications..."
               value={medications}
               onChange={(e) => setMedications(e.target.value)}
             ></textarea>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Previous Surgeries</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Previous Surgeries</label>
             <textarea
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20 text-black"
+              className="w-full px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg h-16 sm:h-20 text-xs sm:text-sm text-black"
               placeholder="List any previous surgeries..."
               value={surgeries}
               onChange={(e) => setSurgeries(e.target.value)}
@@ -1898,59 +1898,60 @@ const headerHTML = `
   );
 
   const renderPrescriptions = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
+    <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+      <div className="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm p-3 sm:p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 gap-2 sm:gap-3">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Digital Prescriptions</h2>
-            <p className="text-sm text-gray-500">Latest prescriptions from your doctor.</p>
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Digital Prescriptions</h2>
+            <p className="text-xs sm:text-sm text-gray-500">Latest prescriptions from your doctor.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
             <input
               type="text"
               value={prescriptionSearch}
               onChange={(e) => setPrescriptionSearch(e.target.value)}
-              placeholder="Search by patient, doctor, or date"
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Search..."
+              className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 flex-1 sm:flex-none"
             />
             <button
               type="button"
               onClick={() => fetchPatientPrescriptions(prescriptionSearch)}
-             className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+             className="px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-semibold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all flex-shrink-0"
             >
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
+              <span className="sm:hidden">🔄</span>
             </button>
           </div>
         </div>
 
         {loadingServerPrescriptions ? (
-          <div className="text-gray-600">Loading prescriptions...</div>
+          <div className="text-xs sm:text-sm text-gray-600">Loading prescriptions...</div>
         ) : prescriptionError ? (
-          <div className="text-red-600">{prescriptionError}</div>
+          <div className="text-xs sm:text-sm text-red-600">{prescriptionError}</div>
         ) : serverPrescriptions.length === 0 ? (
-          <div className="text-gray-600">No prescriptions found.</div>
+          <div className="text-xs sm:text-sm text-gray-600">No prescriptions found.</div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-3 lg:space-y-4">
             {serverPrescriptions.map((prescription, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Prescribed by {prescription.doctor_name || prescription.doctor?.name || prescription.doctor || 'Dr. Unknown'}</h3>
-                    <p>{formatIST(prescription.created_at || prescription.date)}</p>
+              <div key={index} className="border border-gray-200 rounded-lg p-2 sm:p-3 lg:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2 sm:mb-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm lg:text-base text-gray-900">Prescribed by {prescription.doctor_name || prescription.doctor?.name || prescription.doctor || 'Dr. Unknown'}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600">{formatIST(prescription.created_at || prescription.date)}</p>
                   </div>
-                  <span className="text-xs font-medium px-2 py-1 rounded bg-emerald-100 text-emerald-800">Newest</span>
+                  <span className="text-xs font-medium px-2 py-1 rounded bg-emerald-100 text-emerald-800 w-fit">Newest</span>
                 </div>
-                <div className="mb-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Medicines</h4>
-                  <ul className="list-disc list-inside space-y-1">
+                <div className="mb-3 sm:mb-4">
+                  <h4 className="font-medium text-xs sm:text-sm text-gray-700 mb-1.5 sm:mb-2">Medicines</h4>
+                  <ul className="list-disc list-inside space-y-0.5 sm:space-y-1">
                     {(prescription.medicines || prescription.medications || []).map((medicine: any, i: number) => (
-                      <li key={i} className="text-gray-600">
+                      <li key={i} className="text-xs sm:text-sm text-gray-600 break-words">
                         {typeof medicine === 'string' ? medicine : `${medicine.name || medicine.medicine || ''} ${medicine.dosage || medicine.dose || ''} ${medicine.duration || medicine.days || ''}`.trim()}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1 sm:gap-2">
                   <button
                     onClick={() => {
                       setSelectedPrescription(prescription);
@@ -1966,7 +1967,7 @@ const headerHTML = `
                           .finally(() => setLoadingPrescriptionDetails(false));
                       }
                     }}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+                    className="px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-semibold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
                   >
                     View Details
                   </button>
@@ -1980,52 +1981,53 @@ const headerHTML = `
   );
 
   const renderNotifications = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
+    <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+      <div className="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm p-3 sm:p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 gap-2 sm:gap-3">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Recent Notifications</h2>
-            <p className="text-sm text-gray-500">Alerts from your care team.</p>
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Recent Notifications</h2>
+            <p className="text-xs sm:text-sm text-gray-500">Alerts from your care team.</p>
           </div>
           <button
             type="button"
             onClick={fetchNotifications}
-             className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all"
+            className="px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-semibold shadow hover:bg-emerald-700 transform hover:-translate-y-0.5 transition-all w-full sm:w-auto"
           >
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
+            <span className="sm:hidden">🔄 Refresh</span>
           </button>
         </div>
 
         {loadingNotifications ? (
-          <div className="text-gray-600">Loading notifications...</div>
+          <div className="text-xs sm:text-sm text-gray-600">Loading notifications...</div>
         ) : notificationError ? (
-          <div className="text-red-600">{notificationError}</div>
+          <div className="text-xs sm:text-sm text-red-600">{notificationError}</div>
         ) : notifications.length === 0 ? (
-          <div className="text-gray-600">No new notifications for your account.</div>
+          <div className="text-xs sm:text-sm text-gray-600">No new notifications for your account.</div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-3 lg:space-y-4">
             {notifications.map((notification: any) => (
               <div
                 key={notification.id || `${notification.related_prescription_id}-${notification.created_at}`}
-                className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
+                className="w-full text-left border border-gray-200 rounded-lg p-2 sm:p-3 lg:p-4 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-gray-900">{notification.message}</p>
-                    <p className="text-sm text-gray-500 mt-2">{formatIST(notification.created_at || Date.now())}</p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-2 sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-xs sm:text-sm lg:text-base text-gray-900">{notification.message}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">{formatIST(notification.created_at || Date.now())}</p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       type="button"
                       onClick={() => handleViewNotification(notification)}
-                      className="text-xs text-emerald-700 font-semibold hover:text-emerald-800"
+                      className="text-xs text-emerald-700 font-semibold hover:text-emerald-800 whitespace-nowrap"
                     >
                       View
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteNotification(notification.id)}
-                      className="text-xs text-red-600 font-semibold hover:text-red-700"
+                      className="text-xs text-red-600 font-semibold hover:text-red-700 whitespace-nowrap"
                     >
                       Delete
                     </button>
@@ -2037,8 +2039,8 @@ const headerHTML = `
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Share Your Feedback</h2>
+      <div className="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm p-3 sm:p-4 lg:p-6">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-3 sm:mb-4 lg:mb-6">Share Your Feedback</h2>
         
         {serverPrescriptions.length > 0 ? (
           <form 
@@ -2046,19 +2048,19 @@ const headerHTML = `
               e.preventDefault();
               handleSubmitFeedback();
             }}
-            className="space-y-6"
+            className="space-y-3 sm:space-y-4 lg:space-y-6"
           >
             {/* Prescription Info */}
-            <div className="border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50 rounded">
-              <p className="text-sm text-gray-600">You are rating:</p>
+            <div className="border-l-4 border-emerald-500 pl-2 sm:pl-3 lg:pl-4 py-2 bg-emerald-50 rounded text-xs sm:text-sm lg:text-base">
+              <p className="text-gray-600">You are rating:</p>
               <p className="font-semibold text-gray-900">Dr. {serverPrescriptions[0].doctor_name || 'Your Doctor'}</p>
               <p className="text-xs text-gray-500 mt-1">Prescription Date: {formatIST(serverPrescriptions[0].created_at || Date.now())}</p>
             </div>
 
             {/* Rating Stars */}
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-3">How satisfied are you with this prescription?</label>
-              <div className="flex items-center space-x-3">
+              <label className="block text-xs sm:text-sm lg:text-base font-semibold text-gray-900 mb-2 sm:mb-3">How satisfied are you with this prescription?</label>
+              <div className="flex items-center space-x-2 sm:space-x-3">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
@@ -2069,13 +2071,13 @@ const headerHTML = `
                     }`}
                     title={`Rate ${star} star${star !== 1 ? 's' : ''}`}
                   >
-                    <Star className="h-10 w-10 fill-current" />
+                    <Star className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 fill-current" />
                   </button>
                 ))}
               </div>
               <div className="mt-2">
                 {feedbackRating > 0 && (
-                  <p className="text-sm font-medium text-emerald-600">
+                  <p className="text-xs sm:text-sm font-medium text-emerald-600">
                     ★ {feedbackRating === 1 ? 'Poor' : feedbackRating === 2 ? 'Fair' : feedbackRating === 3 ? 'Good' : feedbackRating === 4 ? 'Very Good' : 'Excellent'}
                   </p>
                 )}
@@ -2084,12 +2086,12 @@ const headerHTML = `
 
             {/* Feedback Text */}
             <div>
-              <label htmlFor="feedback-text" className="block text-sm font-semibold text-gray-900 mb-2">
+              <label htmlFor="feedback-text" className="block text-xs sm:text-sm lg:text-base font-semibold text-gray-900 mb-1 sm:mb-2">
                 Tell us more (optional)
               </label>
               <textarea
                 id="feedback-text"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg h-24 text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-colors"
+                className="w-full px-2 sm:px-3 lg:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg h-16 sm:h-20 lg:h-24 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-colors"
                 placeholder="Share your experience with this prescription..."
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
@@ -2097,11 +2099,11 @@ const headerHTML = `
             </div>
 
             {/* Submit Button */}
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 type="submit"
                 disabled={submittingFeedback || feedbackRating === 0}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-sm transition-colors"
               >
                 {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
               </button>
@@ -2111,21 +2113,21 @@ const headerHTML = `
                   setFeedbackRating(0);
                   setFeedbackText('');
                 }}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold px-6 py-3 rounded-lg transition-colors"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-sm transition-colors"
               >
                 Clear
               </button>
             </div>
 
             {/* Helper Text */}
-            <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
+            <p className="text-xs text-gray-500 bg-gray-50 p-2 sm:p-3 rounded">
               💡 Your feedback helps doctors improve their service. All feedback is sent to the doctor's analytics dashboard.
             </p>
           </form>
         ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-600 mb-2">No prescriptions to rate yet</p>
-            <p className="text-sm text-gray-500">Once you receive a prescription, you'll be able to share your feedback here.</p>
+          <div className="text-center py-6 sm:py-8 lg:py-10">
+            <p className="text-sm sm:text-base text-gray-600 mb-1 sm:mb-2">No prescriptions to rate yet</p>
+            <p className="text-xs sm:text-sm text-gray-500">Once you receive a prescription, you'll be able to share your feedback here.</p>
           </div>
         )}
       </div>
@@ -2133,90 +2135,92 @@ const headerHTML = `
   );
   // Replace top-level layout (header + nav + main) to Doctor-like theme
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white">
+    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#0b1220] to-[#0b2537] text-white overflow-x-hidden">
       {/* Loading Spinner - Show while profile is loading */}
       {profileLoading && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
             <div className="inline-block">
-              <div className="w-16 h-16 border-4 border-purple-400/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+              <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-purple-400/30 border-t-purple-500 rounded-full animate-spin mb-3 sm:mb-4"></div>
             </div>
-            <p className="text-white/90 font-semibold text-lg">Loading Dashboard...</p>
-            <p className="text-white/60 text-sm mt-2">Fetching your profile and data</p>
+            <p className="text-white/90 font-semibold text-base sm:text-lg">Loading Dashboard...</p>
+            <p className="text-white/60 text-xs sm:text-sm mt-2">Fetching your profile and data</p>
           </div>
         </div>
       )}
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#7c3aed] to-[#ec4899] shadow-2xl">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-white/10 rounded-full">
-              <Activity className="h-8 w-8 text-white" />
+      <header className="bg-gradient-to-r from-[#7c3aed] to-[#ec4899] shadow-2xl sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 lg:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 w-full sm:w-auto">
+            <div className="p-1.5 sm:p-2 bg-white/10 rounded-full flex-shrink-0">
+              <Activity className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-white" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Patient Dashboard</h1>
-              <p className="text-sm opacity-80">{sessionUser ? `Welcome back, ${sessionUser.name || 'Patient'} !! ` : 'Welcome back !! '}</p>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight">Patient Dashboard</h1>
+              <p className="text-xs sm:text-sm opacity-80 truncate">{sessionUser ? `Welcome back, ${sessionUser.name || 'Patient'} !!` : 'Welcome back !!'}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="text-sm opacity-90">Signed in as <span className="font-semibold">{sessionUser?.email || 'Not signed in'}</span></div>
-              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
-                <img
-                  src={profile?.avatar || profile?.picture || profile?.profile_picture_url || sessionUser?.avatar || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 w-full sm:w-auto justify-end flex-wrap">
+            <div className="hidden md:flex items-center gap-2 text-xs sm:text-sm opacity-90">
+              <span>Signed in as</span>
+              <span className="font-semibold truncate max-w-[150px]">{sessionUser?.email || 'Not signed in'}</span>
             </div>
-            <button onClick={onNavigateToChatbot} className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition flex items-center gap-2">
-              Prasthi-AI
+            <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-full overflow-hidden border-2 border-white/20 flex-shrink-0">
+              <img
+                src={profile?.avatar || profile?.picture || profile?.profile_picture_url || sessionUser?.avatar || sessionUser?.picture || sessionUser?.profile_picture_url || '/default-avatar.png'}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <button onClick={onNavigateToChatbot} className="bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] text-white px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow hover:scale-[1.02] transition flex-shrink-0">
+              <span className="hidden sm:inline">Prasthi-AI</span>
+              <span className="sm:hidden">AI</span>
             </button>
-            <button onClick={handleLocalLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-4 py-2 rounded-lg font-medium shadow hover:scale-[1.02] transition">Logout</button>
+            <button onClick={handleLocalLogout} className="bg-gradient-to-r from-[#ef4444] to-[#f97316] text-white px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow hover:scale-[1.02] transition flex-shrink-0">Logout</button>
           </div>
         </div>
       </header>
 
       {/* Navigation Tabs */}
-      <div className="bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-6">
-          <nav className="flex gap-6 py-3">
+      <div className="bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-12 sm:top-16 z-30">
+        <div className="max-w-7xl mx-auto">
+          <nav className="flex gap-1 sm:gap-2 py-2 sm:py-3 px-3 sm:px-4 lg:px-6 overflow-x-auto -mx-3 sm:-mx-4 lg:mx-0"  style={{ scrollBehavior: 'smooth' }}>
             <button
               onClick={() => setActiveTab('home')}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'home'
+              className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'home'
                 ? 'bg-white/6 ring-1 ring-white/20 text-white'
                 : 'text-white/70 hover:text-white hover:bg-white/3'
                 }`}
             >
-              <Home className="h-5 w-5" />
-              <span>Home</span>
+              <Home className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Home</span>
             </button>
-            <button onClick={() => setActiveTab('consultation')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'consultation' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
-              <Video className="h-5 w-5" />
-              <span>Consultation</span>
-            </button>
-
-            <button onClick={() => setActiveTab('profile')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'profile' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
-              <User className="h-5 w-5" />
-              <span>Profile</span>
+            <button onClick={() => setActiveTab('consultation')} className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'consultation' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
+              <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Consultation</span>
             </button>
 
-            <button onClick={() => setActiveTab('prescriptions')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'prescriptions' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
-              <FileText className="h-5 w-5" />
-              <span>Prescriptions</span>
+            <button onClick={() => setActiveTab('profile')} className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'profile' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
+              <User className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Profile</span>
             </button>
 
-            <button onClick={() => setActiveTab('notifications')} className={`flex items-center gap-3 px-3 py-2 rounded-md font-medium text-sm transition-all ${activeTab === 'notifications' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
-              <Bell className="h-5 w-5" />
-              <span>Notifications</span>
+            <button onClick={() => setActiveTab('prescriptions')} className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'prescriptions' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Prescriptions</span>
+            </button>
+
+            <button onClick={() => setActiveTab('notifications')} className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md font-medium text-xs sm:text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'notifications' ? 'bg-white/6 ring-1 ring-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/3'}`}>
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Notifications</span>
             </button>
           </nav>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6">
         {activeTab === 'home' && renderHome()}
         {activeTab === 'consultation' && renderConsultation()}
         {activeTab === 'profile' && renderProfile()}
@@ -2226,25 +2230,25 @@ const headerHTML = `
 
       {/* Prescription modal */}
       {showPrescriptionModal && selectedPrescription && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 lg:p-4">
           <div className="absolute inset-0 bg-black opacity-40" onClick={() => setShowPrescriptionModal(false)}></div>
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full z-10 p-6 overflow-auto max-h-[80vh] select-none">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Prescription Details</h3>
-              <div className="flex items-center space-x-2">
-                <button onClick={() => handleDownloadPDF(selectedPrescription)} className="text-sm px-3 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700">Download PDF</button>
-                <button onClick={() => handleMarkPrescriptionRead(selectedPrescription.id)} className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Mark as Read</button>
-                <button onClick={() => handleDeletePrescription(selectedPrescription.id)} className="text-sm px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
-                <button onClick={() => setShowPrescriptionModal(false)} className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Close</button>
+          <div className="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-xl w-full max-w-xs sm:max-w-sm lg:max-w-3xl z-10 p-3 sm:p-4 lg:p-6 overflow-auto max-h-[80vh] select-none">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4 lg:mb-6 gap-2 sm:gap-3">
+              <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900">Prescription Details</h3>
+              <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap w-full sm:w-auto">
+                <button onClick={() => handleDownloadPDF(selectedPrescription)} className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Download PDF</button>
+                <button onClick={() => handleMarkPrescriptionRead(selectedPrescription.id)} className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Mark Read</button>
+                <button onClick={() => handleDeletePrescription(selectedPrescription.id)} className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                <button onClick={() => setShowPrescriptionModal(false)} className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 bg-red-100 text-red-700 rounded hover:bg-red-200">Close</button>
               </div>
             </div>
-            <div className="text-gray-900 space-y-3">
+            <div className="text-gray-900 space-y-2 sm:space-y-3 lg:space-y-4 text-xs sm:text-sm lg:text-base">
               {loadingPrescriptionDetails ? (
-                <div className="text-sm text-gray-600">Loading prescription...</div>
+                <div className="text-xs sm:text-sm text-gray-600">Loading prescription...</div>
               ) : (
                 <>
-                  <div className="text-sm">
-                    <span className="font-semibold">Prescribed by:  Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'N/A'}</span>
+                  <div>
+                    <span className="font-semibold">Prescribed by: Dr </span> <span className="text-gray-800">{selectedPrescription.doctor_name || selectedPrescription.doctor?.name || selectedPrescription.doctor || 'N/A'}</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-semibold">Date:</span> <span className="text-gray-800">{formatIST(selectedPrescription.created_at || selectedPrescription.date || Date.now())}</span>
