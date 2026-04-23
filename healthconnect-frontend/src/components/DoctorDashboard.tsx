@@ -1206,17 +1206,17 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
   // Show the remote (patient) video fullscreen, and doctor's own video as floating window
   const renderConsultationLeft = (_patient: any) => {
     return (
-      <div className="lg:col-span-2 bg-gray-900 relative flex items-center justify-center rounded-b-xl overflow-hidden py-8">
-        {/* Remote video (patient) fullscreen, match PatientDashboard size */}
+      <div className="bg-gray-900 relative flex items-center justify-center overflow-hidden h-full">
+        {/* Remote video (patient) fullscreen */}
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          className="w-full h-[350px] md:h-[400px] object-cover rounded-xl bg-black border-4 border-emerald-500 shadow-lg"
+          className="w-full h-full object-cover bg-black border-4 border-emerald-500 shadow-lg"
           style={{ background: '#111' }}
         />
         {/* Doctor's own video as floating window in bottom right */}
-        <div className="absolute bottom-4 right-4 w-40 h-32 bg-black rounded-lg overflow-hidden border-2 border-blue-400 shadow-xl flex items-center justify-center">
+        <div className="absolute bottom-3 right-3 w-32 h-24 bg-black rounded-lg overflow-hidden border-2 border-blue-400 shadow-xl flex items-center justify-center">
           <video
             ref={localVideoRef}
             autoPlay
@@ -1235,57 +1235,57 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   const renderConsultationRightTop = (_patient: any) => {
     return (
-      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
-        <div className="mb-5 pb-4 border-b-2 border-gradient-to-r from-blue-400 to-emerald-400">
-          <h3 className="text-lg font-bold text-gray-900">👤 Patient Information</h3>
-          <p className="text-xs text-gray-500 mt-1">Clinical Details & Medical History</p>
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-3 border border-gray-200 shadow-md hover:shadow-lg transition-shadow h-full overflow-y-auto">
+        <div className="mb-3 pb-2 border-b-2 border-gradient-to-r from-blue-400 to-emerald-400">
+          <h3 className="text-base font-bold text-gray-900">👤 Patient Information</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Clinical Details & Medical History</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-2">
           {/* Disease / Complaint */}
           {_patient?.disease && (
-            <div className="bg-red-50 p-3 rounded-lg border-l-4 border-red-500">
+            <div className="bg-red-50 p-2 rounded-lg border-l-4 border-red-500">
               <div className="flex justify-between items-start">
                 <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Primary Complaint</span>
               </div>
-              <p className="text-sm font-medium text-gray-900 mt-1">{_patient.disease}</p>
+              <p className="text-xs font-medium text-gray-900 mt-0.5">{_patient.disease}</p>
             </div>
           )}
 
           {/* Symptoms */}
           {_patient?.symptoms && (
-            <div className="bg-amber-50 p-3 rounded-lg border-l-4 border-amber-500">
+            <div className="bg-amber-50 p-2 rounded-lg border-l-4 border-amber-500">
               <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Symptoms</span>
-              <p className="text-sm text-gray-900 mt-1">{_patient.symptoms}</p>
+              <p className="text-xs text-gray-900 mt-0.5">{_patient.symptoms}</p>
             </div>
           )}
 
           {/* Blood Group & Allergies Row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-blue-50 p-2 rounded-lg border-l-4 border-blue-500">
               <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Blood Group</span>
-              <p className="text-lg font-bold text-gray-900 mt-1">{_patient?.bloodGroup || 'N/A'}</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{_patient?.bloodGroup || 'N/A'}</p>
             </div>
-            <div className="bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+            <div className="bg-purple-50 p-2 rounded-lg border-l-4 border-purple-500">
               <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Allergies</span>
-              <p className="text-sm text-gray-900 mt-1">{_patient?.allergies || 'None'}</p>
+              <p className="text-xs text-gray-900 mt-0.5">{_patient?.allergies || 'None'}</p>
             </div>
           </div>
 
           {/* Last Visit */}
-          <div className="bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+          <div className="bg-green-50 p-2 rounded-lg border-l-4 border-green-500">
             <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Last Visit</span>
-            <p className="text-sm text-gray-900 mt-1">{_patient?.lastVisit || '—'}</p>
+            <p className="text-xs text-gray-900 mt-0.5">{_patient?.lastVisit || '—'}</p>
           </div>
 
           {/* Current Medications */}
-          <div className="bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-500">
+          <div className="bg-indigo-50 p-2 rounded-lg border-l-4 border-indigo-500">
             <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Current Medications</span>
-            <div className="mt-2 space-y-1">
+            <div className="mt-1 space-y-1">
               {_patient?.meds?.length ? (
-                _patient.meds.map((m: string, idx: number) => <div key={idx} className="text-sm text-gray-900">💊 {m}</div>)
+                _patient.meds.map((m: string, idx: number) => <div key={idx} className="text-xs text-gray-900">💊 {m}</div>)
               ) : (
-                <div className="text-sm text-gray-600 italic">No medications prescribed</div>
+                <div className="text-xs text-gray-600 italic">No medications prescribed</div>
               )}
             </div>
           </div>
@@ -1306,14 +1306,14 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     const colors = colorMap[colorClass] || { bg: 'bg-gray-50', border: 'border-gray-200', icon: '●' };
 
     return (
-      <div className={`${colors.bg} p-4 rounded-xl border-2 ${colors.border} hover:shadow-md transition-all`}>
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">{label}</p>
-            <p className={`text-2xl font-bold ${colorClass} mt-2`}>{value}</p>
-            <p className="text-xs text-gray-500 mt-1">{hint}</p>
+      <div className={`${colors.bg} p-2 rounded-lg border-2 ${colors.border} hover:shadow-md transition-all`}>
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex-1">
+            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">{label}</p>
+            <p className={`text-lg font-bold ${colorClass} mt-1`}>{value}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
           </div>
-          <span className="text-2xl">{colors.icon}</span>
+          <span className="text-lg flex-shrink-0">{colors.icon}</span>
         </div>
       </div>
     );
@@ -1321,13 +1321,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   const renderConsultationRightBottom = (_patient: any) => {
     return (
-      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
-        <div className="mb-5 pb-4 border-b-2 border-gradient-to-r from-red-400 to-yellow-400">
-          <h3 className="text-lg font-bold text-gray-900">📊 Live Vitals Monitor</h3>
-          <p className="text-xs text-gray-500 mt-1">Real-time Patient Vital Signs</p>
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-3 border border-gray-200 shadow-md hover:shadow-lg transition-shadow h-full overflow-y-auto flex flex-col">
+        <div className="mb-3 pb-2 border-b-2 border-gradient-to-r from-red-400 to-yellow-400 flex-shrink-0">
+          <h3 className="text-base font-bold text-gray-900">📊 Live Vitals Monitor</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Real-time Patient Vital Signs</p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2 flex-1 overflow-y-auto">
           {renderVitalCard('Heart Rate', `${liveHeartRate} BPM`, 'Beats per minute', 'text-red-600')}
           {renderVitalCard('Blood Pressure', `${liveBP.sys}/${liveBP.dia}`, 'mmHg', 'text-blue-600')}
           {renderVitalCard('Temperature', `${liveTemperature.toFixed(1)}°F`, 'Fahrenheit', 'text-orange-600')}
@@ -1335,7 +1335,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
           {renderVitalCard('Ambient Light', liveLDR !== null ? String(liveLDR) : 'N/A', 'Light intensity (LDR)', 'text-yellow-600')}
         </div>
 
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
+        <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200 text-center flex-shrink-0">
           <p className="text-xs text-blue-700 font-semibold">🔄 Updating every 3 seconds</p>
         </div>
       </div>
@@ -1344,47 +1344,52 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
 
   const renderConsultation = () => {
     return (
-      <div className="space-y-6">
+      <div>
         {inConsultation && currentPatient ? (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-[calc(100vh-120px)]">
             <ConsultationHeader patient={currentPatient} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-auto lg:h-86 overflow-x-hidden">
-              {/* Left: Video (remote fullscreen, local floating) */}
-              {renderConsultationLeft(currentPatient)}
+            {/* Main content grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 flex-1 min-h-0 gap-3 p-3">
+              {/* Left: Video (2 columns) */}
+              <div className="lg:col-span-2 min-h-0">
+                {renderConsultationLeft(currentPatient)}
+              </div>
 
-              {/* Middle-left: Patient Info */}
-              <div className="bg-white p-2 sm:p-4 border-l border-t lg:border-t-0">{renderConsultationRightTop(currentPatient)}</div>
-
-              {/* Right column: Vitals */}
-              <div className="bg-white p-2 sm:p-4 border-l border-t lg:border-t-0">{renderConsultationRightBottom(currentPatient)}</div>
+              {/* Right: Patient Info + Vitals (1 column, split vertically) */}
+              <div className="flex flex-col h-full gap-3 min-h-0">
+                <div className="flex-1 min-h-0">
+                  {renderConsultationRightTop(currentPatient)}
+                </div>
+                <div className="flex-1 min-h-0">
+                  {renderConsultationRightBottom(currentPatient)}
+                </div>
+              </div>
             </div>
 
             {/* Controls */}
-            <div className="bg-gray-100 p-2 sm:p-4 overflow-x-auto">
-              <div className="flex justify-between items-center">
-                <div className="flex flex-wrap gap-2 sm:gap-4">
-                  <button 
-                    onClick={() => setActiveTab('prescriptions')}
-                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-semibold"
-                  >
-                    Create Prescription
-                  </button>
-                </div>
+            <div className="bg-gray-100 px-4 py-2 flex justify-between items-center flex-shrink-0 border-t">
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  onClick={() => setActiveTab('prescriptions')}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-semibold text-sm"
+                >
+                  Create Prescription
+                </button>
+              </div>
 
-                <div>
-                  <button
-                    onClick={() => endConsultation()}
-                    className="bg-red-600 text-white px-8 py-4 rounded-lg hover:bg-red-700 transition-colors font-semibold"
-                  >
-                    End Consultation
-                  </button>
-                </div>
+              <div>
+                <button
+                  onClick={() => endConsultation()}
+                  className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors font-semibold text-sm"
+                >
+                  End Consultation
+                </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm p-8 flex flex-col items-center">
+          <div className="bg-white rounded-xl shadow-sm p-8 flex flex-col items-center justify-center h-[calc(100vh-120px)]">
             {/* For demo, show only local video preview in the waiting state */}
             <div className="w-64 h-48 bg-black rounded-xl flex items-center justify-center mx-auto mb-4 overflow-hidden border-4 border-emerald-500 shadow-lg">
               <video
