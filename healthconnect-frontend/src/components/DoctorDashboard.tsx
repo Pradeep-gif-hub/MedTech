@@ -1233,6 +1233,55 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
     );
   };
 
+
+  const renderVitalCard = (label: string, value: string, hint: string, colorClass: string, icon: string = '●') => {
+    const colorMap: any = {
+      'text-red-600': { bg: 'bg-red-50', border: 'border-red-200', icon: '❤️' },
+      'text-blue-600': { bg: 'bg-blue-50', border: 'border-blue-200', icon: '💨' },
+      'text-orange-600': { bg: 'bg-orange-50', border: 'border-orange-200', icon: '🌡️' },
+      'text-green-600': { bg: 'bg-green-50', border: 'border-green-200', icon: '💚' },
+      'text-yellow-600': { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: '💡' },
+    };
+    
+    const colors = colorMap[colorClass] || { bg: 'bg-gray-50', border: 'border-gray-200', icon: '●' };
+
+    return (
+      <div className={`${colors.bg} p-2 rounded-lg border-2 ${colors.border} hover:shadow-md transition-all`}>
+        <div className="flex justify-between items-start gap-2">
+          <div className="flex-1">
+            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">{label}</p>
+            <p className={`text-lg font-bold ${colorClass} mt-1`}>{value}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
+          </div>
+          <span className="text-lg flex-shrink-0">{colors.icon}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderConsultationRightBottom = (_patient: any) => {
+    return (
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-3 border border-gray-200 shadow-md hover:shadow-lg transition-shadow h-full overflow-y-auto flex flex-col">
+        <div className="mb-3 pb-2 border-b-2 border-gradient-to-r from-red-400 to-yellow-400 flex-shrink-0">
+          <h3 className="text-base font-bold text-gray-900">📊 Live Vitals Monitor</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Real-time Patient Vital Signs</p>
+        </div>
+
+        <div className="space-y-2 flex-1 overflow-y-auto">
+          {renderVitalCard('Heart Rate', `${liveHeartRate} BPM`, 'Beats per minute', 'text-red-600')}
+          {renderVitalCard('Blood Pressure', `${liveBP.sys}/${liveBP.dia}`, 'mmHg', 'text-blue-600')}
+          {renderVitalCard('Temperature', `${liveTemperature.toFixed(1)}°F`, 'Fahrenheit', 'text-orange-600')}
+          {renderVitalCard('SpO2', `${liveOxygen}%`, 'Oxygen saturation', 'text-green-600')}
+          {renderVitalCard('Ambient Light', liveLDR !== null ? String(liveLDR) : 'N/A', 'Light intensity (LDR)', 'text-yellow-600')}
+        </div>
+
+        <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200 text-center flex-shrink-0">
+          <p className="text-xs text-blue-700 font-semibold">🔄 Updating every 3 seconds</p>
+        </div>
+      </div>
+    );
+  };
+
   const renderConsultationRightTop = (_patient: any) => {
     return (
       <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-3 border border-gray-200 shadow-md hover:shadow-lg transition-shadow h-full overflow-y-auto">
@@ -1289,54 +1338,6 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               )}
             </div>
           </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderVitalCard = (label: string, value: string, hint: string, colorClass: string, icon: string = '●') => {
-    const colorMap: any = {
-      'text-red-600': { bg: 'bg-red-50', border: 'border-red-200', icon: '❤️' },
-      'text-blue-600': { bg: 'bg-blue-50', border: 'border-blue-200', icon: '💨' },
-      'text-orange-600': { bg: 'bg-orange-50', border: 'border-orange-200', icon: '🌡️' },
-      'text-green-600': { bg: 'bg-green-50', border: 'border-green-200', icon: '💚' },
-      'text-yellow-600': { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: '💡' },
-    };
-    
-    const colors = colorMap[colorClass] || { bg: 'bg-gray-50', border: 'border-gray-200', icon: '●' };
-
-    return (
-      <div className={`${colors.bg} p-2 rounded-lg border-2 ${colors.border} hover:shadow-md transition-all`}>
-        <div className="flex justify-between items-start gap-2">
-          <div className="flex-1">
-            <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">{label}</p>
-            <p className={`text-lg font-bold ${colorClass} mt-1`}>{value}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
-          </div>
-          <span className="text-lg flex-shrink-0">{colors.icon}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderConsultationRightBottom = (_patient: any) => {
-    return (
-      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-3 border border-gray-200 shadow-md hover:shadow-lg transition-shadow h-full overflow-y-auto flex flex-col">
-        <div className="mb-3 pb-2 border-b-2 border-gradient-to-r from-red-400 to-yellow-400 flex-shrink-0">
-          <h3 className="text-base font-bold text-gray-900">📊 Live Vitals Monitor</h3>
-          <p className="text-xs text-gray-500 mt-0.5">Real-time Patient Vital Signs</p>
-        </div>
-
-        <div className="space-y-2 flex-1 overflow-y-auto">
-          {renderVitalCard('Heart Rate', `${liveHeartRate} BPM`, 'Beats per minute', 'text-red-600')}
-          {renderVitalCard('Blood Pressure', `${liveBP.sys}/${liveBP.dia}`, 'mmHg', 'text-blue-600')}
-          {renderVitalCard('Temperature', `${liveTemperature.toFixed(1)}°F`, 'Fahrenheit', 'text-orange-600')}
-          {renderVitalCard('SpO2', `${liveOxygen}%`, 'Oxygen saturation', 'text-green-600')}
-          {renderVitalCard('Ambient Light', liveLDR !== null ? String(liveLDR) : 'N/A', 'Light intensity (LDR)', 'text-yellow-600')}
-        </div>
-
-        <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200 text-center flex-shrink-0">
-          <p className="text-xs text-blue-700 font-semibold">🔄 Updating every 3 seconds</p>
         </div>
       </div>
     );
