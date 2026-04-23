@@ -135,6 +135,13 @@ const LandingPage: React.FC<LandingPageProps> = ({
                   <Shield className="h-6 w-6" />
                   <span className="font-semibold">Admin Portal</span>
                 </button>
+                 <button
+                  onClick={() => onNavigate("login-doctor")}
+                  className="w-full bg-green-600 text-white p-4 rounded-2xl hover:bg-emerald-700 shadow-md transition-all flex items-center space-x-3 transform hover:-translate-y-1"
+                >
+                  <Activity className="h-6 w-6" />
+                  <span className="font-semibold">Delivery Agent</span>
+                </button>
               </div>
             </div>
           </div>
@@ -348,16 +355,16 @@ const LandingPage: React.FC<LandingPageProps> = ({
           <div className="grid md:grid-cols-4 gap-8 mt-16 text-center">
             <div>
               <div className="text-4xl font-bold text-emerald-600 mb-2">
-                28000+
+                300+
               </div>
               <div className="text-gray-600">Consultations Completed</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-blue-600 mb-2">300+</div>
+              <div className="text-4xl font-bold text-blue-600 mb-2">8+</div>
               <div className="text-gray-600">Villages Served</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-purple-600 mb-2">130+</div>
+              <div className="text-4xl font-bold text-purple-600 mb-2">15+</div>
               <div className="text-gray-600">Partner Pharmacies</div>
             </div>
             <div>
@@ -439,12 +446,12 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
             <div>
               <h4 className="font-bold text-lg mb-4">Contact</h4>
-              <p className="text-gray-400">{settings.support_email || 'support@healthconnect.com'}</p>
+              <p className="text-gray-400">{settings.support_email || 'pawasthi063@gmail.com'}</p>
               <p className="text-gray-400">+91 8127136711</p>
             </div>
           </div>
 
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500 text-sm">
+          <div className="border-t border-gray-800 mt-12 pt-8 text-left text-gray-500 text-sm">
             © 2024 {settings.platform_name}. All rights reserved.
           </div>
         </div>

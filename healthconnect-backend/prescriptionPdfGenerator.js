@@ -102,8 +102,8 @@ function normalizePrescriptionData(data = {}) {
       '21 Health Avenue, Sector 12, New Delhi'
     ),
     clinicContact: sanitizeText(
-      data.clinicContact || data.clinic?.contact || '+91-98765-43210 | support@medtechclinic.com',
-      '+91-98765-43210 | support@medtechclinic.com'
+      data.clinicContact || data.clinic?.contact || '+91-98765-43210 | pawasthi063@gmail.comclinic.com',
+      '+91-98765-43210 | pawasthi063@gmail.comclinic.com'
     ),
     emergencyContact: sanitizeText(data.emergencyContact || 'Emergency: +91-102-108'),
     doctor: {

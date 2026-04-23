@@ -438,7 +438,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Email Support</h3>
-                  <p className="text-gray-600">support@healthconnect.in</p>
+                  <p className="text-gray-600">pawasthi063@gmail.com</p>
                   <p className="text-sm text-gray-500">Response within 24 hours</p>
                 </div>
               </div>
@@ -451,8 +451,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({ page, onNavigate, onPublicNav
                   <h3 className="font-semibold text-gray-900">Headquarters</h3>
                   <p className="text-gray-600">
                     HealthConnect Technologies Pvt. Ltd.<br />
-                    Koramangala, Bangalore 560034<br />
-                    Karnataka, India
+                    Varanasi Uttar Pradesh 221307, India
                   </p>
                 </div>
               </div>

@@ -955,7 +955,7 @@ app.get('/api/prescription/sample', (_req, res) => {
   const sampleData = {
     clinicName: 'MedTech Clinic',
     clinicAddress: '21 Health Avenue, Sector 12, New Delhi',
-    clinicContact: '+91-98765-43210 | support@medtechclinic.com',
+    clinicContact: '+91-98765-43210 | pawasthi063@gmail.comclinic.com',
     doctor: {
       name: 'Dr. Sharma',
       qualification: 'MBBS, MD',
