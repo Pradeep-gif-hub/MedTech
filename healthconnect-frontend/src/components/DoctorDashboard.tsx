@@ -1083,7 +1083,24 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }: DoctorDas
               // Support both real and dummy data formats
               const patientName = patient.patient_name || patient.name;
               const patientAge = patient.age;
-              const appointmentTime = patient.appointment_time || patient.time;
+              // Format appointment time to IST
+              const rawAppointmentTime = patient.appointment_time || patient.time;
+              const appointmentTime = (() => {
+                if (!rawAppointmentTime) return 'N/A';
+                // Check if it's a datetime string or just a time
+                try {
+                  // Try to parse as datetime
+                  const dateObj = new Date(rawAppointmentTime);
+                  if (!isNaN(dateObj.getTime())) {
+                    // It's a valid date, format it
+                    return formatIST(dateObj);
+                  }
+                } catch (err) {
+                  // Not a datetime, treat as time string
+                }
+                // Return as-is if it's already a time string
+                return String(rawAppointmentTime);
+              })();
               const disease = patient.disease || 'General';
               const status = patient.status || 'waiting';
               const consultationId = patient.consultation_id || patient.id;
