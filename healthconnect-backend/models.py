@@ -75,6 +75,9 @@ class User(Base):
     date_of_birth = Column(String, nullable=True)  # Same as dob, but explicit for doctors
     blood_group = Column(String, nullable=True)  # Alternative to bloodgroup
     
+    # Delivery Agent profile fields
+    vehicle_number = Column(String, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)

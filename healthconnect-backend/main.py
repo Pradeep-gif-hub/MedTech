@@ -371,14 +371,16 @@ try:
             raise
 
         # Ensure required columns exist in existing PostgreSQL tables (create_all does not alter tables)
-        print("[startup] Verifying critical prescription columns...")
+        print("[startup] Verifying critical prescription and user columns...")
         try:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'pending'"))
                 conn.execute(text("ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS pharmacy_status VARCHAR DEFAULT 'pending'"))
-            print("✅ Prescription columns verified (status, pharmacy_status)")
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_number VARCHAR"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR"))
+            print("✅ Database columns verified (status, pharmacy_status, vehicle_number, license_number)")
         except Exception as e:
-            print(f"⚠️  Failed to verify prescription columns: {e}")
+            print(f"⚠️  Failed to verify database columns: {e}")
 
         # Sync PostgreSQL sequences with max(id) to prevent duplicate key errors after migrations/imports
         print("[startup] Verifying PostgreSQL sequences...")

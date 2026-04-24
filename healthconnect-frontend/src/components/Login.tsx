@@ -21,6 +21,7 @@ const roleRoutes: Record<Exclude<UserRole, 'unknown'>, string> = {
   doctor: '/doctor/dashboard',
   pharmacy: '/pharmacy/dashboard',
   admin: '/admin/dashboard',
+  delivery_agent: '/delivery/dashboard',
 };
 
 const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUser }: LoginProps) => {
@@ -74,6 +75,7 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
     doctor: { title: 'Doctor', description: 'Manage consultations and patient care', icon: <Activity className="h-6 w-6 text-white" />, bgColor: 'bg-green-600' },
     pharmacy: { title: 'Pharmacy', description: 'Manage prescriptions and medicines', icon: <Pill className="h-6 w-6 text-white" />, bgColor: 'bg-purple-600' },
     admin: { title: 'Admin', description: 'Control system-wide settings', icon: <Shield className="h-6 w-6 text-white" />, bgColor: 'bg-red-600' },
+    delivery_agent: { title: 'Delivery Agent', description: 'Manage orders and deliveries', icon: <Activity className="h-6 w-6 text-white" />, bgColor: 'bg-emerald-600' },
     unknown: { title: 'Unknown', description: '', icon: <Shield className="h-6 w-6 text-white" />, bgColor: 'bg-gray-600' },
   };
 
@@ -82,6 +84,7 @@ const Login = ({ onBack, role = 'patient', noticeMessage = '', onLogin, onNewUse
     { key: 'doctor', label: 'Doctor' },
     { key: 'pharmacy', label: 'Pharmacy' },
     { key: 'admin', label: 'Admin' },
+    { key: 'delivery_agent', label: 'Delivery' },
   ];
 
   const renderRoleTabs = () => (

@@ -57,7 +57,7 @@ def _get_or_create_auth_meta(db: Session, user: models.User) -> models.UserAuthM
 
 def _detect_google_role(email: str, requested_role: str | None = None) -> str:
     role = (requested_role or "").strip().lower()
-    if role in ["patient", "doctor", "pharmacy"]:
+    if role in ["patient", "doctor", "pharmacy", "delivery_agent"]:
         return role
 
     return "patient"
@@ -284,6 +284,8 @@ def serialize_user(user: models.User) -> dict:
         "bloodgroup": user.bloodgroup,
         "abha_id": user.abha_id,
         "allergy": user.allergy,
+        "vehicle_number": getattr(user, 'vehicle_number', None),
+        "license_number": getattr(user, 'license_number', None),
         "profile_picture_url": avatar,
         "picture": avatar,
         "avatar": avatar,
@@ -321,6 +323,8 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         bloodgroup=user.bloodgroup,
         abha_id=user.abha_id,
         allergy=user.allergy,
+        vehicle_number=user.vehicle_number,
+        license_number=user.license_number,
         profile_picture_url=user.profile_picture_url or user.picture,
         created_at=datetime.now(timezone.utc),
         last_login=datetime.now(timezone.utc),  # Set last_login on creation
@@ -463,9 +467,11 @@ async def complete_profile(
         phone = payload.get("phone") or ""
         dob = payload.get("dob") or ""
         picture = payload.get("picture") or payload.get("profile_picture_url") or ""
+        vehicle_number = payload.get("vehicle_number")
+        license_number = payload.get("license_number")
         
         # Validate role
-        if role not in ["patient", "doctor", "pharmacy", "admin"]:
+        if role not in ["patient", "doctor", "pharmacy", "admin", "delivery_agent"]:
             role = "patient"
         
         # Find or create user
@@ -500,7 +506,9 @@ async def complete_profile(
                 allergy=allergy,
                 phone=phone,
                 dob=dob,
-                profile_picture_url=picture
+                profile_picture_url=picture,
+                vehicle_number=vehicle_number,
+                license_number=license_number
             )
             db.add(user)
             db.commit()
@@ -523,6 +531,10 @@ async def complete_profile(
                 user.dob = dob
             if picture:
                 user.profile_picture_url = picture
+            if vehicle_number is not None:
+                user.vehicle_number = vehicle_number
+            if license_number is not None:
+                user.license_number = license_number
             
             # Update password if provided
             if password:
@@ -564,6 +576,8 @@ async def complete_profile(
             "phone": user.phone,
             "dob": user.dob,
             "profile_picture_url": user.profile_picture_url,
+            "vehicle_number": getattr(user, 'vehicle_number', None),
+            "license_number": getattr(user, 'license_number', None),
             "profile_completed": True,
             "token": build_local_token(user.id),
         }
@@ -716,6 +730,8 @@ async def update_profile(
         "medications",
         "surgeries",
         "emergency_contact",
+        "vehicle_number",
+        "license_number"
     ]
 
     for key in direct_fields:
@@ -767,6 +783,8 @@ def update_user(user_id: int, user: schemas.UserCreate, db: Session = Depends(ge
     db_user.gender = user.gender
     db_user.bloodgroup = user.bloodgroup
     db_user.allergy = user.allergy
+    db_user.vehicle_number = user.vehicle_number
+    db_user.license_number = user.license_number
     db_user.profile_picture_url = user.profile_picture_url or user.picture
 
     try:

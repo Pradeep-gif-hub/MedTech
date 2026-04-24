@@ -41,6 +41,8 @@ class UserCreate(UserBase):
     emergency_contact: Optional[str] = None
     picture: Optional[str] = None
     profile_picture_url: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    license_number: Optional[str] = None
 
 class UserResponse(UserBase):
     id: Optional[int] = None
@@ -63,6 +65,8 @@ class UserResponse(UserBase):
     picture: Optional[str] = None
     profile_picture_url: Optional[str] = None
     token: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    license_number: Optional[str] = None
 
     # Pydantic v2: use model_config to enable from_attributes (replacement for orm_mode)
     model_config = {"from_attributes": True}
@@ -85,6 +89,8 @@ class UserProfileUpdate(BaseModel):
     surgeries: Optional[str] = None
     picture: Optional[str] = None
     profile_picture_url: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    license_number: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 

@@ -136,7 +136,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="font-semibold">Admin Portal</span>
                 </button>
                  <button
-                  onClick={() => onNavigate("login-doctor")}
+                  onClick={() => onNavigate("login-delivery")}
                   className="w-full bg-green-600 text-white p-4 rounded-2xl hover:bg-emerald-700 shadow-md transition-all flex items-center space-x-3 transform hover:-translate-y-1"
                 >
                   <Activity className="h-6 w-6" />

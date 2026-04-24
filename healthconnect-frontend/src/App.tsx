@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // Force Vite reload
 import LandingPage from './components/LandingPage';
 import PatientDashboard from './components/PatientDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
@@ -8,18 +8,20 @@ import PublicPages from './components/PublicPages';
 import Login from './components/Login';
 import ProfileCompletion from './components/ProfileCompletion';
 import ResetPassword from './components/ResetPassword';
+import DeliveryAgentDashboard from './components/DeliveryAgentDashboard';
 import ChatbotPage from './pages/ChatbotPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 import { buildApiUrl } from './config/api';
 
-export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'unknown';
+export type UserRole = 'patient' | 'doctor' | 'pharmacy' | 'admin' | 'delivery_agent' | 'unknown';
 export type CurrentView =
   | 'landing'
   | 'login-patient'
   | 'login-doctor'
   | 'login-pharmacy'
   | 'login-admin'
+  | 'login-delivery'
   | 'profile-completion'
   | 'reset-password'
   | 'dashboard'
@@ -32,6 +34,7 @@ const roleRoutes: Record<Exclude<UserRole, 'unknown'>, string> = {
   doctor: '/doctor/dashboard',
   pharmacy: '/pharmacy/dashboard',
   admin: '/admin/dashboard',
+  delivery_agent: '/delivery/dashboard',
 };
 
 function App() {
@@ -291,6 +294,22 @@ function App() {
             }}
           />
         );
+      case 'login-delivery':
+        return (
+          <Login
+            role="delivery_agent"
+            noticeMessage={loginNotice}
+            onLogin={handleLogin}
+            onNewUser={handleNewUserRedirect}
+            onBack={() => {
+              setLoginNotice('');
+              if (window.location.pathname !== '/') {
+                window.history.replaceState({}, '', '/');
+              }
+              setCurrentView('landing');
+            }}
+          />
+        );
 
       // Profile Completion for new users
       case 'profile-completion':
@@ -330,6 +349,8 @@ function App() {
             return <DoctorDashboard onLogout={handleLogout} />;
           case 'pharmacy':
             return <PharmacyDashboard onLogout={handleLogout} />;
+          case 'delivery_agent':
+            return <DeliveryAgentDashboard onLogout={handleLogout} />;
           default:
             return (
               <LandingPage
