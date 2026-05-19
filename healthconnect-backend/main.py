@@ -126,6 +126,7 @@ cors_origins = [
     "http://127.0.0.1:5173",
     "https://medtech-4rjc.onrender.com",
     "https://medtech-hcmo.onrender.com",
+    "https://medtech.awasthi.tech",
 ]
 
 print("[STARTUP] Configuring CORS with origins:", cors_origins)
