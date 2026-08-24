@@ -10,6 +10,7 @@ project/
 # Environment and secrets
 .env
 healthconnect-backend/.env
+healthconnect-chatbot/.env
 .env.local
 .env.*.local
 
