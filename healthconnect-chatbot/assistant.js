@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_GROQ_MODEL = "moonshotai/kimi-k2-instruct";
 
 // Get the directory of this file
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const configuredModel = process.env.GROQ_MODEL?.trim();
-const groqModel = configuredModel === "llama-3.3-70b-versatile"
+const groqModel = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"].includes(configuredModel)
   ? DEFAULT_GROQ_MODEL
   : (configuredModel || DEFAULT_GROQ_MODEL);
 

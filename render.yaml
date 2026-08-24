@@ -41,7 +41,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: GROQ_MODEL
-        value: llama-3.1-8b-instant
+        value: moonshotai/kimi-k2-instruct
       - key: GROQ_API_KEY
         fromService:
           name: medtech-chatbot
