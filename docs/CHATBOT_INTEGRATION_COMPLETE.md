@@ -22,7 +22,7 @@ powered by Groq API and Llama 3.3 70B model.
 
 ### 2. 🤖 Groq AI Health Assistant  
    - Backend: healthconnect-chatbot/ (separate microservice)
-   - Model: llama-3.3-70b-versatile (free Groq API)
+   - Model: llama-3.1-8b-instant (free Groq API)
    - Capabilities:
      ✓ Home remedies & wellness tips
      ✓ Symptom discussion

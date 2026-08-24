@@ -3,15 +3,22 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
+const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
+
 // Get the directory of this file
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load environment variables from .env file
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+const configuredModel = process.env.GROQ_MODEL?.trim();
+const groqModel = configuredModel === "llama-3.3-70b-versatile"
+  ? DEFAULT_GROQ_MODEL
+  : (configuredModel || DEFAULT_GROQ_MODEL);
+
 console.log('[Assistant] Initializing Groq SDK...');
 console.log('[Assistant] API Key Status: ' + (process.env.GROQ_API_KEY ? 'PRESENT' : 'MISSING ⚠️'));
-console.log('[Assistant] Model: ' + (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'));
+console.log('[Assistant] Model: ' + groqModel);
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -26,7 +33,7 @@ export async function chat(userMessage) {
   try {
     console.log('[Assistant] Calling Groq API with llama model...');
     const completion = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      model: groqModel,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...conversationHistory,

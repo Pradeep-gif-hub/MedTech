@@ -82,7 +82,7 @@ Acts as a **responsible medical assistant** that:
 
 ```env
 GROQ_API_KEY        # Your Groq API key (required)
-GROQ_MODEL          # Model (default: llama-3.3-70b-versatile)
+GROQ_MODEL          # Model (default: llama-3.1-8b-instant)
 PORT                # Server port (default: 3001)
 NODE_ENV            # development/production
 ```
@@ -115,7 +115,7 @@ Open browser console to see all logs!
 
 ## 📚 Available Models
 
-- `llama-3.3-70b-versatile` (default, recommended)
+- `llama-3.1-8b-instant` (default)
 - `llama-3.1-8b-instant` (faster)
 - `mixtral-8x7b-32768`
 - `gemma2-9b-it`
